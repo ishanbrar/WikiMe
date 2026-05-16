@@ -1,9 +1,11 @@
 "use client";
 
+import { Fragment } from "react";
 import type { ArticleLength, ArticleMode, IntakeData, TonePreference } from "@/types/article";
 import { ModeSelector } from "@/components/ModeSelector";
 import type { IntakeFieldDef } from "@/lib/intakeFields";
 import { TONE_OPTIONS, LENGTH_OPTIONS } from "@/lib/intakeFields";
+import { applyFullNameChange } from "@/lib/intakeSync";
 
 const defaultIntake = (mode: ArticleMode = "realism"): IntakeData => ({
   fullName: "",
@@ -84,11 +86,11 @@ export function IntakeForm({
           autoComplete={opts?.autocomplete ?? "on"}
           value={String(value[key])}
           onChange={(e) => {
-            const next = { ...value, [key]: e.target.value } as IntakeData;
-            if (key === "fullName" && !value.articleTitle) {
-              next.articleTitle = e.target.value;
+            if (key === "fullName") {
+              onChange(applyFullNameChange(value, e.target.value));
+              return;
             }
-            onChange(next);
+            onChange({ ...value, [key]: e.target.value } as IntakeData);
           }}
         />
       )}
@@ -100,9 +102,9 @@ export function IntakeForm({
       <ModeSelector value={value.mode} onChange={(m) => set("mode", m)} />
 
       <div className="grid md:grid-cols-2 gap-4">
-        {DESKTOP_FIELDS.map((f) =>
-          field(f.label, f.key, f.opts),
-        )}
+        {DESKTOP_FIELDS.map((f) => (
+          <Fragment key={f.key}>{field(f.label, f.key, f.opts)}</Fragment>
+        ))}
       </div>
 
       {field("Notable projects", "notableProjects", { textarea: true, autocomplete: "off" })}

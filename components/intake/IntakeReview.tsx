@@ -3,6 +3,7 @@
 import type { IntakeData } from "@/types/article";
 import { REVIEW_ROWS, displayValue } from "@/lib/intakeFields";
 import { hapticTap } from "@/lib/haptics";
+import { shouldSyncArticleTitle } from "@/lib/intakeSync";
 
 export function IntakeReview({
   intake,
@@ -85,7 +86,7 @@ export function IntakeReview({
           disabled={disabled || !intake.fullName.trim()}
           onClick={() => {
             hapticTap();
-            if (!intake.articleTitle.trim()) {
+            if (shouldSyncArticleTitle(intake.articleTitle, intake.fullName)) {
               onChange({ ...intake, articleTitle: intake.fullName });
             }
             onContinue();

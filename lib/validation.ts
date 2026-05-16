@@ -100,7 +100,9 @@ export const articleJsonSchema = z.object({
     name: z.string(),
     imageUrl: z.string(),
     caption: z.string(),
+    titles: z.array(z.string()).optional(),
     born: z.string(),
+    died: z.string().optional(),
     hometown: z.string(),
     currentLocation: z.string(),
     education: z.string(),
@@ -109,6 +111,12 @@ export const articleJsonSchema = z.object({
     knownFor: z.array(z.string()),
     notableWorks: z.array(z.string()),
     awards: z.array(z.string()),
+    allegiance: z
+      .array(z.object({ name: z.string(), flag: z.string().optional() }))
+      .optional(),
+    branch: z
+      .array(z.object({ name: z.string(), flag: z.string().optional() }))
+      .optional(),
     socialLinks: z.array(z.object({ label: z.string(), url: z.string() })),
   }),
   sections: z.array(
@@ -116,6 +124,14 @@ export const articleJsonSchema = z.object({
       id: z.string(),
       title: z.string(),
       paragraphs: z.array(z.string()),
+      subsections: z
+        .array(
+          z.object({
+            title: z.string(),
+            paragraphs: z.array(z.string()),
+          }),
+        )
+        .optional(),
     }),
   ),
   seeAlso: z.array(z.string()),

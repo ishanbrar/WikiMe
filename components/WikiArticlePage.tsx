@@ -6,6 +6,7 @@ import { WikiInfobox } from "@/components/WikiInfobox";
 import { WikiContents } from "@/components/WikiContents";
 import { AppearancePanel } from "@/components/AppearancePanel";
 import { WikiLinkedText } from "@/components/WikiLinkedText";
+import { normalizeWikiSections } from "@/lib/wikiSections";
 
 export function WikiArticlePage({
   article,
@@ -43,6 +44,11 @@ export function WikiArticlePage({
 
   const widthClass = appearance.width === "wide" ? "wiki-width-wide" : "";
 
+  const displayArticle = {
+    ...article,
+    sections: normalizeWikiSections(article.sections),
+  };
+
   const updateSection = (id: string, paragraphs: string[]) => {
     if (!onArticleChange) return;
     onArticleChange({
@@ -67,9 +73,9 @@ export function WikiArticlePage({
       </header>
 
       <div className="wiki-article-header">
-        <h1 className="wiki-title">{article.title}</h1>
-        {article.subtitle && (
-          <p className="wiki-subtitle">{article.subtitle}</p>
+        <h1 className="wiki-title">{displayArticle.title}</h1>
+        {displayArticle.subtitle && (
+          <p className="wiki-subtitle">{displayArticle.subtitle}</p>
         )}
         <nav className="wiki-tabs" aria-label="Page tabs">
           {["Article", "Talk", "Read", "Edit", "View history", "Tools"].map(
@@ -86,24 +92,39 @@ export function WikiArticlePage({
       </div>
 
       <div className="wiki-layout">
-        <aside className="wiki-left">
-          <WikiContents
-            sections={article.sections}
-            hidden={tocHidden}
-            onToggle={() => setTocHidden(!tocHidden)}
-          />
-        </aside>
-
         <main className="wiki-main">
+          <div className="wiki-body">
+            <div className="wiki-toc-float">
+              <WikiContents
+                sections={displayArticle.sections}
+                hidden={tocHidden}
+                onToggle={() => setTocHidden(!tocHidden)}
+              />
+            </div>
+
+            <div className="wiki-infobox-float">
+            <WikiInfobox
+              infobox={displayArticle.infobox}
+              properNouns={displayArticle.properNouns}
+              subjectName={subjectName}
+              editable={editable}
+              onChange={
+                onArticleChange
+                  ? (infobox) => onArticleChange({ ...article, infobox })
+                  : undefined
+              }
+            />
+          </div>
+
           <div className="wiki-lead">
-            {article.summaryLead.map((p, i) => (
+            {displayArticle.summaryLead.map((p, i) => (
               <p key={i}>
                 {editable ? (
                   <textarea
                     className="wiki-edit-area w-full"
                     value={p}
                     onChange={(e) => {
-                      const lead = [...article.summaryLead];
+                      const lead = [...displayArticle.summaryLead];
                       lead[i] = e.target.value;
                       onArticleChange?.({ ...article, summaryLead: lead });
                     }}
@@ -111,7 +132,7 @@ export function WikiArticlePage({
                 ) : (
                   <WikiLinkedText
                     text={p}
-                    properNouns={article.properNouns}
+                    properNouns={displayArticle.properNouns}
                     subjectName={subjectName}
                   />
                 )}
@@ -119,7 +140,7 @@ export function WikiArticlePage({
             ))}
           </div>
 
-          {article.sections.map((section) => (
+          {displayArticle.sections.map((section) => (
             <section key={section.id} id={section.id} className="wiki-section">
               <h2 className="wiki-section-title">
                 <span className="wiki-section-anchor">§</span> {section.title}
@@ -139,11 +160,27 @@ export function WikiArticlePage({
                   ) : (
                     <WikiLinkedText
                       text={para}
-                      properNouns={article.properNouns}
+                      properNouns={displayArticle.properNouns}
                       subjectName={subjectName}
                     />
                   )}
                 </p>
+              ))}
+              {section.subsections?.map((sub, si) => (
+                <div key={`${section.id}-sub-${si}`} className="wiki-subsection">
+                  <h3 className="wiki-subsection-title">
+                    <span className="wiki-subsection-heading">{sub.title}</span>
+                  </h3>
+                  {sub.paragraphs.map((para, pi) => (
+                    <p key={pi} className="wiki-paragraph">
+                      <WikiLinkedText
+                        text={para}
+                        properNouns={displayArticle.properNouns}
+                        subjectName={subjectName}
+                      />
+                    </p>
+                  ))}
+                </div>
               ))}
             </section>
           ))}
@@ -156,7 +193,7 @@ export function WikiArticlePage({
                   <li key={i}>
                     <WikiLinkedText
                       text={item}
-                      properNouns={article.properNouns}
+                      properNouns={displayArticle.properNouns}
                       subjectName={subjectName}
                     />
                   </li>
@@ -204,20 +241,10 @@ export function WikiArticlePage({
               </ul>
             </section>
           )}
+          </div>
         </main>
 
         <aside className="wiki-right">
-          <WikiInfobox
-            infobox={article.infobox}
-            properNouns={article.properNouns}
-            subjectName={subjectName}
-            editable={editable}
-            onChange={
-              onArticleChange
-                ? (infobox) => onArticleChange({ ...article, infobox })
-                : undefined
-            }
-          />
           <AppearancePanel
             settings={appearance}
             hidden={appearanceHidden}

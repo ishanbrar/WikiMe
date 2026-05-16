@@ -22,6 +22,8 @@ import {
   normalizeExtractedFacts,
 } from "@/lib/extractProfileFacts";
 import { parseJsonResponse } from "@/lib/apiClient";
+import { saveArticleToServer } from "@/lib/saveArticleClient";
+import { nanoid } from "nanoid";
 import { LoadingButton } from "@/components/LoadingButton";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 
@@ -167,29 +169,49 @@ function GenerateFlow() {
         article.infobox.imageUrl = headshot[0];
       }
 
+      const articleId = nanoid();
+      const articleSlug = nanoid(10);
+      const sessionPayload = {
+        article,
+        intake: intakeFinal,
+        headshotDataUrl: headshot[0] ?? "",
+        facts: extracted,
+        mock: data.mock,
+        savedId: articleId,
+        slug: articleSlug,
+      };
+
       try {
-        sessionStorage.setItem(
-          "wikime_current",
-          JSON.stringify({
-            article,
-            intake: intakeFinal,
-            headshotDataUrl: headshot[0] ?? "",
-            facts: extracted,
-            mock: data.mock,
-          }),
-        );
+        sessionStorage.setItem("wikime_current", JSON.stringify(sessionPayload));
       } catch {
         sessionStorage.setItem(
           "wikime_current",
           JSON.stringify({
+            ...sessionPayload,
             article: { ...article, infobox: { ...article.infobox, imageUrl: "" } },
-            intake: intakeFinal,
-            facts: extracted,
-            mock: data.mock,
+            headshotDataUrl: "",
           }),
         );
       }
-      router.push("/article");
+
+      setLoadingMessage("Saving your article link…");
+      const saved = await saveArticleToServer({
+        id: articleId,
+        slug: articleSlug,
+        articleJson: article,
+        mode: intakeFinal.mode,
+        intake: intakeFinal,
+        headshotDataUrl: headshot[0],
+        extractedFacts: extracted,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      if (!saved.ok) {
+        throw new Error(saved.error);
+      }
+
+      router.push(`/article?slug=${saved.slug}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Generation failed");
     } finally {

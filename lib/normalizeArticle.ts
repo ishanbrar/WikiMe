@@ -1,5 +1,10 @@
 import type { ArticleJson, IntakeData } from "@/types/article";
+import { normalizeInfobox } from "@/lib/infoboxHelpers";
 import { buildMockArticle } from "@/lib/mockArticle";
+import {
+  normalizeWikiSections,
+  parseSectionFromRaw,
+} from "@/lib/wikiSections";
 
 function str(v: unknown, fallback = ""): string {
   if (typeof v === "string") return v;
@@ -15,7 +20,10 @@ function strArr(v: unknown): string[] {
 export function articleWordCount(article: ArticleJson): number {
   const text = [
     ...article.summaryLead,
-    ...article.sections.flatMap((s) => s.paragraphs),
+    ...article.sections.flatMap((s) => [
+      ...s.paragraphs,
+      ...(s.subsections?.flatMap((sub) => sub.paragraphs) ?? []),
+    ]),
   ].join(" ");
   return text.split(/\s+/).filter(Boolean).length;
 }
@@ -39,42 +47,13 @@ export function normalizeArticleJson(
     title: str(o.title, intake.articleTitle || intake.fullName),
     subtitle: str(o.subtitle, ""),
     summaryLead: strArr(o.summaryLead),
-    infobox: {
-      name: str(inf.name, intake.fullName),
-      imageUrl: str(inf.imageUrl, headshotUrl),
-      caption: str(inf.caption, ""),
-      born: str(inf.born, ""),
-      hometown: str(inf.hometown, intake.birthplace),
-      currentLocation: str(inf.currentLocation, intake.currentLocation),
-      education: str(inf.education, intake.education),
-      occupation: str(inf.occupation, intake.occupation),
-      yearsActive: str(inf.yearsActive, ""),
-      knownFor: strArr(inf.knownFor),
-      notableWorks: strArr(inf.notableWorks),
-      awards: strArr(inf.awards),
-      socialLinks: Array.isArray(inf.socialLinks)
-        ? (inf.socialLinks as unknown[])
-            .map((l) => {
-              const link = l as Record<string, unknown>;
-              return {
-                label: str(link.label),
-                url: str(link.url),
-              };
-            })
-            .filter((l) => l.label && l.url)
-        : [],
-    },
+    infobox: normalizeInfobox(inf, intake, headshotUrl),
     sections: Array.isArray(o.sections)
-      ? (o.sections as unknown[])
-          .map((s) => {
-            const sec = s as Record<string, unknown>;
-            return {
-              id: str(sec.id, "section"),
-              title: str(sec.title, "Section"),
-              paragraphs: strArr(sec.paragraphs),
-            };
-          })
-          .filter((s) => s.paragraphs.length > 0)
+      ? normalizeWikiSections(
+          (o.sections as unknown[])
+            .map((s) => parseSectionFromRaw(s as Record<string, unknown>))
+            .filter((s): s is NonNullable<typeof s> => s !== null),
+        )
       : [],
     seeAlso: strArr(o.seeAlso),
     references: Array.isArray(o.references)

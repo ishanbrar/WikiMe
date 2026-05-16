@@ -12,6 +12,7 @@ import { IntakeFieldControl } from "@/components/intake/IntakeFieldControl";
 import { IntakeReview } from "@/components/intake/IntakeReview";
 import { ModeSelector } from "@/components/ModeSelector";
 import { hapticError, hapticSuccess, hapticTap } from "@/lib/haptics";
+import { shouldSyncArticleTitle } from "@/lib/intakeSync";
 
 type Phase = "slides" | "review";
 
@@ -70,7 +71,11 @@ export function MobileIntakeWizard({
     hapticTap();
     if (slide?.type === "fields") {
       const hasName = slide.fields.some((f) => f.key === "fullName");
-      if (hasName && !value.articleTitle.trim() && value.fullName.trim()) {
+      if (
+        hasName &&
+        value.fullName.trim() &&
+        shouldSyncArticleTitle(value.articleTitle, value.fullName)
+      ) {
         onChange({ ...value, articleTitle: value.fullName });
       }
     }

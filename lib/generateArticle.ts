@@ -7,16 +7,19 @@ import type {
 import { generateText, hasAiKey, parseJsonFromModel, TEXT_MODEL_CREATIVE } from "@/lib/gemini";
 import { buildMockArticle } from "@/lib/mockArticle";
 import { normalizeArticleJson, articleWordCount } from "@/lib/normalizeArticle";
+import { parseSectionFromRaw } from "@/lib/wikiSections";
 import {
   buildCreativeBrief,
   creativeLengthHint,
   formatCreativeBrief,
 } from "@/lib/creativeNarrative";
+import { INFOBOX_RULES } from "@/lib/infoboxHelpers";
+import { WIKI_SECTION_STRUCTURE_RULES } from "@/lib/wikiSections";
 
 function realismLengthHint(len: IntakeData["articleLength"]): string {
   if (len === "short") return "Keep total under ~600 words. Fewer sections.";
   if (len === "long") return "Up to ~1500 words. Richer sections.";
-  return "Moderate length ~900 words.";
+  return "Moderate length ~900 words. Mostly plain paragraphs; subsections only where topics clearly split.";
 }
 
 function buildPrompt(
@@ -72,9 +75,13 @@ FORBIDDEN PHRASES: Never use: ${brief.avoidGenericPhrases.map((p) => `"${p}"`).j
 }
 
 const ARTICLE_SCHEMA = `Return ONLY valid JSON (no markdown) with keys:
-title, subtitle, summaryLead (string[]), infobox {name, imageUrl, caption, born, hometown, currentLocation, education, occupation, yearsActive, knownFor[], notableWorks[], awards[], socialLinks[{label,url}]},
-sections[{id,title,paragraphs[]}] (use ids: early-life, education, career, projects, public-image, personal-life, achievements, legacy — include as many as needed),
-seeAlso[], references[{label,title,url,type}], externalLinks[{label,url}], properNouns[] — ONLY real Wikipedia article titles for entities (e.g. "United States Army", "Medal of Honor", "West Point", "Lahore"). No generic words, no the subject's name, no fictional places, no made-up articles.`;
+title, subtitle, summaryLead (string[]), infobox {name, imageUrl, caption, titles[], born, died, hometown, currentLocation, education, occupation, yearsActive, knownFor[], notableWorks[], awards[], allegiance[{name,flag}], branch[{name,flag}], socialLinks[{label,url}]},
+sections[{id,title,paragraphs[],subsections?:[{title,paragraphs[]}]}],
+seeAlso[], references[{label,title,url,type}], externalLinks[{label,url}], properNouns[] — ONLY real Wikipedia article titles for entities (e.g. "United States Army", "Medal of Honor", "West Point", "Lahore"). No generic words, no the subject's name, no fictional places, no made-up articles.
+
+${INFOBOX_RULES}
+
+${WIKI_SECTION_STRUCTURE_RULES}`;
 
 const CREATIVE_MIN_WORDS: Record<IntakeData["articleLength"], number> = {
   short: 700,
@@ -176,12 +183,12 @@ export async function regenerateSection(
   const modeRules = isCreative
     ? creativeRules(brief!)
     : realismRules();
-  const system = `Regenerate ONE Wikipedia section as JSON: {id, title, paragraphs[]}. ${
+  const system = `Regenerate ONE Wikipedia section as JSON: {id, title, paragraphs[], subsections:[{title,paragraphs[]}]}. ${
     isCreative
-      ? `${modeRules} Write 3–5 long paragraphs for this section only. Seed: ${brief!.seed}.`
+      ? `${modeRules} Seed: ${brief!.seed}.`
       : modeRules
-  }`;
-  const user = `Section id: ${sectionId}. Existing title: ${existing?.title ?? sectionId}. Article context: ${JSON.stringify({ title: currentArticle.title, intake: intake.fullName, facts, brief })}. Headshot: ${headshotUrl}`;
+  } ${WIKI_SECTION_STRUCTURE_RULES}`;
+  const user = `Section id: ${sectionId}. Keep the generic Wikipedia section title for this id (do not use a narrative title). Existing: ${existing?.title ?? sectionId}. Article context: ${JSON.stringify({ title: currentArticle.title, intake: intake.fullName, facts, brief })}. Headshot: ${headshotUrl}`;
 
   const raw = await generateText(system, user, {
     temperature: isCreative ? 1.1 : 0.6,
@@ -189,5 +196,12 @@ export async function regenerateSection(
     model: isCreative ? TEXT_MODEL_CREATIVE : undefined,
     maxTokens: isCreative ? 2500 : 1500,
   });
-  return parseJsonFromModel<ArticleSection>(raw);
+  const parsed = parseJsonFromModel<Record<string, unknown>>(raw);
+  return (
+    parseSectionFromRaw(parsed) ?? {
+      id: sectionId,
+      title: existing?.title ?? sectionId,
+      paragraphs: existing?.paragraphs ?? ["Section could not be regenerated."],
+    }
+  );
 }

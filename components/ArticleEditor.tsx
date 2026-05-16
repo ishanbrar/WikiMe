@@ -14,6 +14,8 @@ import { IntakeForm } from "@/components/IntakeForm";
 import { LoadingButton } from "@/components/LoadingButton";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { saveArticleLocal } from "@/lib/storage";
+import { saveArticleToServer } from "@/lib/saveArticleClient";
+import { buildShareUrl } from "@/lib/share";
 import { nanoid } from "nanoid";
 
 export function ArticleEditor({
@@ -42,10 +44,14 @@ export function ArticleEditor({
     width: "standard",
     color: "auto",
   });
+  const [shareSlug, setShareSlug] = useState(slug ?? "");
+  const [shareUrl, setShareUrl] = useState(() =>
+    slug ? buildShareUrl(slug) : "",
+  );
 
   const saved: SavedArticle = {
     id: savedId ?? nanoid(),
-    slug: slug ?? nanoid(10),
+    slug: shareSlug || slug || nanoid(10),
     articleJson: article,
     mode: intakeState.mode,
     intake: intakeState,
@@ -67,24 +73,19 @@ export function ArticleEditor({
   };
 
   const saveToServer = async (): Promise<string | null> => {
-    persistLocal();
-    try {
-      const res = await fetch("/api/articles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          articleJson: article,
-          mode: intakeState.mode,
-          intake: intakeState,
-          slug: saved.slug,
-        }),
-      });
-      if (!res.ok) return null;
-      const data = (await res.json()) as { slug: string };
-      return data.slug;
-    } catch {
-      return null;
+    const local = persistLocal();
+    const result = await saveArticleToServer({
+      ...local,
+      articleJson: article,
+      intake: intakeState,
+    });
+    if (result.ok) {
+      setShareSlug(result.slug);
+      setShareUrl(result.url);
+      return result.slug;
     }
+    console.error(result.error);
+    return null;
   };
 
   const regenerateAll = async () => {
@@ -224,6 +225,15 @@ export function ArticleEditor({
           >
             Apply & regenerate
           </LoadingButton>
+        </div>
+      )}
+
+      {shareUrl && (
+        <div className="article-permalink no-print">
+          <span className="article-permalink-label">Permanent link</span>
+          <a href={shareUrl} className="article-permalink-url">
+            {shareUrl}
+          </a>
         </div>
       )}
 

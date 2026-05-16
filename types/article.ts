@@ -46,11 +46,21 @@ export interface ExtractedProfileFacts {
   rawUsefulText: string[];
 }
 
+export interface InfoboxAllegiance {
+  name: string;
+  /** ISO 3166-1 alpha-2 (e.g. US, IN) for flag emoji in infobox */
+  flag?: string;
+}
+
 export interface ArticleInfobox {
   name: string;
   imageUrl: string;
   caption: string;
+  /** Honorifics / epithets under the name (Wikipedia style) */
+  titles?: string[];
   born: string;
+  /** Death date and place; empty if living */
+  died?: string;
   hometown: string;
   currentLocation: string;
   education: string;
@@ -59,13 +69,22 @@ export interface ArticleInfobox {
   knownFor: string[];
   notableWorks: string[];
   awards: string[];
+  allegiance?: InfoboxAllegiance[];
+  branch?: InfoboxAllegiance[];
   socialLinks: { label: string; url: string }[];
+}
+
+export interface ArticleSubsection {
+  title: string;
+  paragraphs: string[];
 }
 
 export interface ArticleSection {
   id: string;
   title: string;
   paragraphs: string[];
+  /** Specific in-section headings (Wikipedia h3-style); TOC uses only generic `title`. */
+  subsections?: ArticleSubsection[];
 }
 
 export interface ArticleReference {
@@ -95,6 +114,17 @@ export interface SavedArticle {
   intake: IntakeData;
   headshotDataUrl?: string;
   extractedFacts?: ExtractedProfileFacts;
+  userId?: string;
+  isPublic?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ArticleListItem {
+  id: string;
+  slug: string;
+  title: string;
+  mode: ArticleMode;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import type { ArticleInfobox } from "@/types/article";
+import type { ArticleInfobox, InfoboxAllegiance } from "@/types/article";
 import { WikiLinkedText } from "@/components/WikiLinkedText";
+import { flagEmoji } from "@/lib/infoboxHelpers";
 import { stripWikiMarkers } from "@/lib/wikipediaLinks";
 
 const PLACEHOLDER =
@@ -29,6 +30,36 @@ function LinkedValue({
   );
 }
 
+function AllegianceList({
+  items,
+  properNouns,
+  subjectName,
+}: {
+  items: InfoboxAllegiance[];
+  properNouns: string[];
+  subjectName: string;
+}) {
+  return (
+    <>
+      {items.map((item, i) => (
+        <span key={`${item.name}-${i}`} className="wiki-infobox-allegiance-item">
+          {i > 0 ? <br /> : null}
+          {flagEmoji(item.flag) ? (
+            <span className="wiki-flag" aria-hidden>
+              {flagEmoji(item.flag)}
+            </span>
+          ) : null}{" "}
+          <LinkedValue
+            text={stripWikiMarkers(item.name)}
+            properNouns={properNouns}
+            subjectName={subjectName}
+          />
+        </span>
+      ))}
+    </>
+  );
+}
+
 export function WikiInfobox({
   infobox,
   properNouns = [],
@@ -43,6 +74,10 @@ export function WikiInfobox({
   onChange?: (infobox: ArticleInfobox) => void;
 }) {
   const img = infobox.imageUrl || PLACEHOLDER;
+  const subject = subjectName || infobox.name;
+  const hasMilitary =
+    (infobox.allegiance?.length ?? 0) > 0 || (infobox.branch?.length ?? 0) > 0;
+
   const row = (label: string, value: string | string[] | undefined) => {
     if (!value || (Array.isArray(value) && !value.length)) return null;
     const raw = Array.isArray(value) ? value.join(", ") : value;
@@ -58,6 +93,7 @@ export function WikiInfobox({
               onChange={(e) => {
                 const map: Record<string, keyof ArticleInfobox> = {
                   born: "born",
+                  died: "died",
                   hometown: "hometown",
                   currentlocation: "currentLocation",
                   education: "education",
@@ -69,11 +105,7 @@ export function WikiInfobox({
               }}
             />
           ) : (
-            <LinkedValue
-              text={display}
-              properNouns={properNouns}
-              subjectName={subjectName || infobox.name}
-            />
+            <LinkedValue text={display} properNouns={properNouns} subjectName={subject} />
           )}
         </td>
       </tr>
@@ -84,6 +116,17 @@ export function WikiInfobox({
     <table className="wiki-infobox">
       <caption className="wiki-infobox-title">{infobox.name}</caption>
       <tbody>
+        {infobox.titles?.length ? (
+          <tr>
+            <td colSpan={2} className="wiki-infobox-titles-cell">
+              {infobox.titles.map((t, i) => (
+                <div key={i} className="wiki-infobox-subtitle">
+                  {editable ? t : stripWikiMarkers(t)}
+                </div>
+              ))}
+            </td>
+          </tr>
+        ) : null}
         <tr>
           <td colSpan={2} className="wiki-infobox-image-cell">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -96,7 +139,7 @@ export function WikiInfobox({
                   <LinkedValue
                     text={stripWikiMarkers(infobox.caption)}
                     properNouns={properNouns}
-                    subjectName={subjectName || infobox.name}
+                    subjectName={subject}
                   />
                 )}
               </p>
@@ -104,11 +147,43 @@ export function WikiInfobox({
           </td>
         </tr>
         {row("Born", infobox.born)}
+        {row("Died", infobox.died)}
         {row("Hometown", infobox.hometown)}
         {row("Current location", infobox.currentLocation)}
         {row("Education", infobox.education)}
         {row("Occupation", infobox.occupation)}
         {row("Years active", infobox.yearsActive)}
+        {hasMilitary ? (
+          <tr>
+            <th colSpan={2} className="wiki-infobox-section-header">
+              Military career
+            </th>
+          </tr>
+        ) : null}
+        {infobox.allegiance?.length ? (
+          <tr>
+            <th className="wiki-infobox-label">Allegiance</th>
+            <td className="wiki-infobox-data">
+              <AllegianceList
+                items={infobox.allegiance}
+                properNouns={properNouns}
+                subjectName={subject}
+              />
+            </td>
+          </tr>
+        ) : null}
+        {infobox.branch?.length ? (
+          <tr>
+            <th className="wiki-infobox-label">Branch</th>
+            <td className="wiki-infobox-data">
+              <AllegianceList
+                items={infobox.branch}
+                properNouns={properNouns}
+                subjectName={subject}
+              />
+            </td>
+          </tr>
+        ) : null}
         {infobox.knownFor?.length ? (
           <tr>
             <th className="wiki-infobox-label">Known for</th>
@@ -119,11 +194,7 @@ export function WikiInfobox({
                     {editable ? (
                       k
                     ) : (
-                      <LinkedValue
-                        text={k}
-                        properNouns={properNouns}
-                        subjectName={subjectName || infobox.name}
-                      />
+                      <LinkedValue text={k} properNouns={properNouns} subjectName={subject} />
                     )}
                   </li>
                 ))}
@@ -141,7 +212,7 @@ export function WikiInfobox({
                 <LinkedValue
                   text={infobox.notableWorks.join(", ")}
                   properNouns={properNouns}
-                  subjectName={subjectName || infobox.name}
+                  subjectName={subject}
                 />
               )}
             </td>
@@ -157,11 +228,7 @@ export function WikiInfobox({
                 <ul className="list-disc pl-4">
                   {infobox.awards.map((a, i) => (
                     <li key={i}>
-                      <LinkedValue
-                        text={a}
-                        properNouns={properNouns}
-                        subjectName={subjectName || infobox.name}
-                      />
+                      <LinkedValue text={a} properNouns={properNouns} subjectName={subject} />
                     </li>
                   ))}
                 </ul>

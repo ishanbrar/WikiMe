@@ -1,4 +1,5 @@
 import type { ArticleJson, IntakeData } from "@/types/article";
+import { normalizeInfobox } from "@/lib/infoboxHelpers";
 
 export function buildMockArticle(
   intake: IntakeData,
@@ -21,23 +22,27 @@ export function buildMockArticle(
         ? `In this creative rendering, ${name} is portrayed with heightened narrative significance while retaining encyclopedic tone.`
         : `This article summarizes user-provided information in a neutral, Wikipedia-style format.`,
     ],
-    infobox: {
-      name,
-      imageUrl: headshotUrl,
-      caption: `${name} in a user-provided photograph`,
-      born: intake.birthplace ? `Unknown date, ${intake.birthplace}` : "",
-      hometown: intake.birthplace || "",
-      currentLocation: intake.currentLocation || "",
-      education: intake.education || "",
-      occupation: intake.occupation || intake.currentRole || "",
-      yearsActive: "21st century–present",
-      knownFor: knownFor.slice(0, 5),
-      notableWorks: knownFor.slice(0, 3),
-      awards: intake.achievements
-        ? intake.achievements.split(/[,;]/).map((s) => s.trim()).slice(0, 3)
-        : [],
-      socialLinks: [],
-    },
+    infobox: normalizeInfobox(
+      {
+        name,
+        imageUrl: headshotUrl,
+        caption: `${name} in a user-provided photograph`,
+        born: intake.birthplace ? `Unknown date, ${intake.birthplace}` : "",
+        hometown: intake.birthplace || "",
+        currentLocation: intake.currentLocation || "",
+        education: intake.education || "",
+        occupation: intake.occupation || intake.currentRole || "",
+        yearsActive: "21st century–present",
+        knownFor: knownFor.slice(0, 5),
+        notableWorks: knownFor.slice(0, 3),
+        awards: intake.achievements
+          ? intake.achievements.split(/[,;]/).map((s) => s.trim()).slice(0, 3)
+          : [],
+        socialLinks: [],
+      },
+      intake,
+      headshotUrl,
+    ),
     sections: [
       {
         id: "early-life",

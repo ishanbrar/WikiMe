@@ -31,12 +31,7 @@ export function WikiContents({
       </div>
       <ol className="wiki-contents-list">
         {sections.map((s, i) => (
-          <li
-            key={s.id}
-            className={
-              i > 0 ? "wiki-contents-item" : "wiki-contents-item wiki-contents-top"
-            }
-          >
+          <li key={s.id} className="wiki-contents-item">
             <a
               href={`#${s.id}`}
               className="wiki-link"
@@ -45,7 +40,8 @@ export function WikiContents({
                 document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth" });
               }}
             >
-              {i + 1}. {s.title}
+              <span className="wiki-contents-num">{i + 1}</span>
+              <span className="wiki-contents-label">{s.title}</span>
             </a>
           </li>
         ))}

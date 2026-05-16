@@ -117,12 +117,12 @@ export function buildCreativeBrief(intake: IntakeData): CreativeBrief {
 
 export function creativeLengthHint(len: IntakeData["articleLength"]): string {
   if (len === "short") {
-    return "TARGET ~900–1200 words total. At least 5 sections, each with 2–3 substantial paragraphs (4+ sentences each). Lead: 2 paragraphs.";
+    return "TARGET ~900–1200 words total. At least 5 sections, 2–3 paragraphs each. Subsections only where needed (0–2 per section). Lead: 2 paragraphs.";
   }
   if (len === "long") {
-    return "TARGET ~2800–3500 words total. At least 8 sections, each with 4–6 substantial paragraphs. Lead: 4 paragraphs. Rich infobox detail.";
+    return "TARGET ~2800–3500 words total. At least 7 sections with rich paragraphs; 1–2 subsections only in long sections like Career. Lead: 4 paragraphs.";
   }
-  return "TARGET ~1800–2400 words total. At least 7 sections, each with 3–5 substantial paragraphs (4+ sentences). Lead: 3–4 paragraphs.";
+  return "TARGET ~1800–2400 words total. At least 6 generic sections with 2–4 paragraphs each; use subsections sparingly (mostly in Career/Legacy). Lead: 3–4 paragraphs.";
 }
 
 export function formatCreativeBrief(brief: CreativeBrief): string {

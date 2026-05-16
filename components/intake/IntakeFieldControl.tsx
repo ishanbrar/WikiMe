@@ -2,6 +2,7 @@
 
 import type { IntakeData } from "@/types/article";
 import type { IntakeFieldDef } from "@/lib/intakeFields";
+import { applyFullNameChange } from "@/lib/intakeSync";
 
 export function IntakeFieldControl({
   field,
@@ -20,11 +21,11 @@ export function IntakeFieldControl({
   const inputId = id ?? `intake-${field.key}`;
 
   const setVal = (next: string) => {
-    const updated = { ...value, [field.key]: next } as IntakeData;
-    if (field.key === "fullName" && !value.articleTitle.trim()) {
-      updated.articleTitle = next;
+    if (field.key === "fullName") {
+      onChange(applyFullNameChange(value, next));
+      return;
     }
-    onChange(updated);
+    onChange({ ...value, [field.key]: next } as IntakeData);
   };
 
   const common = {

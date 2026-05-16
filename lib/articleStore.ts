@@ -1,7 +1,18 @@
 import { promises as fs } from "fs";
 import path from "path";
-import type { SavedArticle } from "@/types/article";
+import type { ArticleListItem, SavedArticle } from "@/types/article";
+import { isVercelDeployment } from "@/lib/appUrl";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
+import { EXAMPLE_ARTICLE_SLUG, getExampleArticle } from "@/lib/exampleArticle";
+
+function requirePersistentStorage(): void {
+  if (isSupabaseConfigured()) return;
+  if (isVercelDeployment()) {
+    throw new Error(
+      "Server storage is not configured. Add NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to your Vercel project environment variables.",
+    );
+  }
+}
 
 const DATA_DIR = path.join(process.cwd(), "data", "articles");
 
@@ -13,6 +24,8 @@ type ArticleRow = {
   intake: SavedArticle["intake"];
   headshot_data_url: string | null;
   extracted_facts: SavedArticle["extractedFacts"] | null;
+  user_id: string | null;
+  is_public: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -26,6 +39,8 @@ function rowToSaved(row: ArticleRow): SavedArticle {
     intake: row.intake,
     headshotDataUrl: row.headshot_data_url ?? undefined,
     extractedFacts: row.extracted_facts ?? undefined,
+    userId: row.user_id ?? undefined,
+    isPublic: row.is_public,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -40,6 +55,8 @@ function savedToRow(article: SavedArticle): ArticleRow {
     intake: article.intake,
     headshot_data_url: article.headshotDataUrl ?? null,
     extracted_facts: article.extractedFacts ?? null,
+    user_id: article.userId ?? null,
+    is_public: article.isPublic ?? true,
     created_at: article.createdAt,
     updated_at: article.updatedAt,
   };
@@ -89,6 +106,7 @@ async function getArticleBySlugSupabase(
 }
 
 export async function saveArticleServer(article: SavedArticle): Promise<void> {
+  requirePersistentStorage();
   if (isSupabaseConfigured()) {
     await saveArticleSupabase(article);
     return;
@@ -96,15 +114,41 @@ export async function saveArticleServer(article: SavedArticle): Promise<void> {
   await saveArticleFile(article);
 }
 
+export async function listArticlesByUserServer(
+  userId: string,
+): Promise<ArticleListItem[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("articles")
+    .select("id, slug, article_json, mode, created_at, updated_at")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => {
+    const json = row.article_json as SavedArticle["articleJson"];
+    return {
+      id: row.id as string,
+      slug: row.slug as string,
+      title: json.title,
+      mode: row.mode as SavedArticle["mode"],
+      createdAt: row.created_at as string,
+      updatedAt: row.updated_at as string,
+    };
+  });
+}
+
 export async function getArticleBySlugServer(
   slug: string,
 ): Promise<SavedArticle | null> {
+  if (slug === EXAMPLE_ARTICLE_SLUG) {
+    return getExampleArticle();
+  }
   if (isSupabaseConfigured()) {
-    try {
-      return await getArticleBySlugSupabase(slug);
-    } catch {
-      return getArticleBySlugFile(slug);
-    }
+    return getArticleBySlugSupabase(slug);
+  }
+  if (isVercelDeployment()) {
+    return null;
   }
   return getArticleBySlugFile(slug);
 }

@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { saveArticleServer, getArticleBySlugServer } from "@/lib/articleStore";
+import { getAppBaseUrl } from "@/lib/appUrl";
+import {
+  saveArticleServer,
+  getArticleBySlugServer,
+} from "@/lib/articleStore";
+import { prepareArticleForDb } from "@/lib/prepareArticleForDb";
+import { getAuthUser } from "@/lib/supabase/server";
 import { articleJsonSchema, intakeSchema } from "@/lib/validation";
 import type { SavedArticle } from "@/types/article";
 
@@ -11,6 +17,7 @@ const postSchema = z.object({
   intake: intakeSchema,
   headshotDataUrl: z.string().optional(),
   slug: z.string().optional(),
+  id: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -24,21 +31,41 @@ export async function POST(req: Request) {
       );
     }
 
+    const user = await getAuthUser();
     const now = new Date().toISOString();
     const slug = parsed.data.slug ?? nanoid(10);
-    const saved: SavedArticle = {
-      id: nanoid(),
+    const existing = parsed.data.slug
+      ? await getArticleBySlugServer(parsed.data.slug)
+      : null;
+
+    if (
+      existing?.userId &&
+      user &&
+      existing.userId !== user.id
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const saved: SavedArticle = prepareArticleForDb({
+      id: parsed.data.id ?? existing?.id ?? nanoid(),
       slug,
       articleJson: parsed.data.articleJson,
       mode: parsed.data.mode,
       intake: parsed.data.intake,
       headshotDataUrl: parsed.data.headshotDataUrl,
-      createdAt: now,
+      userId: user?.id ?? existing?.userId,
+      isPublic: true,
+      createdAt: existing?.createdAt ?? now,
       updatedAt: now,
-    };
+    });
 
     await saveArticleServer(saved);
-    return NextResponse.json({ slug, id: saved.id });
+    const base = getAppBaseUrl(req);
+    return NextResponse.json({
+      slug,
+      id: saved.id,
+      url: `${base}/a/${slug}`,
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Save failed";
     return NextResponse.json({ error: message }, { status: 500 });

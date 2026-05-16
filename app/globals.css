@@ -232,31 +232,23 @@ body {
   border-bottom: 2px solid var(--wiki-link);
 }
 
+/* Content + optional appearance sidebar (Wikipedia-style floats live in .wiki-body) */
 .wiki-layout {
   display: grid;
-  grid-template-columns: 11em minmax(0, 1fr) 22em;
+  grid-template-columns: minmax(0, 1fr) 13em;
   gap: 1rem;
   max-width: 1200px;
   margin: 0 auto;
   padding: 1rem;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .wiki-layout {
     grid-template-columns: 1fr;
   }
-  .wiki-left,
   .wiki-right {
     order: 2;
   }
-  .wiki-main {
-    order: 1;
-  }
-}
-
-.wiki-left {
-  font-family: sans-serif;
-  font-size: 0.8125rem;
 }
 
 .wiki-contents {
@@ -264,7 +256,7 @@ body {
   background: #f8f9fa;
   padding: 0.5rem 0.75rem;
   width: 100%;
-  max-width: 11em;
+  box-sizing: border-box;
 }
 .wiki-theme-dark .wiki-contents {
   background: #27292d;
@@ -287,14 +279,23 @@ body {
   list-style: none;
   margin: 0;
   padding: 0;
-  counter-reset: toc;
 }
 .wiki-contents-item {
-  margin: 0.15rem 0;
-  padding-left: 1.25rem;
+  margin: 0.2rem 0;
 }
-.wiki-contents-top {
-  padding-left: 0;
+.wiki-contents-item a {
+  display: flex;
+  gap: 0.35rem;
+  align-items: baseline;
+  line-height: 1.35;
+}
+.wiki-contents-num {
+  flex-shrink: 0;
+  min-width: 1.25em;
+  color: var(--wiki-muted);
+}
+.wiki-contents-label {
+  flex: 1;
 }
 
 .wiki-link {
@@ -313,7 +314,54 @@ body {
 
 .wiki-main {
   line-height: 1.6;
-  max-width: 42em;
+  min-width: 0;
+}
+
+/* Single article column: TOC left, infobox right, text wraps (like Wikipedia) */
+.wiki-body {
+  font-size: 1rem;
+}
+
+.wiki-body::after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+.wiki-toc-float {
+  float: left;
+  clear: left;
+  width: 11.5em;
+  max-width: 33%;
+  margin: 0 1em 0.75em 0;
+}
+
+.wiki-toc-float .wiki-contents {
+  max-width: none;
+}
+
+.wiki-infobox-float {
+  float: right;
+  clear: right;
+  width: 20em;
+  max-width: min(20em, 40vw);
+  margin: 0 0 0.75em 1em;
+}
+
+.wiki-infobox-float .wiki-infobox {
+  width: 100%;
+  margin-bottom: 0;
+  font-size: 0.8125rem;
+}
+
+.wiki-infobox-float .wiki-infobox-image {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 16em;
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
 }
 
 .wiki-lead p:first-child::first-letter {
@@ -335,6 +383,32 @@ body {
   margin: 0 0 0.5rem;
   padding-bottom: 0.15rem;
 }
+
+/* Wikipedia-style in-section h3 (smaller than h2, no underline) */
+.wiki-subsection {
+  margin: 0;
+  padding: 0;
+}
+
+.wiki-subsection-title {
+  font-family: "Linux Libertine", Georgia, "Times New Roman", Times, serif;
+  font-size: 1em;
+  font-weight: 700;
+  line-height: 1.6;
+  margin: 0.75em 0 0.15em;
+  padding: 0;
+  border: 0;
+  color: var(--wiki-text);
+  clear: none;
+}
+
+.wiki-section > .wiki-subsection:first-of-type .wiki-subsection-title {
+  margin-top: 0.35em;
+}
+
+.wiki-subsection .wiki-paragraph {
+  margin: 0.35em 0 0.5em;
+}
 .wiki-section-anchor {
   color: var(--wiki-muted);
   font-size: 0.85em;
@@ -347,6 +421,41 @@ body {
 .wiki-right {
   font-family: sans-serif;
   font-size: 0.8125rem;
+}
+
+/* ≥641px: keep floats so lead text wraps beside infobox (Wikipedia tablet/desktop) */
+@media (max-width: 640px) {
+  .wiki-toc-float {
+    float: none;
+    clear: both;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 0 0.75rem;
+  }
+
+  .wiki-infobox-float {
+    float: none;
+    clear: both;
+    width: 100%;
+    max-width: 20em;
+    margin: 0 0 1em;
+  }
+
+  .wiki-infobox-float .wiki-infobox-image {
+    max-width: min(100%, 12.5em);
+    max-height: 12.5em;
+  }
+}
+
+@media (max-width: 480px) {
+  .wiki-infobox-float {
+    max-width: 100%;
+  }
+
+  .wiki-infobox-float .wiki-infobox-image {
+    max-width: min(100%, 10em);
+    max-height: 10em;
+  }
 }
 
 .wiki-infobox {
@@ -365,6 +474,11 @@ body {
   font-weight: 700;
   text-align: center;
   padding: 0.35rem;
+  background: #eaecf0;
+  border-bottom: 1px solid var(--wiki-border);
+}
+.wiki-theme-dark .wiki-infobox-title {
+  background: #27292d;
 }
 .wiki-infobox-image-cell {
   text-align: center;
@@ -388,6 +502,33 @@ body {
 }
 .wiki-infobox-data {
   padding: 0.25rem 0.5rem;
+}
+.wiki-infobox-titles-cell {
+  text-align: center;
+  padding: 0.15rem 0.5rem 0.35rem;
+  line-height: 1.35;
+}
+.wiki-infobox-subtitle {
+  font-size: 0.8125rem;
+  font-style: italic;
+}
+.wiki-infobox-section-header {
+  text-align: center;
+  font-weight: 700;
+  padding: 0.35rem 0.5rem;
+  background: #eaecf0;
+  border-top: 1px solid var(--wiki-border);
+}
+.wiki-theme-dark .wiki-infobox-section-header {
+  background: #27292d;
+}
+.wiki-flag {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 1em;
+  line-height: 1;
+}
+.wiki-infobox-allegiance-item {
+  display: inline-block;
 }
 
 .wiki-appearance {
@@ -636,51 +777,662 @@ body {
   }
 }
 
+/* ——— Site header ——— */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+}
+
+.site-header--landing {
+  background: transparent;
+  border-bottom-color: transparent;
+}
+
+.site-header-inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.site-header-logo {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.site-header-logo-accent {
+  color: #2563eb;
+}
+
+.site-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem 1rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.site-header-link {
+  font-size: 0.875rem;
+  color: #475569;
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  font-family: inherit;
+}
+
+.site-header-link:hover {
+  color: #0f172a;
+}
+
+.site-header-btn {
+  margin: 0;
+}
+
+.site-header-cta {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #fff;
+  background: #0f172a;
+  padding: 0.4rem 0.85rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+}
+
+.site-header-cta:hover {
+  background: #1e293b;
+}
+
+.site-header-auth {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.site-header-auth-placeholder {
+  display: inline-block;
+  width: 5rem;
+  height: 1.25rem;
+}
+
+/* ——— Site footer ——— */
 .site-footer {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
-  border-top: 1px solid #e2e8f0;
-  background: #f8fafc;
   margin-top: auto;
+  border-top: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
 }
 
 .site-footer-inner {
   max-width: 72rem;
   margin: 0 auto;
-  padding: 1.25rem 1.5rem;
-  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
-  text-align: center;
+  padding: 2.5rem 1.5rem 1.5rem;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
 }
 
-.site-footer-brand {
-  margin: 0 0 0.35rem;
-  font-weight: 600;
-  font-size: 0.9375rem;
+.site-footer-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
 }
 
-.site-footer-brand a {
+@media (min-width: 640px) {
+  .site-footer-grid {
+    grid-template-columns: 1.4fr 1fr 1fr;
+  }
+}
+
+.site-footer-logo {
+  font-size: 1.125rem;
+  font-weight: 700;
   color: #0f172a;
   text-decoration: none;
 }
 
-.site-footer-brand a:hover {
+.site-footer-logo span {
   color: #2563eb;
 }
 
-.site-footer-credit {
+.site-footer-tagline {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #64748b;
+  max-width: 22rem;
+}
+
+.site-footer-heading {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+}
+
+.site-footer-links {
+  list-style: none;
   margin: 0;
+  padding: 0;
+}
+
+.site-footer-links li + li {
+  margin-top: 0.4rem;
+}
+
+.site-footer-links a {
   font-size: 0.875rem;
   color: #475569;
+  text-decoration: none;
+}
+
+.site-footer-links a:hover {
+  color: #2563eb;
+}
+
+.site-footer-bottom {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.site-footer-copy {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #64748b;
 }
 
 .site-footer-author {
   font-weight: 600;
+  color: #334155;
+}
+
+.site-footer-disclaimer {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+/* ——— Landing ——— */
+.landing-hero {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+  text-align: center;
+}
+
+.landing-eyebrow {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #2563eb;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.75rem;
+}
+
+.landing-title {
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+  margin: 0;
+}
+
+.landing-lead {
+  margin: 1rem 0 0;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: #64748b;
+}
+
+.landing-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1.75rem;
+}
+
+.landing-cta-primary {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 500;
+  border-radius: 0.625rem;
+  text-decoration: none;
+}
+
+.landing-cta-primary:hover {
+  background: #1d4ed8;
+}
+
+.landing-cta-secondary {
+  display: inline-block;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-weight: 500;
+  border-radius: 0.625rem;
+  text-decoration: none;
+  background: #fff;
+}
+
+.landing-cta-secondary:hover {
+  background: #f8fafc;
+}
+
+.landing-cta-dark {
+  display: inline-block;
+  padding: 0.75rem 1.25rem;
+  background: #0f172a;
+  color: #fff;
+  font-weight: 500;
+  border-radius: 0.625rem;
+  text-decoration: none;
+}
+
+.landing-cta-dark:hover {
+  background: #1e293b;
+}
+
+.landing-features {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 1.5rem 3rem;
+  display: grid;
+  gap: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .landing-features {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.landing-feature {
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.landing-feature h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
   color: #0f172a;
 }
 
-.site-footer-note {
+.landing-feature p {
   margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: #64748b;
+}
+
+.landing-modes {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 0 1.5rem 4rem;
+  text-align: center;
+}
+
+.landing-modes h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 1.25rem;
+  color: #0f172a;
+}
+
+.landing-mode-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+/* ——— Homepage example ——— */
+.home-example {
+  max-width: 52rem;
+  margin: 0 auto 3rem;
+  padding: 0 1.5rem;
+}
+
+.home-example-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.home-example-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin: 0;
+}
+
+.home-example-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0.25rem 0 0;
+  color: #0f172a;
+}
+
+.home-example-desc {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  color: #64748b;
+  max-width: 28rem;
+}
+
+.home-example-cta {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.home-example-cta:hover {
+  text-decoration: underline;
+}
+
+.home-example-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.875rem;
+  background: #fff;
+  padding: 1.5rem 1.75rem;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+}
+
+.home-example-card-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #7c3aed;
+  background: #f5f3ff;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.home-example-article-title {
+  font-family: "Linux Libertine", Georgia, serif;
+  font-size: 1.75rem;
+  font-weight: 400;
+  margin: 0;
+  color: #0f172a;
+  border-bottom: 1px solid #a2a9b1;
+  padding-bottom: 0.25rem;
+}
+
+.home-example-subtitle {
+  font-style: italic;
+  color: #54595d;
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.9375rem;
+}
+
+.home-example-lead {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: #202122;
+  margin: 0 0 1rem;
+}
+
+.home-example-infobox {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1rem;
+  font-size: 0.8125rem;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.home-example-infobox dt {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.home-example-infobox dd {
+  margin: 0;
+  color: #334155;
+}
+
+.home-example-toc {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.8125rem;
+  color: #475569;
+}
+
+/* ——— Auth ——— */
+.auth-page {
+  max-width: 24rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+.auth-page-back {
+  text-align: center;
+  margin-top: 1.5rem;
+  font-size: 0.875rem;
+}
+
+.auth-page-back a {
+  color: #64748b;
+  text-decoration: none;
+}
+
+.auth-card-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+  color: #0f172a;
+}
+
+.auth-card-subtitle {
+  margin: 0.5rem 0 1.5rem;
+  font-size: 0.875rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auth-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #334155;
+}
+
+.auth-input {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+}
+
+.auth-input:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+  border-color: #2563eb;
+}
+
+.auth-error {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #dc2626;
+}
+
+.auth-message {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #059669;
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.auth-switch {
+  margin: 1.25rem 0 0;
+  text-align: center;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.auth-link {
+  color: #2563eb;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+}
+
+/* ——— Account ——— */
+.account-page {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+.account-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.account-email {
+  margin: 0.25rem 0 1rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.account-new {
+  display: inline-block;
+  text-decoration: none;
+  margin-bottom: 1.5rem;
+}
+
+.account-empty {
+  padding: 2rem;
+  text-align: center;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+}
+
+.account-empty-hint {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.account-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.account-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.account-list-title {
+  font-weight: 600;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.account-list-title:hover {
+  color: #2563eb;
+}
+
+.account-list-meta {
+  margin: 0.2rem 0 0;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.account-list-url {
+  margin: 0.15rem 0 0;
   font-size: 0.75rem;
   color: #94a3b8;
+  word-break: break-all;
+}
+
+.account-edit {
+  flex-shrink: 0;
+  text-decoration: none;
+  font-size: 0.8125rem;
+}
+
+.account-error {
+  color: #dc2626;
+  font-size: 0.875rem;
+}
+
+/* ——— Article permalink ——— */
+.article-permalink {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0.5rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  background: #eff6ff;
+  border-bottom: 1px solid #bfdbfe;
+  font-size: 0.8125rem;
+}
+
+.article-permalink-label {
+  font-weight: 600;
+  color: #1e40af;
+}
+
+.article-permalink-url {
+  color: #2563eb;
+  word-break: break-all;
 }
 
 @media print {
@@ -691,7 +1443,7 @@ body {
     display: block;
     max-width: 100%;
   }
-  .wiki-right {
+  .wiki-infobox-float {
     float: right;
     width: 22em;
     margin-left: 1em;
