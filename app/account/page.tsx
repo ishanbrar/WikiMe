@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AccountArticleList } from "@/components/AccountArticleList";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { listArticlesByUserServer } from "@/lib/articleStore";
 import { getAuthUser } from "@/lib/supabase/server";
@@ -53,27 +54,7 @@ export default async function AccountPage() {
       )}
 
       {articles.length > 0 && (
-        <ul className="account-list">
-          {articles.map((a) => (
-            <li key={a.id} className="account-list-item">
-              <div>
-                <Link href={`/a/${a.slug}`} className="account-list-title">
-                  {a.title}
-                </Link>
-                <p className="account-list-meta">
-                  {a.mode === "creative" ? "Creative" : "Realism"} · Updated{" "}
-                  {new Date(a.updatedAt).toLocaleDateString()}
-                </p>
-                <p className="account-list-url">
-                  {appBase}/a/{a.slug}
-                </p>
-              </div>
-              <Link href={`/article?slug=${a.slug}`} className="btn-secondary account-edit">
-                Edit
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <AccountArticleList articles={articles} appBase={appBase} />
       )}
     </main>
   );

@@ -125,6 +125,7 @@ export interface ArticleListItem {
   slug: string;
   title: string;
   mode: ArticleMode;
+  imageUrl?: string;
   createdAt: string;
   updatedAt: string;
 }

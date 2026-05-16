@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { toPng } from "html-to-image";
 import type { ArticleJson } from "@/types/article";
 import { buildShareUrl, encodeArticleForUrl, buildEncodedShareUrl } from "@/lib/share";
 import type { SavedArticle } from "@/types/article";
@@ -92,6 +91,7 @@ export function ExportControls({
     const el = document.getElementById(printTargetId);
     if (!el) return;
     try {
+      const { toPng } = await import("html-to-image");
       const dataUrl = await toPng(el, { pixelRatio: 1.5, cacheBust: true });
       const a = document.createElement("a");
       a.href = dataUrl;

@@ -1,6 +1,8 @@
 "use client";
 
-import { segmentWikiLinks, wikiUrl } from "@/lib/wikipediaLinks";
+import { useMemo } from "react";
+import { getCachedWikiSegments } from "@/lib/wikiLinkCache";
+import { wikiUrl } from "@/lib/wikipediaLinks";
 
 export function WikiLinkedText({
   text,
@@ -13,9 +15,13 @@ export function WikiLinkedText({
   subjectName: string;
   maxLinksPerTerm?: number;
 }) {
-  const parts = segmentWikiLinks(text, properNouns, subjectName, {
-    maxPerTerm: maxLinksPerTerm,
-  });
+  const parts = useMemo(
+    () =>
+      getCachedWikiSegments(text, properNouns, subjectName, {
+        maxPerTerm: maxLinksPerTerm,
+      }),
+    [text, properNouns, subjectName, maxLinksPerTerm],
+  );
 
   return (
     <>

@@ -122,17 +122,28 @@ export async function listArticlesByUserServer(
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("articles")
-    .select("id, slug, article_json, mode, created_at, updated_at")
+    .select("id, slug, article_json, mode, headshot_data_url, created_at, updated_at")
     .eq("user_id", userId)
     .order("updated_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => {
     const json = row.article_json as SavedArticle["articleJson"];
+    const headshot = row.headshot_data_url as string | null;
+    const fromInfobox = json.infobox?.imageUrl?.trim();
+    const imageUrl =
+      headshot && headshot.startsWith("data:image/")
+        ? headshot
+        : fromInfobox && fromInfobox.startsWith("data:image/")
+          ? fromInfobox
+          : fromInfobox && fromInfobox.startsWith("/")
+            ? fromInfobox
+            : undefined;
     return {
       id: row.id as string,
       slug: row.slug as string,
       title: json.title,
       mode: row.mode as SavedArticle["mode"],
+      imageUrl,
       createdAt: row.created_at as string,
       updatedAt: row.updated_at as string,
     };

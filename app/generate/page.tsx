@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, Suspense } from "react";
+import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createDefaultIntake } from "@/components/IntakeForm";
@@ -25,9 +25,15 @@ import {
 } from "@/lib/extractProfileFacts";
 import { parseJsonResponse } from "@/lib/apiClient";
 import { saveArticleToServer } from "@/lib/saveArticleClient";
+import { mapWithConcurrency } from "@/lib/parallelMap";
 import { nanoid } from "nanoid";
 import { LoadingButton } from "@/components/LoadingButton";
-import { LoadingOverlay } from "@/components/LoadingOverlay";
+import {
+  GenerationProgress,
+  type GenerationPhase,
+} from "@/components/GenerationProgress";
+
+const EXTRACT_CONCURRENCY = 3;
 
 function GenerateFlow() {
   const router = useRouter();
@@ -43,8 +49,11 @@ function GenerateFlow() {
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [facts, setFacts] = useState<ExtractedProfileFacts>(emptyExtractedFacts());
   const [busy, setBusy] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("");
+  const [genPhase, setGenPhase] = useState<GenerationPhase | null>(null);
+  const [genDetail, setGenDetail] = useState("");
+  const [genStartedAt, setGenStartedAt] = useState(0);
   const [error, setError] = useState("");
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const draft = loadDraft<{
@@ -60,7 +69,6 @@ function GenerateFlow() {
   }, []);
 
   const persistDraft = useCallback(() => {
-    // Omit image data from sessionStorage — large base64 strings exceed quota.
     saveDraft({ intake, facts, hasImages: headshot.length > 0 || screenshots.length > 0 });
   }, [intake, headshot, screenshots, facts]);
 
@@ -68,8 +76,33 @@ function GenerateFlow() {
     persistDraft();
   }, [persistDraft]);
 
+  const cancelGeneration = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setBusy(false);
+    setGenPhase(null);
+    setGenDetail("");
+    setError("Generation cancelled. Your uploads and intake answers are still here.");
+  };
+
+  const extractOne = async (
+    shot: string,
+    signal?: AbortSignal,
+  ): Promise<ExtractedProfileFacts> => {
+    const res = await fetch("/api/extract-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ screenshots: [shot] }),
+      signal,
+    });
+    const data = await parseJsonResponse<{ facts?: unknown; error?: string }>(res);
+    if (!res.ok) throw new Error(data.error ?? "Extraction failed");
+    return normalizeExtractedFacts(data.facts);
+  };
+
   const extractScreenshots = async (
     managed?: boolean,
+    signal?: AbortSignal,
   ): Promise<ExtractedProfileFacts> => {
     if (!screenshots.length) {
       const empty = emptyExtractedFacts();
@@ -85,40 +118,38 @@ function GenerateFlow() {
     }
     if (!managed) {
       setBusy(true);
-      setLoadingMessage("Extracting profile facts from screenshots…");
+      setGenPhase("extract");
+      setGenStartedAt(Date.now());
+      setGenDetail(`Reading ${screenshots.length} screenshot(s)…`);
     } else {
-      setLoadingMessage("Extracting profile facts from screenshots…");
+      setGenPhase("extract");
+      setGenDetail(`Reading ${screenshots.length} screenshot(s)…`);
     }
     setError("");
     try {
+      const parts = await mapWithConcurrency(
+        screenshots,
+        EXTRACT_CONCURRENCY,
+        (shot) => extractOne(shot, signal),
+      );
       let merged = emptyExtractedFacts();
-      for (const shot of screenshots) {
-        const res = await fetch("/api/extract-profile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ screenshots: [shot] }),
-        });
-        const data = await parseJsonResponse<{
-          facts?: unknown;
-          error?: string;
-        }>(res);
-        if (!res.ok) throw new Error(data.error ?? "Extraction failed");
-        merged = mergeExtractedFacts(
-          merged,
-          normalizeExtractedFacts(data.facts),
-        );
+      for (const part of parts) {
+        merged = mergeExtractedFacts(merged, part);
       }
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
       setFacts(merged);
       cacheExtractedFacts(hashes, merged);
       return merged;
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") throw e;
       const msg = e instanceof Error ? e.message : "Extraction failed";
       setError(msg);
       throw e;
     } finally {
       if (!managed) {
         setBusy(false);
-        setLoadingMessage("");
+        setGenPhase(null);
+        setGenDetail("");
       }
     }
   };
@@ -130,14 +161,26 @@ function GenerateFlow() {
     }
     const title = intake.articleTitle.trim() || intake.fullName;
     const intakeFinal = { ...intake, articleTitle: title };
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const { signal } = controller;
+
     setBusy(true);
-    setLoadingMessage("Generating your Wikipedia article…");
+    setGenStartedAt(Date.now());
+    setGenPhase(screenshots.length > 0 ? "extract" : "generate");
+    setGenDetail(
+      screenshots.length > 0
+        ? "Reading your screenshots…"
+        : "Writing your Wikipedia article…",
+    );
     setError("");
     try {
       let extracted = facts;
       if (screenshots.length > 0) {
-        extracted = await extractScreenshots(true);
-        setLoadingMessage("Generating your Wikipedia article…");
+        extracted = await extractScreenshots(true, signal);
+        if (signal.aborted) return;
+        setGenPhase("generate");
+        setGenDetail("Writing your Wikipedia article…");
       }
       extracted = normalizeExtractedFacts(extracted);
 
@@ -148,6 +191,7 @@ function GenerateFlow() {
           intake: intakeFinal,
           facts: extracted,
         }),
+        signal,
       });
       const data = await parseJsonResponse<{
         article?: import("@/types/article").ArticleJson;
@@ -162,7 +206,9 @@ function GenerateFlow() {
               .join("; ")
           : "";
         throw new Error(
-          detail ? `${data.error ?? "Generation failed"} — ${detail}` : (data.error ?? "Generation failed"),
+          detail
+            ? `${data.error ?? "Generation failed"} — ${detail}`
+            : (data.error ?? "Generation failed"),
         );
       }
 
@@ -196,7 +242,8 @@ function GenerateFlow() {
         );
       }
 
-      setLoadingMessage("Saving your article link…");
+      setGenPhase("save");
+      setGenDetail("Saving your share link…");
       const toSave = prepareArticleForDb({
         id: articleId,
         slug: articleSlug,
@@ -209,6 +256,7 @@ function GenerateFlow() {
         updatedAt: new Date().toISOString(),
       });
       const saved = await saveArticleToServer(toSave);
+      if (signal.aborted) return;
 
       if (!saved.ok) {
         throw new Error(saved.error);
@@ -216,24 +264,32 @@ function GenerateFlow() {
 
       router.push(`/article?slug=${saved.slug}`);
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "Generation failed");
     } finally {
+      abortRef.current = null;
       setBusy(false);
-      setLoadingMessage("");
+      setGenPhase(null);
+      setGenDetail("");
     }
   };
 
   const saved = getSavedArticles();
   const isMobile = useIsMobile();
+  const hasUploads = headshot.length > 0 || screenshots.length > 0;
 
   return (
     <div className={`min-h-screen bg-slate-50 ${isMobile ? "intake-mobile-page" : ""}`}>
-      {busy && (
-        <LoadingOverlay
-          message={loadingMessage}
-          subMessage="This may take a minute."
+      {busy && genPhase && (
+        <GenerationProgress
+          phase={genPhase}
+          detail={genDetail}
+          startedAt={genStartedAt}
+          onCancel={cancelGeneration}
+          canCancel
         />
       )}
+
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-4 pb-1 safe-top">
         <p className="text-sm text-slate-500 text-right">Step {step} of 3</p>
       </div>
@@ -254,51 +310,52 @@ function GenerateFlow() {
           <section className="pb-24">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 mb-6">Uploads</h1>
             <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0">
-            <HeadshotUploader
-              label="Headshot (for infobox)"
-              image={headshot[0] ?? ""}
-              onChange={(url) => setHeadshot(url ? [url] : [])}
-              disabled={busy}
-            />
-            <div className="mt-8">
-              <ScreenshotUploader
-                label="Social profile screenshots"
-                multiple
-                images={screenshots}
-                onChange={setScreenshots}
-              />
-            </div>
-            {screenshots.length > 0 && (
-              <LoadingButton
-                className="btn-secondary mt-4"
-                loading={busy}
-                loadingLabel="Extracting…"
-                onClick={() => void extractScreenshots()}
+              <HeadshotUploader
+                label="Headshot (for infobox)"
+                image={headshot[0] ?? ""}
+                subjectName={intake.fullName || intake.articleTitle}
+                onChange={(url) => setHeadshot(url ? [url] : [])}
                 disabled={busy}
-              >
-                Preview extract facts
-              </LoadingButton>
-            )}
-            <div className="intake-mobile-actions static mt-8 !bg-transparent">
-              <div className="flex gap-3 w-full">
-                <button
-                  type="button"
-                  className="btn-secondary intake-mobile-btn flex-1"
-                  onClick={() => setStep(1)}
-                  disabled={busy}
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  className="btn-primary intake-mobile-btn flex-1"
-                  onClick={() => setStep(3)}
-                  disabled={busy}
-                >
-                  Continue
-                </button>
+              />
+              <div className="mt-8">
+                <ScreenshotUploader
+                  label="Social profile screenshots"
+                  multiple
+                  images={screenshots}
+                  onChange={setScreenshots}
+                />
               </div>
-            </div>
+              {screenshots.length > 0 && (
+                <LoadingButton
+                  className="btn-secondary mt-4"
+                  loading={busy}
+                  loadingLabel="Extracting…"
+                  onClick={() => void extractScreenshots()}
+                  disabled={busy}
+                >
+                  Preview extract facts
+                </LoadingButton>
+              )}
+              <div className="intake-mobile-actions static mt-8 !bg-transparent">
+                <div className="flex gap-3 w-full">
+                  <button
+                    type="button"
+                    className="btn-secondary intake-mobile-btn flex-1"
+                    onClick={() => setStep(1)}
+                    disabled={busy}
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary intake-mobile-btn flex-1"
+                    onClick={() => setStep(3)}
+                    disabled={busy}
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
             </fieldset>
           </section>
         )}
@@ -331,9 +388,26 @@ function GenerateFlow() {
         )}
 
         {error && !busy && (
-          <p className="mt-4 text-red-600 text-sm" role="alert">
-            {error}
-          </p>
+          <div className="generate-error-banner mt-4" role="alert">
+            <p className="generate-error-text">{error}</p>
+            {hasUploads && (
+              <p className="generate-error-hint">
+                Your headshot and screenshots are still loaded — fix the issue and try again.
+              </p>
+            )}
+            {step === 3 && (
+              <button
+                type="button"
+                className="btn-primary mt-3"
+                onClick={() => {
+                  setError("");
+                  void generate();
+                }}
+              >
+                Retry generation
+              </button>
+            )}
+          </div>
         )}
 
         {saved.length > 0 && (

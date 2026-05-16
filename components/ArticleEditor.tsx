@@ -9,7 +9,7 @@ import type {
   SavedArticle,
 } from "@/types/article";
 import { WikiArticlePage } from "@/components/WikiArticlePage";
-import { ExportControls } from "@/components/ExportControls";
+import { ArticleToolbar } from "@/components/ArticleToolbar";
 import { IntakeForm } from "@/components/IntakeForm";
 import { LoadingButton } from "@/components/LoadingButton";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
@@ -155,64 +155,20 @@ export function ArticleEditor({
         />
       )}
 
-      <div
-        className={`article-toolbar no-print sticky top-0 z-50 bg-white/95 border-b border-slate-200 px-4 py-2 flex flex-wrap gap-2 items-center ${busy ? "opacity-60" : ""}`}
-      >
-        <a
-          href="/"
-          className={`text-sm text-blue-600 ${busy ? "pointer-events-none" : ""}`}
-          aria-disabled={busy}
-        >
-          WikiMe
-        </a>
-        <button
-          type="button"
-          className="btn-secondary text-sm"
-          onClick={() => setEditing(!editing)}
-          disabled={busy}
-        >
-          {editing ? "Preview" : "Edit"}
-        </button>
-        <button
-          type="button"
-          className="btn-secondary text-sm"
-          onClick={() => setShowIntake(!showIntake)}
-          disabled={busy}
-        >
-          Intake
-        </button>
-        <LoadingButton
-          className="btn-secondary text-sm"
-          loading={busy}
-          loadingLabel="Regenerating…"
-          onClick={regenerateAll}
-          disabled={busy}
-        >
-          Regenerate all
-        </LoadingButton>
-        <select
-          className="text-sm border rounded px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-          value={intakeState.mode}
-          disabled={busy}
-          onChange={(e) =>
-            setIntakeState({
-              ...intakeState,
-              mode: e.target.value as IntakeData["mode"],
-            })
-          }
-        >
-          <option value="realism">Realism</option>
-          <option value="creative">Creative</option>
-        </select>
-        <button
-          type="button"
-          className="btn-secondary text-sm"
-          onClick={persistLocal}
-          disabled={busy}
-        >
-          Save locally
-        </button>
-      </div>
+      <ArticleToolbar
+        editing={editing}
+        onToggleEdit={() => setEditing(!editing)}
+        showIntake={showIntake}
+        onToggleIntake={() => setShowIntake(!showIntake)}
+        busy={busy}
+        onRegenerateAll={regenerateAll}
+        intakeMode={intakeState.mode}
+        onModeChange={(mode) => setIntakeState({ ...intakeState, mode })}
+        onSaveLocal={persistLocal}
+        article={article}
+        saved={saved}
+        onSaveToServer={saveToServer}
+      />
 
       {showIntake && (
         <div
@@ -241,14 +197,6 @@ export function ArticleEditor({
           </a>
         </div>
       )}
-
-      <ExportControls
-        article={article}
-        saved={saved}
-        printTargetId="wiki-article-print"
-        onSave={saveToServer}
-        disabled={busy}
-      />
 
       {editing && (
         <div

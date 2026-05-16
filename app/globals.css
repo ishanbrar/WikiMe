@@ -491,12 +491,16 @@ body {
   object-fit: contain;
 }
 
-.wiki-lead p:first-child::first-letter {
+.wiki-lead-teaser p:first-child::first-letter {
   float: left;
   font-size: 3.2em;
   line-height: 0.85;
   padding-right: 0.08em;
   font-weight: 400;
+}
+
+.wiki-sections-flow {
+  clear: both;
 }
 
 .wiki-section {
@@ -550,38 +554,96 @@ body {
   font-size: 0.8125rem;
 }
 
-/* ≥641px: keep floats so lead text wraps beside infobox (Wikipedia tablet/desktop) */
+/* Mobile: Wikipedia order — short lead → infobox → rest of lead → contents → sections */
 @media (max-width: 640px) {
-  .wiki-toc-float {
+  .wiki-body {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "teaser"
+      "infobox"
+      "leadrest"
+      "toc"
+      "sections";
+  }
+
+  .wiki-body::after {
+    display: none;
+  }
+
+  .wiki-lead-teaser {
+    grid-area: teaser;
+    margin: 0 0 0.75rem;
+  }
+
+  .wiki-lead-rest {
+    grid-area: leadrest;
+    margin: 0 0 0.75rem;
+  }
+
+  .wiki-infobox-float {
+    grid-area: infobox;
     float: none;
-    clear: both;
+    clear: none;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 0 1rem;
+  }
+
+  .wiki-infobox-float .wiki-infobox {
+    font-size: 0.875rem;
+  }
+
+  .wiki-infobox-float .wiki-infobox-image {
+    width: 100%;
+    max-width: 100%;
+    max-height: none;
+    object-fit: cover;
+    object-position: center top;
+  }
+
+  .wiki-toc-float {
+    grid-area: toc;
+    float: none;
+    clear: none;
     width: 100%;
     max-width: 100%;
     margin: 0 0 0.75rem;
   }
 
-  .wiki-infobox-float {
-    float: none;
-    clear: both;
-    width: 100%;
-    max-width: 20em;
-    margin: 0 0 1em;
+  .wiki-sections-flow {
+    grid-area: sections;
   }
 
-  .wiki-infobox-float .wiki-infobox-image {
-    max-width: min(100%, 12.5em);
-    max-height: 12.5em;
+  /* Wikipedia mobile lead: no drop cap */
+  .wiki-lead-teaser p:first-child::first-letter {
+    float: none;
+    font-size: inherit;
+    line-height: inherit;
+    padding: 0;
+  }
+
+  .wiki-lead,
+  .wiki-lead-teaser,
+  .wiki-lead-rest {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+
+  .wiki-subtitle {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.875rem;
+    font-style: normal;
+    color: var(--wiki-muted);
   }
 }
 
-@media (max-width: 480px) {
-  .wiki-infobox-float {
-    max-width: 100%;
-  }
-
-  .wiki-infobox-float .wiki-infobox-image {
-    max-width: min(100%, 10em);
-    max-height: 10em;
+/* ≥641px: floats — TOC left, infobox right, lead wraps (desktop Wikipedia) */
+@media (min-width: 641px) {
+  .wiki-lead-teaser,
+  .wiki-lead-rest {
+    overflow: hidden;
   }
 }
 
@@ -1755,11 +1817,49 @@ body {
 
 .account-list-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
   gap: 1rem;
   padding: 1rem 0;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.account-list-thumb-wrap {
+  flex-shrink: 0;
+}
+
+.account-list-thumb {
+  width: 3.5rem;
+  height: 4.375rem;
+  object-fit: cover;
+  border-radius: 0.25rem;
+  border: 1px solid #e2e8f0;
+  display: block;
+}
+
+.account-list-thumb--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e2e8f0;
+  color: #475569;
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.account-list-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.account-copy-btn {
+  padding: 0.35rem 0.65rem;
 }
 
 .account-list-title {
@@ -1789,6 +1889,7 @@ body {
   flex-shrink: 0;
   text-decoration: none;
   font-size: 0.8125rem;
+  padding: 0.35rem 0.65rem;
 }
 
 .account-error {
@@ -1818,6 +1919,244 @@ body {
 .article-permalink-url {
   color: #2563eb;
   word-break: break-all;
+}
+
+/* ——— Generation progress stepper ——— */
+.generation-progress-card {
+  min-width: min(100%, 20rem);
+}
+
+.generation-steps {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem 1.25rem;
+}
+
+.generation-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.generation-step--active {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.generation-step--done {
+  color: #16a34a;
+}
+
+.generation-step-marker {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.generation-step--active .generation-step-marker {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.generation-step--done .generation-step-marker {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+
+.generation-progress-detail {
+  margin: 0 0 0.35rem;
+  font-size: 0.875rem;
+  color: #475569;
+  text-align: center;
+}
+
+.generation-progress-elapsed {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.generation-cancel {
+  display: block;
+  margin: 0.75rem auto 0;
+}
+
+/* ——— Generate error recovery ——— */
+.generate-error-banner {
+  padding: 1rem 1.25rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+}
+
+.generate-error-text {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.875rem;
+}
+
+.generate-error-hint {
+  margin: 0.5rem 0 0;
+  color: #64748b;
+  font-size: 0.8125rem;
+}
+
+/* ——— Headshot infobox preview ——— */
+.headshot-infobox-preview {
+  flex-shrink: 0;
+}
+
+.headshot-infobox-preview-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.headshot-infobox-preview-table {
+  width: 11rem;
+  border: 1px solid #a2a9b1;
+  border-collapse: collapse;
+  background: #f8f9fa;
+  font-size: 0.6875rem;
+}
+
+.headshot-infobox-preview-title {
+  font-weight: 700;
+  text-align: center;
+  padding: 0.25rem;
+  background: #eaecf0;
+  border-bottom: 1px solid #a2a9b1;
+}
+
+.headshot-infobox-preview-image-cell {
+  text-align: center;
+  padding: 0.25rem;
+}
+
+.headshot-infobox-preview-image {
+  width: 100%;
+  max-height: 8.5rem;
+  object-fit: cover;
+  display: block;
+}
+
+.headshot-infobox-preview-caption {
+  margin: 0.25rem 0 0;
+  font-size: 0.625rem;
+  color: #54595d;
+}
+
+/* ——— Article toolbar mobile overflow ——— */
+.article-toolbar-more-wrap {
+  position: relative;
+  margin-left: auto;
+}
+
+.article-toolbar-more {
+  min-width: 2.5rem;
+  padding-left: 0.65rem;
+  padding-right: 0.65rem;
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
+.article-toolbar-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 60;
+  min-width: 11rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  padding: 0.35rem 0;
+}
+
+.article-toolbar-menu button,
+.article-toolbar-menu-mode {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.85rem;
+  text-align: left;
+  font-size: 0.875rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.article-toolbar-menu button:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.article-toolbar-menu-mode {
+  padding: 0.5rem 0.85rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.article-toolbar-menu-mode select {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+@media (min-width: 768px) {
+  .article-toolbar-more-wrap {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .article-toolbar-desktop {
+    display: none !important;
+  }
+}
+
+/* ——— Homepage mobile accordion ——— */
+.home-example--mobile .home-example-header {
+  margin-bottom: 1rem;
+}
+
+.home-example-accordion-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1.25rem;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.home-example-accordion-panel {
+  margin-top: 0.75rem;
+  padding: 0 0.25rem;
+}
+
+.home-example-extracted--compact {
+  margin-top: 1rem;
 }
 
 @media print {

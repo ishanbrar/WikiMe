@@ -9,6 +9,7 @@ import { AppearancePanel } from "@/components/AppearancePanel";
 import { WikiLinkedText } from "@/components/WikiLinkedText";
 import { normalizeWikiSections } from "@/lib/wikiSections";
 import { expandLinkTermsForInfobox } from "@/lib/wikipediaLinks";
+import { splitSummaryLead } from "@/lib/splitLead";
 
 export function WikiArticlePage({
   article,
@@ -71,6 +72,36 @@ export function WikiArticlePage({
         subjectName,
       ),
     [displayArticle.properNouns, displayArticle.infobox, subjectName],
+  );
+
+  const { teaser: leadTeaser, rest: leadRest } = useMemo(() => {
+    if (editable) {
+      return { teaser: displayArticle.summaryLead, rest: [] as string[] };
+    }
+    return splitSummaryLead(displayArticle.summaryLead);
+  }, [displayArticle.summaryLead, editable]);
+
+  const renderLeadParagraph = (p: string, i: number, isFirstOverall: boolean) => (
+    <p key={isFirstOverall ? `lead-${i}` : `lead-rest-${i}`}>
+      {editable ? (
+        <textarea
+          className="wiki-edit-area w-full"
+          value={p}
+          onChange={(e) => {
+            const lead = [...displayArticle.summaryLead];
+            const idx = isFirstOverall ? i : i + leadTeaser.length;
+            lead[idx] = e.target.value;
+            onArticleChange?.({ ...article, summaryLead: lead });
+          }}
+        />
+      ) : (
+        <WikiLinkedText
+          text={p}
+          properNouns={linkTerms}
+          subjectName={subjectName}
+        />
+      )}
+    </p>
   );
 
   const updateSection = (id: string, paragraphs: string[]) => {
@@ -140,30 +171,19 @@ export function WikiArticlePage({
             />
           </div>
 
-          <div className="wiki-lead">
-            {displayArticle.summaryLead.map((p, i) => (
-              <p key={i}>
-                {editable ? (
-                  <textarea
-                    className="wiki-edit-area w-full"
-                    value={p}
-                    onChange={(e) => {
-                      const lead = [...displayArticle.summaryLead];
-                      lead[i] = e.target.value;
-                      onArticleChange?.({ ...article, summaryLead: lead });
-                    }}
-                  />
-                ) : (
-                  <WikiLinkedText
-                    text={p}
-                    properNouns={linkTerms}
-                    subjectName={subjectName}
-                  />
-                )}
-              </p>
-            ))}
-          </div>
+            {leadTeaser.length > 0 && (
+              <div className="wiki-lead wiki-lead-teaser">
+                {leadTeaser.map((p, i) => renderLeadParagraph(p, i, true))}
+              </div>
+            )}
 
+            {leadRest.length > 0 && (
+              <div className="wiki-lead wiki-lead-rest">
+                {leadRest.map((p, i) => renderLeadParagraph(p, i, false))}
+              </div>
+            )}
+
+            <div className="wiki-sections-flow">
           {displayArticle.sections.map((section) => (
             <section key={section.id} id={section.id} className="wiki-section">
               <h2 className="wiki-section-title">
@@ -265,6 +285,7 @@ export function WikiArticlePage({
               </ul>
             </section>
           )}
+            </div>
           </div>
         </main>
 
