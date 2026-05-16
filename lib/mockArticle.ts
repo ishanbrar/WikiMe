@@ -70,6 +70,16 @@ export function buildMockArticle(
             ? `${name} has worked as ${intake.currentRole}${intake.occupation ? ` in the field of ${intake.occupation}` : ""}.`
             : `${name}'s professional activities relate to ${intake.occupation || "their stated occupation"}.`,
         ],
+        ...(isCreative
+          ? {
+              quotes: [
+                {
+                  text: `Observers have described ${name} as unusually deliberate under pressure — "the kind of person who treats every setback like a design problem."`,
+                  attribution: "Profile editor, fictional industry weekly",
+                },
+              ],
+            }
+          : {}),
       },
       ...(intake.notableProjects
         ? [

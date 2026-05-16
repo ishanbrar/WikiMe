@@ -79,10 +79,18 @@ export interface ArticleSubsection {
   paragraphs: string[];
 }
 
+/** Wikipedia-style blockquote attributed to a third party (creative mode). */
+export interface ArticleQuote {
+  text: string;
+  attribution: string;
+}
+
 export interface ArticleSection {
   id: string;
   title: string;
   paragraphs: string[];
+  /** Attributed quotes about the subject, placed in this section. */
+  quotes?: ArticleQuote[];
   /** Specific in-section headings (Wikipedia h3-style); TOC uses only generic `title`. */
   subsections?: ArticleSubsection[];
 }

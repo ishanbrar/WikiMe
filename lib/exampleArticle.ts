@@ -80,6 +80,12 @@ export function getExampleArticle(): SavedArticle {
             "After internships at two Bay Area startups, Chen co-founded Lumen Labs in 2019 to build observability tooling for edge deployments. The company raised a Series A in 2022 and expanded into enterprise contracts the following year.",
             "Industry commentators have linked Chen's product philosophy—\"defaults that teach you the system\"—to OpenGrid's documentation-first culture and to WikiMe's minimalist intake flow.",
           ],
+          quotes: [
+            {
+              text: "Chen has a rare ability to make complex infrastructure feel legible to everyone in the room — not by simplifying the truth, but by teaching people how to read it.",
+              attribution: "Rebecca Ortiz, The San Francisco Chronicle",
+            },
+          ],
         },
       ],
       seeAlso: ["Women in technology", "Stanford University alumni"],

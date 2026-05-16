@@ -139,7 +139,7 @@ export function MobileIntakeWizard({
       ) : (
         <form
           ref={formRef}
-          className="intake-slide-form"
+          className={`intake-slide-form${value.mode === "creative" ? " intake-form--creative" : ""}`}
           autoComplete="on"
           onSubmit={(e) => {
             e.preventDefault();

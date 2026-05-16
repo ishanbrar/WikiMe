@@ -65,7 +65,9 @@ export async function generateText(
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3003",
+        "HTTP-Referer":
+          process.env.NEXT_PUBLIC_APP_URL ??
+          (process.env.VERCEL === "1" ? "https://wikime.online" : "http://localhost:3003"),
         "X-Title": "WikiMe",
       },
       body: JSON.stringify({
@@ -131,7 +133,9 @@ export async function generateVision(
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3003",
+        "HTTP-Referer":
+          process.env.NEXT_PUBLIC_APP_URL ??
+          (process.env.VERCEL === "1" ? "https://wikime.online" : "http://localhost:3003"),
         "X-Title": "WikiMe",
       },
       body: JSON.stringify({

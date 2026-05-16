@@ -10,6 +10,7 @@ import { WikiLinkedText } from "@/components/WikiLinkedText";
 import { normalizeWikiSections } from "@/lib/wikiSections";
 import { expandLinkTermsForInfobox } from "@/lib/wikipediaLinks";
 import { splitSummaryLead } from "@/lib/splitLead";
+import { wikiTitleFont } from "@/lib/wikiFonts";
 
 export function WikiArticlePage({
   article,
@@ -82,7 +83,7 @@ export function WikiArticlePage({
   }, [displayArticle.summaryLead, editable]);
 
   const renderLeadParagraph = (p: string, i: number, isFirstOverall: boolean) => (
-    <p key={isFirstOverall ? `lead-${i}` : `lead-rest-${i}`}>
+    <p key={isFirstOverall ? `lead-${i}` : `lead-rest-${i}`} className="wiki-paragraph">
       {editable ? (
         <textarea
           className="wiki-edit-area w-full"
@@ -119,26 +120,31 @@ export function WikiArticlePage({
       id={printId}
       className={`wiki-page ${themeClass} ${sizeClass} ${widthClass}`}
     >
-      <div className="wiki-article-header">
-        <h1 className="wiki-title">{displayArticle.title}</h1>
-        {displayArticle.subtitle && (
-          <p className="wiki-subtitle">{displayArticle.subtitle}</p>
-        )}
-        <nav className="wiki-tabs" aria-label="Page tabs">
-          {["Article", "Talk", "Read", "Edit", "View history", "Tools"].map(
-            (tab, i) => (
-              <span
-                key={tab}
-                className={i === 0 ? "wiki-tab wiki-tab-active" : "wiki-tab"}
-              >
-                {tab}
-              </span>
-            ),
+      <div className="wiki-page-inner">
+        <header className="wiki-article-header">
+          <h1 className={`wiki-title ${wikiTitleFont.className}`}>
+            {displayArticle.title}
+          </h1>
+          <p className="wiki-tagline">From WikiMe, the free encyclopedia</p>
+          {displayArticle.subtitle && (
+            <p className="wiki-shortdesc">{displayArticle.subtitle}</p>
           )}
-        </nav>
-      </div>
+          <nav className="wiki-tabs" aria-label="Page tabs">
+            <div className="wiki-tabs-left">
+              <span className="wiki-tab wiki-tab-active">Article</span>
+              <span className="wiki-tab">Talk</span>
+            </div>
+            <div className="wiki-tabs-right">
+              {["Read", "Edit", "View history", "Tools"].map((tab, i) => (
+                <span key={tab} className={i === 0 ? "wiki-tab wiki-tab-active" : "wiki-tab"}>
+                  {tab}
+                </span>
+              ))}
+            </div>
+          </nav>
+        </header>
 
-      <div className="wiki-layout">
+        <div className="wiki-layout">
         <main className="wiki-main">
           <div className="wiki-body">
             <div className="wiki-toc-float">
@@ -178,32 +184,76 @@ export function WikiArticlePage({
             <div className="wiki-sections-flow">
           {displayArticle.sections.map((section) => (
             <section key={section.id} id={section.id} className="wiki-section">
-              <h2 className="wiki-section-title">{section.title}</h2>
+              <h2 className={`wiki-section-title ${wikiTitleFont.className}`}>
+                <span className="mw-headline">{section.title}</span>
+                <span className="wiki-editsection" aria-hidden>
+                  [ edit ]
+                </span>
+              </h2>
+              {!section.paragraphs.length &&
+                section.quotes?.map((quote, qi) => (
+                  <blockquote
+                    key={qi}
+                    className="wiki-blockquote"
+                    cite={quote.attribution}
+                  >
+                    <p>
+                      <WikiLinkedText
+                        text={quote.text}
+                        properNouns={linkTerms}
+                        subjectName={subjectName}
+                      />
+                    </p>
+                    <footer>— {quote.attribution}</footer>
+                  </blockquote>
+                ))}
               {section.paragraphs.map((para, pi) => (
-                <p key={pi} className="wiki-paragraph">
-                  {editable ? (
-                    <textarea
-                      className="wiki-edit-area w-full"
-                      value={para}
-                      onChange={(e) => {
-                        const paragraphs = [...section.paragraphs];
-                        paragraphs[pi] = e.target.value;
-                        updateSection(section.id, paragraphs);
-                      }}
-                    />
-                  ) : (
-                    <WikiLinkedText
-                      text={para}
-                      properNouns={linkTerms}
-                      subjectName={subjectName}
-                    />
-                  )}
-                </p>
+                <div key={pi}>
+                  <p className="wiki-paragraph">
+                    {editable ? (
+                      <textarea
+                        className="wiki-edit-area w-full"
+                        value={para}
+                        onChange={(e) => {
+                          const paragraphs = [...section.paragraphs];
+                          paragraphs[pi] = e.target.value;
+                          updateSection(section.id, paragraphs);
+                        }}
+                      />
+                    ) : (
+                      <WikiLinkedText
+                        text={para}
+                        properNouns={linkTerms}
+                        subjectName={subjectName}
+                      />
+                    )}
+                  </p>
+                  {pi === 0 &&
+                    section.quotes?.map((quote, qi) => (
+                      <blockquote
+                        key={qi}
+                        className="wiki-blockquote"
+                        cite={quote.attribution}
+                      >
+                        <p>
+                          <WikiLinkedText
+                            text={quote.text}
+                            properNouns={linkTerms}
+                            subjectName={subjectName}
+                          />
+                        </p>
+                        <footer>— {quote.attribution}</footer>
+                      </blockquote>
+                    ))}
+                </div>
               ))}
               {section.subsections?.map((sub, si) => (
                 <div key={`${section.id}-sub-${si}`} className="wiki-subsection">
                   <h3 className="wiki-subsection-title">
-                    <span className="wiki-subsection-heading">{sub.title}</span>
+                    <span className="mw-headline">{sub.title}</span>
+                    <span className="wiki-editsection" aria-hidden>
+                      [ edit ]
+                    </span>
                   </h3>
                   {sub.paragraphs.map((para, pi) => (
                     <p key={pi} className="wiki-paragraph">
@@ -221,7 +271,7 @@ export function WikiArticlePage({
 
           {article.seeAlso.length > 0 && (
             <section id="see-also" className="wiki-section">
-              <h2 className="wiki-section-title">See also</h2>
+              <h2 className={`wiki-section-title ${wikiTitleFont.className}`}>See also</h2>
               <ul>
                 {article.seeAlso.map((item, i) => (
                   <li key={i}>
@@ -238,7 +288,7 @@ export function WikiArticlePage({
 
           {article.references.length > 0 && (
             <section id="references" className="wiki-section">
-              <h2 className="wiki-section-title">References</h2>
+              <h2 className={`wiki-section-title ${wikiTitleFont.className}`}>References</h2>
               <ol className="wiki-references">
                 {article.references.map((ref) => (
                   <li key={ref.label} id={`ref-${ref.label}`}>
@@ -258,7 +308,7 @@ export function WikiArticlePage({
 
           {article.externalLinks.length > 0 && (
             <section id="external-links" className="wiki-section">
-              <h2 className="wiki-section-title">External links</h2>
+              <h2 className={`wiki-section-title ${wikiTitleFont.className}`}>External links</h2>
               <ul>
                 {article.externalLinks.map((link, i) => (
                   <li key={i}>
@@ -287,6 +337,7 @@ export function WikiArticlePage({
             onToggle={() => setAppearanceHidden(!appearanceHidden)}
           />
         </aside>
+        </div>
       </div>
     </div>
   );

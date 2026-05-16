@@ -25,23 +25,34 @@ export function ModeSelector({
   ];
 
   return (
-    <div className="grid md:grid-cols-2 gap-4">
-      {cards.map((c) => (
-        <button
-          key={c.mode}
-          type="button"
-          disabled={readOnly}
-          onClick={() => !readOnly && onChange(c.mode)}
-          className={`text-left p-5 rounded-xl border-2 transition ${
-            value === c.mode
-              ? "border-blue-600 bg-blue-50"
-              : "border-slate-200 bg-white hover:border-slate-300"
-          } ${readOnly ? "cursor-default" : "cursor-pointer"}`}
-        >
-          <h3 className="font-semibold text-slate-900">{c.title}</h3>
-          <p className="mt-2 text-sm text-slate-600">{c.desc}</p>
-        </button>
-      ))}
+    <div className="grid md:grid-cols-2 gap-4" role="group" aria-label="Article mode">
+      {cards.map((c) => {
+        const selected = value === c.mode;
+        const dimmed = !readOnly && !selected;
+        const isCreative = c.mode === "creative";
+
+        return (
+          <button
+            key={c.mode}
+            type="button"
+            disabled={readOnly}
+            aria-pressed={selected}
+            onClick={() => !readOnly && onChange(c.mode)}
+            className={[
+              "mode-card text-left p-5 rounded-xl border-2 transition-all duration-200",
+              isCreative ? "mode-card--creative" : "mode-card--realism",
+              selected ? "mode-card--selected" : "",
+              dimmed ? "mode-card--dimmed" : "",
+              readOnly ? "cursor-default" : "cursor-pointer",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            <h3 className="font-semibold">{c.title}</h3>
+            <p className="mt-2 text-sm mode-card-desc">{c.desc}</p>
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { getClientAppBaseUrl } from "@/lib/appUrl";
 import type { SavedArticle } from "@/types/article";
 
 export type SaveArticleResult =
@@ -29,11 +30,7 @@ export async function saveArticleToServer(
       return { ok: false, error: data.error ?? "Could not save article" };
     }
     const slug = data.slug!;
-    const url =
-      data.url ??
-      (typeof window !== "undefined"
-        ? `${window.location.origin}/a/${slug}`
-        : `/a/${slug}`);
+    const url = data.url ?? `${getClientAppBaseUrl()}/a/${slug}`;
     return { ok: true, slug, url };
   } catch {
     return { ok: false, error: "Network error while saving" };

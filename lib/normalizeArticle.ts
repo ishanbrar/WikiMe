@@ -22,6 +22,7 @@ export function articleWordCount(article: ArticleJson): number {
     ...article.summaryLead,
     ...article.sections.flatMap((s) => [
       ...s.paragraphs,
+      ...(s.quotes?.flatMap((q) => [q.text, q.attribution]) ?? []),
       ...(s.subsections?.flatMap((sub) => sub.paragraphs) ?? []),
     ]),
   ].join(" ");

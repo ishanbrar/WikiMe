@@ -1,4 +1,4 @@
-import type { ArticleSection, ArticleSubsection } from "@/types/article";
+import type { ArticleQuote, ArticleSection, ArticleSubsection } from "@/types/article";
 
 /** Standard biography TOC entries (Wikipedia-style generic titles). */
 export const WIKI_SECTION_CATALOG: { id: string; title: string }[] = [
@@ -227,6 +227,20 @@ export function normalizeSectionId(rawId: string, rawTitle?: string): string {
   return slug || "career";
 }
 
+function parseQuotes(raw: unknown): ArticleQuote[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((q) => {
+      const o = q as Record<string, unknown>;
+      const text = typeof o.text === "string" ? o.text.trim() : "";
+      const attribution =
+        typeof o.attribution === "string" ? o.attribution.trim() : "";
+      if (!text || !attribution) return null;
+      return { text, attribution };
+    })
+    .filter((q): q is ArticleQuote => q !== null);
+}
+
 function parseSubsections(raw: unknown): ArticleSubsection[] {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -245,10 +259,12 @@ function parseSubsections(raw: unknown): ArticleSubsection[] {
 }
 
 function mergeSections(a: ArticleSection, b: ArticleSection): ArticleSection {
+  const quotes = [...(a.quotes ?? []), ...(b.quotes ?? [])];
   return {
     id: a.id,
     title: a.title,
     paragraphs: [...a.paragraphs, ...b.paragraphs],
+    quotes: quotes.length ? quotes : undefined,
     subsections: [...(a.subsections ?? []), ...(b.subsections ?? [])],
   };
 }
@@ -262,15 +278,17 @@ export function normalizeWikiSections(sections: ArticleSection[]): ArticleSectio
     const title = WIKI_SECTION_TITLES[id] ?? "Career";
     const paragraphs = sec.paragraphs.filter(Boolean);
     const subsections = sec.subsections ?? [];
+    const quotes = sec.quotes?.length ? sec.quotes : undefined;
 
     const next: ArticleSection = {
       id,
       title,
       paragraphs,
+      quotes,
       subsections: subsections.length ? subsections : undefined,
     };
 
-    if (!paragraphs.length && !subsections.length) continue;
+    if (!paragraphs.length && !subsections.length && !quotes?.length) continue;
 
     const existing = byId.get(id);
     if (existing) {
@@ -297,13 +315,15 @@ export function parseSectionFromRaw(raw: Record<string, unknown>): ArticleSectio
       )
     : [];
   const subsections = parseSubsections(raw.subsections);
+  const quotes = parseQuotes(raw.quotes);
 
-  if (!paragraphs.length && !subsections.length) return null;
+  if (!paragraphs.length && !subsections.length && !quotes.length) return null;
 
   return {
     id,
     title,
     paragraphs,
+    quotes: quotes.length ? quotes : undefined,
     subsections: subsections.length ? subsections : undefined,
   };
 }

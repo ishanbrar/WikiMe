@@ -74,9 +74,15 @@ SAFETY: No defamation of real living people beyond the subject's fictional legen
 FORBIDDEN PHRASES: Never use: ${brief.avoidGenericPhrases.map((p) => `"${p}"`).join(", ")}.`;
 }
 
+const CREATIVE_QUOTES_RULE = `ATTRIBUTED QUOTES (required in creative mode):
+- Include exactly 1–2 blockquotes total across the article — like real Wikipedia biographies (journalists, rivals, colleagues, critics commenting on the subject).
+- Place each in the most relevant section via optional quotes: [{text, attribution}].
+- attribution format: "Speaker Name, Publication" or "Speaker Name, role, in interview with Outlet" — invent plausible speakers and outlets; keep tone encyclopedic.
+- Quote text is 1–3 sentences; do not put quotes in summaryLead or infobox.`;
+
 const ARTICLE_SCHEMA = `Return ONLY valid JSON (no markdown) with keys:
 title, subtitle, summaryLead (string[]), infobox {name, imageUrl, caption, titles[], born, died, hometown, currentLocation, education, occupation, yearsActive, knownFor[], notableWorks[], awards[], allegiance[{name,flag}], branch[{name,flag}], socialLinks[{label,url}]},
-sections[{id,title,paragraphs[],subsections?:[{title,paragraphs[]}]}],
+sections[{id,title,paragraphs[],quotes?:[{text,attribution}],subsections?:[{title,paragraphs[]}]}],
 seeAlso[], references[{label,title,url,type}], externalLinks[{label,url}], properNouns[] — ONLY real Wikipedia article titles for entities (e.g. "United States Army", "Medal of Honor", "West Point", "Lahore"). No generic words, no the subject's name, no fictional places, no made-up articles.
 
 ${INFOBOX_RULES}
@@ -97,7 +103,7 @@ async function callCreativeGenerator(
   attempt: number,
 ): Promise<ArticleJson> {
   const lengthHint = creativeLengthHint(intake.articleLength);
-  const system = `You are a virtuoso biographer writing Wikipedia-shaped JSON. ${creativeRules(brief)} ${lengthHint} ${ARTICLE_SCHEMA}`;
+  const system = `You are a virtuoso biographer writing Wikipedia-shaped JSON. ${creativeRules(brief)} ${CREATIVE_QUOTES_RULE} ${lengthHint} ${ARTICLE_SCHEMA}`;
   const user = `Generate a CREATIVE MODE article (attempt ${attempt}).
 tone=${intake.tone}
 NARRATIVE_BRIEF (follow strictly):
@@ -183,9 +189,9 @@ export async function regenerateSection(
   const modeRules = isCreative
     ? creativeRules(brief!)
     : realismRules();
-  const system = `Regenerate ONE Wikipedia section as JSON: {id, title, paragraphs[], subsections:[{title,paragraphs[]}]}. ${
+  const system = `Regenerate ONE Wikipedia section as JSON: {id, title, paragraphs[], quotes?:[{text,attribution}], subsections:[{title,paragraphs[]}]}. ${
     isCreative
-      ? `${modeRules} Seed: ${brief!.seed}.`
+      ? `${modeRules} ${CREATIVE_QUOTES_RULE} Seed: ${brief!.seed}.`
       : modeRules
   } ${WIKI_SECTION_STRUCTURE_RULES}`;
   const user = `Section id: ${sectionId}. Keep the generic Wikipedia section title for this id (do not use a narrative title). Existing: ${existing?.title ?? sectionId}. Article context: ${JSON.stringify({ title: currentArticle.title, intake: intake.fullName, facts, brief })}. Headshot: ${headshotUrl}`;

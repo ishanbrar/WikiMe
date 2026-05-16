@@ -31,10 +31,7 @@ export function IntakeFlow({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900 mb-2">About you</h1>
-      <p className="text-slate-600 text-sm mb-6">
-        Your browser can autofill name, city, and work details from saved info.
-      </p>
+      <h1 className="text-2xl font-bold text-slate-900 mb-6">About you</h1>
       <form autoComplete="on" onSubmit={(e) => e.preventDefault()}>
         <fieldset disabled={disabled} className="border-0 p-0 m-0 min-w-0">
           <IntakeForm value={value} onChange={onChange} />

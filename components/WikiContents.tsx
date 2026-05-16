@@ -13,7 +13,7 @@ export function WikiContents({
 }) {
   if (hidden) {
     return (
-      <div className="wiki-contents">
+      <div id="toc" className="wiki-contents wiki-contents--collapsed">
         <button type="button" className="wiki-contents-toggle" onClick={onToggle}>
           show
         </button>
@@ -24,9 +24,9 @@ export function WikiContents({
   return (
     <div id="toc" className="wiki-contents">
       <div className="wiki-contents-header">
-        <span className="font-bold">Contents</span>
+        <span className="wiki-contents-title">Contents</span>
         <button type="button" className="wiki-contents-toggle" onClick={onToggle}>
-          hide
+          [hide]
         </button>
       </div>
       <ol className="wiki-contents-list">

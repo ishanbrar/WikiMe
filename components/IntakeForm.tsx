@@ -100,8 +100,12 @@ export function IntakeForm({
     </label>
   );
 
+  const creativeActive = value.mode === "creative";
+
   return (
-    <div className="space-y-6">
+    <div
+      className={`space-y-6 intake-form${creativeActive ? " intake-form--creative" : ""}`}
+    >
       <ModeSelector value={value.mode} onChange={(m) => set("mode", m)} />
 
       <div className="grid md:grid-cols-2 gap-4">

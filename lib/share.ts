@@ -1,3 +1,4 @@
+import { getClientAppBaseUrl } from "@/lib/appUrl";
 import type { SavedArticle } from "@/types/article";
 
 const MAX_ENCODED_LENGTH = 12000;
@@ -44,11 +45,11 @@ export function decodeArticleFromUrl(encoded: string): {
 }
 
 export function buildShareUrl(slug: string, origin?: string): string {
-  const base = origin ?? (typeof window !== "undefined" ? window.location.origin : "");
+  const base = origin ?? getClientAppBaseUrl();
   return `${base}/a/${slug}`;
 }
 
 export function buildEncodedShareUrl(encoded: string, origin?: string): string {
-  const base = origin ?? (typeof window !== "undefined" ? window.location.origin : "");
+  const base = origin ?? getClientAppBaseUrl();
   return `${base}/a/share?d=${encoded}`;
 }
