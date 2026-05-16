@@ -6,7 +6,9 @@ import Link from "next/link";
 import { createDefaultIntake } from "@/components/IntakeForm";
 import { IntakeFlow } from "@/components/intake/IntakeFlow";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { HeadshotUploader } from "@/components/HeadshotUploader";
 import { ScreenshotUploader } from "@/components/ScreenshotUploader";
+import { prepareArticleForDb } from "@/lib/prepareArticleForDb";
 import type { ExtractedProfileFacts, IntakeData } from "@/types/article";
 import {
   cacheExtractedFacts,
@@ -195,7 +197,7 @@ function GenerateFlow() {
       }
 
       setLoadingMessage("Saving your article link…");
-      const saved = await saveArticleToServer({
+      const toSave = prepareArticleForDb({
         id: articleId,
         slug: articleSlug,
         articleJson: article,
@@ -206,6 +208,7 @@ function GenerateFlow() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+      const saved = await saveArticleToServer(toSave);
 
       if (!saved.ok) {
         throw new Error(saved.error);
@@ -231,17 +234,9 @@ function GenerateFlow() {
           subMessage="This may take a minute."
         />
       )}
-      <header className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center safe-top">
-        <Link
-          href="/"
-          className={`font-bold text-slate-900 ${busy ? "pointer-events-none opacity-50" : ""}`}
-          tabIndex={busy ? -1 : 0}
-          aria-disabled={busy}
-        >
-          WikiMe
-        </Link>
-        <span className="text-sm text-slate-500">Step {step} of 3</span>
-      </header>
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-4 pb-1 safe-top">
+        <p className="text-sm text-slate-500 text-right">Step {step} of 3</p>
+      </div>
 
       <main className={`max-w-3xl mx-auto px-6 pb-16 ${busy ? "ui-busy" : ""}`}>
         {step === 1 && (
@@ -259,11 +254,11 @@ function GenerateFlow() {
           <section className="pb-24">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 mb-6">Uploads</h1>
             <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0">
-            <ScreenshotUploader
+            <HeadshotUploader
               label="Headshot (for infobox)"
-              variant="headshot"
-              images={headshot}
-              onChange={setHeadshot}
+              image={headshot[0] ?? ""}
+              onChange={(url) => setHeadshot(url ? [url] : [])}
+              disabled={busy}
             />
             <div className="mt-8">
               <ScreenshotUploader

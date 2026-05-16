@@ -7,6 +7,7 @@ import { ArticleEditor } from "@/components/ArticleEditor";
 import type { ArticleJson, ExtractedProfileFacts, IntakeData, SavedArticle } from "@/types/article";
 import { getArticleById } from "@/lib/storage";
 import { emptyExtractedFacts } from "@/lib/extractProfileFacts";
+import { applyHeadshotToArticle } from "@/lib/headshotForArticle";
 
 function ArticleView() {
   const searchParams = useSearchParams();
@@ -34,7 +35,10 @@ function ArticleView() {
             const data = (await res.json()) as { article: SavedArticle };
             if (!cancelled) {
               setPayload({
-                article: data.article.articleJson,
+                article: applyHeadshotToArticle(
+                  data.article.articleJson,
+                  data.article.headshotDataUrl,
+                ),
                 intake: data.article.intake,
                 headshotDataUrl: data.article.headshotDataUrl,
                 facts: data.article.extractedFacts ?? emptyExtractedFacts(),
@@ -55,7 +59,7 @@ function ArticleView() {
         const saved = getArticleById(id);
         if (saved) {
           setPayload({
-            article: saved.articleJson,
+            article: applyHeadshotToArticle(saved.articleJson, saved.headshotDataUrl),
             intake: saved.intake,
             headshotDataUrl: saved.headshotDataUrl,
             facts: saved.extractedFacts,

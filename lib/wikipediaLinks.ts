@@ -1,4 +1,5 @@
 import type { ArticleInfobox } from "@/types/article";
+import { extractPlaceFromBornLine } from "@/lib/infoboxHelpers";
 
 const MAX_LINKS_PER_TERM = 2;
 
@@ -27,6 +28,8 @@ const WIKI_TITLE_ALIASES: Record<string, string> = {
   "u.s.": "United States",
   uk: "United Kingdom",
   nyc: "New York City",
+  "new york": "New York City",
+  "new york city": "New York City",
   la: "Los Angeles",
   dc: "Washington, D.C.",
   un: "United Nations",
@@ -173,11 +176,44 @@ export function splitWikiLinks(
   return [{ type: "text", value: stripWikiMarkers(text) }];
 }
 
-/** @deprecated Infobox uses properNouns only */
+function placeLinkTermsFromField(text: string): string[] {
+  const place = extractPlaceFromBornLine(text).trim();
+  if (!place) return [];
+  const terms: string[] = [place];
+  const parts = place
+    .split(",")
+    .map((p) => p.trim())
+    .filter((p) => p.length > 2 && !/^u\.s\.?$/i.test(p));
+  if (parts.length >= 2) {
+    terms.push(`${parts[0]}, ${parts[1]}`);
+  }
+  for (const p of parts) {
+    terms.push(p);
+    const alias = WIKI_TITLE_ALIASES[p.toLowerCase()];
+    if (alias) terms.push(alias);
+  }
+  const lower = place.toLowerCase();
+  if (lower.includes("new york")) {
+    terms.push("New York City", "New York");
+  }
+  if (lower.includes("san francisco")) terms.push("San Francisco");
+  if (lower.includes("los angeles")) terms.push("Los Angeles");
+  if (lower.includes("dallas")) terms.push("Dallas", "Texas");
+  return terms;
+}
+
+/** Merge model proper nouns with infobox places so locations link consistently. */
 export function expandLinkTermsForInfobox(
   properNouns: string[],
-  _infobox: ArticleInfobox,
+  infobox: ArticleInfobox,
   subjectName: string,
 ): string[] {
-  return getLinkableTerms(properNouns, subjectName);
+  const extra: string[] = [
+    ...placeLinkTermsFromField(infobox.born),
+    ...placeLinkTermsFromField(infobox.hometown),
+    ...placeLinkTermsFromField(infobox.currentLocation),
+    ...placeLinkTermsFromField(infobox.education),
+    ...placeLinkTermsFromField(infobox.died ?? ""),
+  ];
+  return getLinkableTerms([...properNouns, ...extra], subjectName);
 }

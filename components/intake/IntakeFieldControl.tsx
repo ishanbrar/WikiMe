@@ -2,6 +2,7 @@
 
 import type { IntakeData } from "@/types/article";
 import type { IntakeFieldDef } from "@/lib/intakeFields";
+import { INTAKE_PLACEHOLDERS } from "@/lib/intakeFields";
 import { applyFullNameChange } from "@/lib/intakeSync";
 
 export function IntakeFieldControl({
@@ -35,7 +36,7 @@ export function IntakeFieldControl({
     autoCapitalize: "words" as const,
     autoCorrect: "on" as const,
     enterKeyHint: "next" as const,
-    placeholder: field.placeholder,
+    placeholder: field.placeholder ?? INTAKE_PLACEHOLDERS[field.key],
     className: "intake-mobile-input",
     value: val,
     onChange: (

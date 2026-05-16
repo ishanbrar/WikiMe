@@ -38,7 +38,7 @@ export function getExampleArticle(): SavedArticle {
       ],
       infobox: {
         name: "Maya Chen",
-        imageUrl: "",
+        imageUrl: "/examples/maya-chen-headshot.jpg",
         caption: "Chen in 2024",
         born: "1994, Seattle, Washington, U.S.",
         hometown: "Seattle, Washington, U.S.",

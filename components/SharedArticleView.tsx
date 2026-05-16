@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { AppearanceSettings, SavedArticle } from "@/types/article";
 import { WikiArticlePage } from "@/components/WikiArticlePage";
+import { withHeadshotOnSaved } from "@/lib/headshotForArticle";
 
 export function SharedArticleView({
   saved,
@@ -12,6 +13,7 @@ export function SharedArticleView({
   saved: SavedArticle;
   readOnly?: boolean;
 }) {
+  const display = withHeadshotOnSaved(saved);
   const [appearance, setAppearance] = useState<AppearanceSettings>({
     textSize: "standard",
     width: "standard",
@@ -35,9 +37,9 @@ export function SharedArticleView({
               sessionStorage.setItem(
                 "wikime_current",
                 JSON.stringify({
-                  article: saved.articleJson,
+                  article: display.articleJson,
                   intake: saved.intake,
-                  headshotDataUrl: saved.headshotDataUrl,
+                  headshotDataUrl: display.headshotDataUrl,
                   facts: saved.extractedFacts,
                 }),
               );
@@ -49,7 +51,7 @@ export function SharedArticleView({
         )}
       </div>
       <WikiArticlePage
-        article={saved.articleJson}
+        article={display.articleJson}
         subjectName={saved.intake.fullName}
         appearance={appearance}
         onAppearanceChange={setAppearance}

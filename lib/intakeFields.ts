@@ -26,6 +26,25 @@ export type IntakeSlide =
       subtitle?: string;
     };
 
+/** Grey hint text for empty intake fields (desktop + mobile). */
+export const INTAKE_PLACEHOLDERS: Record<IntakeFieldKey, string> = {
+  fullName: "Alex Johnson",
+  articleTitle: "Alex Johnson",
+  birthplace: "Austin, Texas",
+  currentLocation: "Brooklyn, New York",
+  education: "MIT, B.S. Computer Science",
+  occupation: "Software engineering",
+  currentRole: "Founder & CEO at Acme Inc.",
+  notableProjects: "Built X, led Y initiative, open-sourced Z…",
+  achievements: "Key wins, awards, press mentions…",
+  skills: "Design, public speaking, Python…",
+  interests: "Climbing, film, chess…",
+  lifeEvents: "Moved to NYC in 2018, founded company in 2020…",
+  extraNotes: "Anything else the article should mention…",
+  pastedProfileText:
+    "Paste your LinkedIn About section, resume summary, or bio…",
+};
+
 export interface IntakeFieldDef {
   key: IntakeFieldKey;
   label: string;
@@ -48,7 +67,7 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
       {
         key: "fullName",
         label: "Full name",
-        placeholder: "Alex Johnson",
+        placeholder: INTAKE_PLACEHOLDERS.fullName,
         required: true,
         autocomplete: "name",
         name: "name",
@@ -64,7 +83,7 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
       {
         key: "articleTitle",
         label: "Title",
-        placeholder: "Alex Johnson",
+        placeholder: INTAKE_PLACEHOLDERS.articleTitle,
         required: true,
         autocomplete: "nickname",
         name: "nickname",
@@ -80,7 +99,7 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
       {
         key: "currentLocation",
         label: "Current location",
-        placeholder: "Brooklyn, New York",
+        placeholder: INTAKE_PLACEHOLDERS.currentLocation,
         autocomplete: "address-level2",
         name: "address-level2",
       },
@@ -95,7 +114,7 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
       {
         key: "birthplace",
         label: "Birthplace / hometown",
-        placeholder: "Austin, Texas",
+        placeholder: INTAKE_PLACEHOLDERS.birthplace,
         optional: true,
         autocomplete: "birthplace",
         name: "birthplace",
@@ -110,7 +129,7 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
       {
         key: "education",
         label: "Schools, degrees",
-        placeholder: "MIT, B.S. Computer Science",
+        placeholder: INTAKE_PLACEHOLDERS.education,
         optional: true,
         autocomplete: "organization",
         name: "organization",
@@ -126,7 +145,7 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
       {
         key: "occupation",
         label: "Occupation / field",
-        placeholder: "Software engineering",
+        placeholder: INTAKE_PLACEHOLDERS.occupation,
         optional: true,
         autocomplete: "organization-title",
         name: "organization-title",
@@ -134,7 +153,7 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
       {
         key: "currentRole",
         label: "Current role",
-        placeholder: "Founder & CEO",
+        placeholder: INTAKE_PLACEHOLDERS.currentRole,
         optional: true,
         autocomplete: "organization-title",
         name: "job-title",
@@ -149,7 +168,7 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
       {
         key: "notableProjects",
         label: "Projects",
-        placeholder: "Built X, led Y initiative…",
+        placeholder: INTAKE_PLACEHOLDERS.notableProjects,
         optional: true,
         textarea: true,
         autocomplete: "off",
@@ -164,7 +183,7 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
       {
         key: "achievements",
         label: "Awards & milestones",
-        placeholder: "Key wins, awards, press…",
+        placeholder: INTAKE_PLACEHOLDERS.achievements,
         optional: true,
         textarea: true,
         autocomplete: "off",
@@ -179,7 +198,7 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
       {
         key: "lifeEvents",
         label: "Important events",
-        placeholder: "Moves, launches, turning points…",
+        placeholder: INTAKE_PLACEHOLDERS.lifeEvents,
         optional: true,
         textarea: true,
         autocomplete: "off",
@@ -194,14 +213,14 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
       {
         key: "skills",
         label: "Skills",
-        placeholder: "Design, public speaking…",
+        placeholder: INTAKE_PLACEHOLDERS.skills,
         optional: true,
         autocomplete: "off",
       },
       {
         key: "interests",
         label: "Interests",
-        placeholder: "Climbing, film, chess…",
+        placeholder: INTAKE_PLACEHOLDERS.interests,
         optional: true,
         autocomplete: "off",
       },
@@ -228,6 +247,7 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
       {
         key: "pastedProfileText",
         label: "Profile text",
+        placeholder: INTAKE_PLACEHOLDERS.pastedProfileText,
         optional: true,
         textarea: true,
         autocomplete: "off",
@@ -235,6 +255,7 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
       {
         key: "extraNotes",
         label: "Extra notes",
+        placeholder: INTAKE_PLACEHOLDERS.extraNotes,
         optional: true,
         textarea: true,
         autocomplete: "off",

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import type { ArticleJson, AppearanceSettings } from "@/types/article";
+import { useMemo, useState } from "react";
+import type { ArticleJson, AppearanceSettings, IntakeData } from "@/types/article";
+import { normalizeInfobox } from "@/lib/infoboxHelpers";
 import { WikiInfobox } from "@/components/WikiInfobox";
 import { WikiContents } from "@/components/WikiContents";
 import { AppearancePanel } from "@/components/AppearancePanel";
 import { WikiLinkedText } from "@/components/WikiLinkedText";
 import { normalizeWikiSections } from "@/lib/wikiSections";
+import { expandLinkTermsForInfobox } from "@/lib/wikipediaLinks";
 
 export function WikiArticlePage({
   article,
@@ -16,9 +18,11 @@ export function WikiArticlePage({
   appearance,
   onAppearanceChange,
   printId = "wiki-article-print",
+  intake,
 }: {
   article: ArticleJson;
   subjectName: string;
+  intake?: IntakeData;
   editable?: boolean;
   onArticleChange?: (a: ArticleJson) => void;
   appearance: AppearanceSettings;
@@ -44,10 +48,30 @@ export function WikiArticlePage({
 
   const widthClass = appearance.width === "wide" ? "wiki-width-wide" : "";
 
-  const displayArticle = {
-    ...article,
-    sections: normalizeWikiSections(article.sections),
-  };
+  const displayArticle = useMemo(() => {
+    const infobox = intake
+      ? normalizeInfobox(
+          article.infobox as unknown as Record<string, unknown>,
+          intake,
+          article.infobox.imageUrl,
+        )
+      : article.infobox;
+    return {
+      ...article,
+      infobox,
+      sections: normalizeWikiSections(article.sections),
+    };
+  }, [article, intake]);
+
+  const linkTerms = useMemo(
+    () =>
+      expandLinkTermsForInfobox(
+        displayArticle.properNouns,
+        displayArticle.infobox,
+        subjectName,
+      ),
+    [displayArticle.properNouns, displayArticle.infobox, subjectName],
+  );
 
   const updateSection = (id: string, paragraphs: string[]) => {
     if (!onArticleChange) return;
@@ -105,7 +129,7 @@ export function WikiArticlePage({
             <div className="wiki-infobox-float">
             <WikiInfobox
               infobox={displayArticle.infobox}
-              properNouns={displayArticle.properNouns}
+              properNouns={linkTerms}
               subjectName={subjectName}
               editable={editable}
               onChange={
@@ -132,7 +156,7 @@ export function WikiArticlePage({
                 ) : (
                   <WikiLinkedText
                     text={p}
-                    properNouns={displayArticle.properNouns}
+                    properNouns={linkTerms}
                     subjectName={subjectName}
                   />
                 )}
@@ -160,7 +184,7 @@ export function WikiArticlePage({
                   ) : (
                     <WikiLinkedText
                       text={para}
-                      properNouns={displayArticle.properNouns}
+                      properNouns={linkTerms}
                       subjectName={subjectName}
                     />
                   )}
@@ -175,7 +199,7 @@ export function WikiArticlePage({
                     <p key={pi} className="wiki-paragraph">
                       <WikiLinkedText
                         text={para}
-                        properNouns={displayArticle.properNouns}
+                        properNouns={linkTerms}
                         subjectName={subjectName}
                       />
                     </p>
@@ -193,7 +217,7 @@ export function WikiArticlePage({
                   <li key={i}>
                     <WikiLinkedText
                       text={item}
-                      properNouns={displayArticle.properNouns}
+                      properNouns={linkTerms}
                       subjectName={subjectName}
                     />
                   </li>

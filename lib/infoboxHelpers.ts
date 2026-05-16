@@ -4,7 +4,7 @@ export const INFOBOX_RULES = `INFOBOX (Wikipedia biography style — like Akbar)
 - titles[]: honorifics/epithets shown under the name (e.g. "Padishah", "Ghazi", "Colonel") — omit if none apply.
 - born: birth date (invented if needed) + full place: "City, Region, Country" with modern country name (e.g. "14 October 1994, Dallas, Texas, U.S."). Never only "Dallas".
 - died: death date + full place if deceased; use "" or omit if still living.
-- hometown: birthplace locality in full form if different from born line, else repeat sensible full location.
+- hometown: place only (no birth date) — e.g. "Dallas, Texas, U.S."; never repeat the full born line with date.
 - currentLocation: full "City, State/Region, Country" (e.g. "New York City, New York, U.S." not "NYC").
 - allegiance[]: { "name": "United States", "flag": "US" } — ISO 3166-1 alpha-2 code for flag icon (US, GB, IN, PK…). Use when military/political loyalty applies.
 - branch[]: optional { "name": "Unit or organization", "flag": "US" } under Military career block.
@@ -91,6 +91,41 @@ function strArr(v: unknown): string[] {
     .map((s) => s.trim());
 }
 
+/** Remove a leading birth date from a born line; returns place-only text. */
+export function extractPlaceFromBornLine(born: string): string {
+  const t = born.trim();
+  if (!t) return "";
+  const month =
+    "(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan\\.?|Feb\\.?|Mar\\.?|Apr\\.?|Jun\\.?|Jul\\.?|Aug\\.?|Sep(?:t)?\\.?|Oct\\.?|Nov\\.?|Dec\\.?)";
+  const dated = t.match(
+    new RegExp(
+      `^(?:\\d{1,2}\\s+${month}\\s+\\d{4}|c\\.?\\s*\\d{4}|\\d{4})\\s*,\\s*(.+)$`,
+      "i",
+    ),
+  );
+  if (dated) return dated[1].trim();
+  const unknown = t.match(/^unknown\s+date\s*,\s*(.+)$/i);
+  if (unknown) return unknown[1].trim();
+  if (/^(?:\d{1,2}\s+\w+|\d{4}|c\.)/i.test(t) && t.includes(",")) {
+    const after = t.indexOf(",");
+    return t.slice(after + 1).trim();
+  }
+  return t;
+}
+
+function normalizeHometown(hometownRaw: string, born: string, birthplace: string): string {
+  const bornPlace = extractPlaceFromBornLine(born);
+  let hometown = hometownRaw.trim() || birthplace.trim();
+  hometown = pickRicherPlace(hometown, bornPlace);
+  if (hometown.trim().toLowerCase() === born.trim().toLowerCase()) {
+    hometown = bornPlace;
+  }
+  if (/^(?:\d{1,2}\s+\w+|\d{4}|c\.)/i.test(hometown)) {
+    hometown = extractPlaceFromBornLine(hometown) || bornPlace;
+  }
+  return hometown;
+}
+
 function pickRicherPlace(short: string, rich: string): string {
   const a = short.trim();
   const b = rich.trim();
@@ -116,7 +151,7 @@ export function normalizeInfobox(
     str(inf.born),
     intake.birthplace ? `Unknown date, ${intake.birthplace}` : "",
   );
-  const hometown = pickRicherPlace(str(inf.hometown, intake.birthplace), born);
+  const hometown = normalizeHometown(str(inf.hometown, intake.birthplace), born, intake.birthplace);
   const currentLocation = pickRicherPlace(
     str(inf.currentLocation, intake.currentLocation),
     intake.currentLocation,

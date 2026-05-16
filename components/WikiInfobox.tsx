@@ -2,8 +2,9 @@
 
 import type { ArticleInfobox, InfoboxAllegiance } from "@/types/article";
 import { WikiLinkedText } from "@/components/WikiLinkedText";
-import { flagEmoji } from "@/lib/infoboxHelpers";
-import { stripWikiMarkers } from "@/lib/wikipediaLinks";
+import { extractPlaceFromBornLine, flagEmoji } from "@/lib/infoboxHelpers";
+import { expandLinkTermsForInfobox, stripWikiMarkers } from "@/lib/wikipediaLinks";
+import { useEffect, useMemo, useState } from "react";
 
 const PLACEHOLDER =
   "data:image/svg+xml," +
@@ -73,8 +74,23 @@ export function WikiInfobox({
   editable?: boolean;
   onChange?: (infobox: ArticleInfobox) => void;
 }) {
-  const img = infobox.imageUrl || PLACEHOLDER;
+  const [imgFailed, setImgFailed] = useState(false);
+  const rawImg = infobox.imageUrl?.trim() || "";
+  const img = imgFailed || !rawImg ? PLACEHOLDER : rawImg;
   const subject = subjectName || infobox.name;
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [rawImg]);
+  const linkTerms = useMemo(
+    () => expandLinkTermsForInfobox(properNouns, infobox, subject),
+    [properNouns, infobox, subject],
+  );
+  const bornPlace = extractPlaceFromBornLine(infobox.born);
+  const hometownDisplay = extractPlaceFromBornLine(infobox.hometown);
+  const showHometown =
+    hometownDisplay &&
+    hometownDisplay.toLowerCase() !== bornPlace.trim().toLowerCase();
   const hasMilitary =
     (infobox.allegiance?.length ?? 0) > 0 || (infobox.branch?.length ?? 0) > 0;
 
@@ -105,7 +121,7 @@ export function WikiInfobox({
               }}
             />
           ) : (
-            <LinkedValue text={display} properNouns={properNouns} subjectName={subject} />
+            <LinkedValue text={display} properNouns={linkTerms} subjectName={subject} />
           )}
         </td>
       </tr>
@@ -130,7 +146,12 @@ export function WikiInfobox({
         <tr>
           <td colSpan={2} className="wiki-infobox-image-cell">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={img} alt={infobox.name} className="wiki-infobox-image" />
+            <img
+              src={img}
+              alt={infobox.name}
+              className="wiki-infobox-image"
+              onError={() => setImgFailed(true)}
+            />
             {infobox.caption && (
               <p className="wiki-infobox-caption">
                 {editable ? (
@@ -138,7 +159,7 @@ export function WikiInfobox({
                 ) : (
                   <LinkedValue
                     text={stripWikiMarkers(infobox.caption)}
-                    properNouns={properNouns}
+                    properNouns={linkTerms}
                     subjectName={subject}
                   />
                 )}
@@ -148,7 +169,7 @@ export function WikiInfobox({
         </tr>
         {row("Born", infobox.born)}
         {row("Died", infobox.died)}
-        {row("Hometown", infobox.hometown)}
+        {showHometown ? row("Hometown", hometownDisplay) : null}
         {row("Current location", infobox.currentLocation)}
         {row("Education", infobox.education)}
         {row("Occupation", infobox.occupation)}
@@ -166,7 +187,7 @@ export function WikiInfobox({
             <td className="wiki-infobox-data">
               <AllegianceList
                 items={infobox.allegiance}
-                properNouns={properNouns}
+                properNouns={linkTerms}
                 subjectName={subject}
               />
             </td>
@@ -178,7 +199,7 @@ export function WikiInfobox({
             <td className="wiki-infobox-data">
               <AllegianceList
                 items={infobox.branch}
-                properNouns={properNouns}
+                properNouns={linkTerms}
                 subjectName={subject}
               />
             </td>
@@ -194,7 +215,7 @@ export function WikiInfobox({
                     {editable ? (
                       k
                     ) : (
-                      <LinkedValue text={k} properNouns={properNouns} subjectName={subject} />
+                      <LinkedValue text={k} properNouns={linkTerms} subjectName={subject} />
                     )}
                   </li>
                 ))}
@@ -211,7 +232,7 @@ export function WikiInfobox({
               ) : (
                 <LinkedValue
                   text={infobox.notableWorks.join(", ")}
-                  properNouns={properNouns}
+                  properNouns={linkTerms}
                   subjectName={subject}
                 />
               )}
@@ -228,7 +249,7 @@ export function WikiInfobox({
                 <ul className="list-disc pl-4">
                   {infobox.awards.map((a, i) => (
                     <li key={i}>
-                      <LinkedValue text={a} properNouns={properNouns} subjectName={subject} />
+                      <LinkedValue text={a} properNouns={linkTerms} subjectName={subject} />
                     </li>
                   ))}
                 </ul>

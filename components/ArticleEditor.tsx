@@ -17,6 +17,8 @@ import { saveArticleLocal } from "@/lib/storage";
 import { saveArticleToServer } from "@/lib/saveArticleClient";
 import { buildShareUrl } from "@/lib/share";
 import { nanoid } from "nanoid";
+import { applyHeadshotToArticle } from "@/lib/headshotForArticle";
+import { prepareArticleForDb } from "@/lib/prepareArticleForDb";
 
 export function ArticleEditor({
   initialArticle,
@@ -33,7 +35,9 @@ export function ArticleEditor({
   savedId?: string;
   slug?: string;
 }) {
-  const [article, setArticle] = useState(initialArticle);
+  const [article, setArticle] = useState(() =>
+    applyHeadshotToArticle(initialArticle, headshotDataUrl),
+  );
   const [intakeState, setIntakeState] = useState(intake);
   const [editing, setEditing] = useState(false);
   const [showIntake, setShowIntake] = useState(false);
@@ -74,11 +78,12 @@ export function ArticleEditor({
 
   const saveToServer = async (): Promise<string | null> => {
     const local = persistLocal();
-    const result = await saveArticleToServer({
+    const withHeadshot = prepareArticleForDb({
       ...local,
-      articleJson: article,
-      intake: intakeState,
+      articleJson: applyHeadshotToArticle(article, headshotDataUrl),
+      headshotDataUrl,
     });
+    const result = await saveArticleToServer(withHeadshot);
     if (result.ok) {
       setShareSlug(result.slug);
       setShareUrl(result.url);
@@ -270,6 +275,7 @@ export function ArticleEditor({
         <WikiArticlePage
           article={article}
           subjectName={intakeState.fullName}
+          intake={intakeState}
           editable={editing && !busy}
           onArticleChange={setArticle}
           appearance={appearance}

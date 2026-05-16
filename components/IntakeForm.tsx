@@ -3,8 +3,8 @@
 import { Fragment } from "react";
 import type { ArticleLength, ArticleMode, IntakeData, TonePreference } from "@/types/article";
 import { ModeSelector } from "@/components/ModeSelector";
-import type { IntakeFieldDef } from "@/lib/intakeFields";
-import { TONE_OPTIONS, LENGTH_OPTIONS } from "@/lib/intakeFields";
+import type { IntakeFieldDef, IntakeFieldKey } from "@/lib/intakeFields";
+import { INTAKE_PLACEHOLDERS, TONE_OPTIONS, LENGTH_OPTIONS } from "@/lib/intakeFields";
 import { applyFullNameChange } from "@/lib/intakeSync";
 
 const defaultIntake = (mode: ArticleMode = "realism"): IntakeData => ({
@@ -33,7 +33,7 @@ export function createDefaultIntake(mode?: ArticleMode) {
 
 const DESKTOP_FIELDS: {
   label: string;
-  key: keyof IntakeData;
+  key: IntakeFieldKey;
   opts?: Partial<IntakeFieldDef> & { textarea?: boolean; required?: boolean };
 }[] = [
   { label: "Full name", key: "fullName", opts: { required: true, autocomplete: "name", name: "name" } },
@@ -57,12 +57,13 @@ export function IntakeForm({
 
   const field = (
     label: string,
-    key: keyof IntakeData,
+    key: IntakeFieldKey,
     opts?: {
       textarea?: boolean;
       required?: boolean;
       autocomplete?: string;
       name?: string;
+      placeholder?: string;
     },
   ) => (
     <label className="block">
@@ -75,6 +76,7 @@ export function IntakeForm({
           className="form-input mt-1 min-h-[80px]"
           name={opts.name ?? String(key)}
           autoComplete={opts.autocomplete ?? "on"}
+          placeholder={opts.placeholder ?? INTAKE_PLACEHOLDERS[key]}
           value={String(value[key])}
           onChange={(e) => set(key, e.target.value as IntakeData[typeof key])}
         />
@@ -84,6 +86,7 @@ export function IntakeForm({
           type="text"
           name={opts?.name ?? String(key)}
           autoComplete={opts?.autocomplete ?? "on"}
+          placeholder={opts?.placeholder ?? INTAKE_PLACEHOLDERS[key]}
           value={String(value[key])}
           onChange={(e) => {
             if (key === "fullName") {

@@ -4,6 +4,7 @@ import type { ArticleListItem, SavedArticle } from "@/types/article";
 import { isVercelDeployment } from "@/lib/appUrl";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
 import { EXAMPLE_ARTICLE_SLUG, getExampleArticle } from "@/lib/exampleArticle";
+import { withHeadshotOnSaved } from "@/lib/headshotForArticle";
 
 function requirePersistentStorage(): void {
   if (isSupabaseConfigured()) return;
@@ -76,7 +77,7 @@ async function getArticleBySlugFile(slug: string): Promise<SavedArticle | null> 
   try {
     const file = path.join(DATA_DIR, `${slug}.json`);
     const raw = await fs.readFile(file, "utf-8");
-    return JSON.parse(raw) as SavedArticle;
+    return withHeadshotOnSaved(JSON.parse(raw) as SavedArticle);
   } catch {
     return null;
   }
@@ -102,7 +103,7 @@ async function getArticleBySlugSupabase(
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return null;
-  return rowToSaved(data as ArticleRow);
+  return withHeadshotOnSaved(rowToSaved(data as ArticleRow));
 }
 
 export async function saveArticleServer(article: SavedArticle): Promise<void> {
