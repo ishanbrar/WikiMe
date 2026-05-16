@@ -119,14 +119,6 @@ export function WikiArticlePage({
       id={printId}
       className={`wiki-page ${themeClass} ${sizeClass} ${widthClass}`}
     >
-      <header className="wiki-site-header">
-        <div className="wiki-site-brand">WikiMe</div>
-        <nav className="wiki-site-nav" aria-label="Site">
-          <span>Article</span>
-          <span className="wiki-muted">Talk</span>
-        </nav>
-      </header>
-
       <div className="wiki-article-header">
         <h1 className="wiki-title">{displayArticle.title}</h1>
         {displayArticle.subtitle && (
@@ -186,9 +178,7 @@ export function WikiArticlePage({
             <div className="wiki-sections-flow">
           {displayArticle.sections.map((section) => (
             <section key={section.id} id={section.id} className="wiki-section">
-              <h2 className="wiki-section-title">
-                <span className="wiki-section-anchor">§</span> {section.title}
-              </h2>
+              <h2 className="wiki-section-title">{section.title}</h2>
               {section.paragraphs.map((para, pi) => (
                 <p key={pi} className="wiki-paragraph">
                   {editable ? (
