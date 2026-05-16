@@ -41,7 +41,9 @@ export function IntakeFlow({
         type="button"
         className="btn-primary mt-8"
         onClick={onComplete}
-        disabled={disabled || !value.fullName.trim()}
+        disabled={
+          disabled || !value.fullName.trim() || !value.articleTitle.trim()
+        }
       >
         Continue to uploads
       </button>

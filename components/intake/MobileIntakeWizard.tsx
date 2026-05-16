@@ -13,6 +13,7 @@ import { IntakeReview } from "@/components/intake/IntakeReview";
 import { ModeSelector } from "@/components/ModeSelector";
 import { hapticError, hapticSuccess, hapticTap } from "@/lib/haptics";
 import { shouldSyncArticleTitle } from "@/lib/intakeSync";
+import { IntakeRequiredNote } from "@/components/intake/IntakeRequiredNote";
 
 type Phase = "slides" | "review";
 
@@ -45,6 +46,7 @@ export function MobileIntakeWizard({
 
   useEffect(() => {
     if (phase !== "slides") return;
+    if (slide?.type === "mode") return;
     const t = window.setTimeout(() => {
       const el = formRef.current?.querySelector<HTMLElement>(
         "input, textarea, select",
@@ -52,7 +54,7 @@ export function MobileIntakeWizard({
       el?.focus();
     }, 280);
     return () => window.clearTimeout(t);
-  }, [index, phase]);
+  }, [index, phase, slide?.type]);
 
   const slideOptional = (s: IntakeSlide): boolean => {
     if (s.type !== "fields") return false;
@@ -156,6 +158,14 @@ export function MobileIntakeWizard({
               <p className="intake-slide-sub">{slide.subtitle}</p>
             )}
 
+            {slide.id === "name" && <IntakeRequiredNote className="mt-3" />}
+
+            {slide.id === "location" && (
+              <div className="intake-section-divider" role="separator">
+                <span className="intake-section-heading">Optional details</span>
+              </div>
+            )}
+
             {slide.type === "fields" &&
               slide.fields.map((f) => (
                 <div key={f.key} className="mt-4">
@@ -174,10 +184,12 @@ export function MobileIntakeWizard({
               ))}
 
             {slide.type === "mode" && (
-              <ModeSelector
-                value={value.mode}
-                onChange={(m) => onChange({ ...value, mode: m })}
-              />
+              <div className="mt-4">
+                <ModeSelector
+                  value={value.mode}
+                  onChange={(m) => onChange({ ...value, mode: m })}
+                />
+              </div>
             )}
 
             {slide.type === "tone-length" && (

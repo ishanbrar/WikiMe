@@ -6,6 +6,7 @@ import { ModeSelector } from "@/components/ModeSelector";
 import type { IntakeFieldDef, IntakeFieldKey } from "@/lib/intakeFields";
 import { INTAKE_PLACEHOLDERS, TONE_OPTIONS, LENGTH_OPTIONS } from "@/lib/intakeFields";
 import { applyFullNameChange } from "@/lib/intakeSync";
+import { IntakeRequiredNote } from "@/components/intake/IntakeRequiredNote";
 
 const defaultIntake = (mode: ArticleMode = "realism"): IntakeData => ({
   fullName: "",
@@ -14,11 +15,8 @@ const defaultIntake = (mode: ArticleMode = "realism"): IntakeData => ({
   currentLocation: "",
   education: "",
   occupation: "",
-  currentRole: "",
-  notableProjects: "",
   achievements: "",
   skills: "",
-  interests: "",
   lifeEvents: "",
   tone: "neutral",
   mode,
@@ -31,18 +29,28 @@ export function createDefaultIntake(mode?: ArticleMode) {
   return defaultIntake(mode);
 }
 
-const DESKTOP_FIELDS: {
+const REQUIRED_FIELDS: {
   label: string;
   key: IntakeFieldKey;
   opts?: Partial<IntakeFieldDef> & { textarea?: boolean; required?: boolean };
 }[] = [
   { label: "Full name", key: "fullName", opts: { required: true, autocomplete: "name", name: "name" } },
-  { label: "Article title", key: "articleTitle", opts: { required: true, autocomplete: "nickname", name: "nickname" } },
+  {
+    label: "Article title",
+    key: "articleTitle",
+    opts: { required: true, autocomplete: "nickname", name: "nickname" },
+  },
+];
+
+const OPTIONAL_GRID_FIELDS: typeof REQUIRED_FIELDS = [
   { label: "Birthplace / hometown", key: "birthplace", opts: { autocomplete: "birthplace", name: "birthplace" } },
   { label: "Current location", key: "currentLocation", opts: { autocomplete: "address-level2", name: "address-level2" } },
   { label: "Education", key: "education", opts: { autocomplete: "organization", name: "organization" } },
-  { label: "Occupation / field", key: "occupation", opts: { autocomplete: "organization-title", name: "organization-title" } },
-  { label: "Current role", key: "currentRole", opts: { autocomplete: "organization-title", name: "job-title" } },
+  {
+    label: "Occupation / role",
+    key: "occupation",
+    opts: { autocomplete: "organization-title", name: "organization-title" },
+  },
 ];
 
 export function IntakeForm({
@@ -69,7 +77,10 @@ export function IntakeForm({
     <label className="block">
       <span className="text-sm font-medium text-slate-700">
         {label}
-        {opts?.required && " *"}
+        {opts?.required ? " *" : null}
+        {!opts?.required ? (
+          <span className="intake-field-optional-tag"> (optional)</span>
+        ) : null}
       </span>
       {opts?.textarea ? (
         <textarea
@@ -108,57 +119,88 @@ export function IntakeForm({
     >
       <ModeSelector value={value.mode} onChange={(m) => set("mode", m)} />
 
-      <div className="grid md:grid-cols-2 gap-4">
-        {DESKTOP_FIELDS.map((f) => (
-          <Fragment key={f.key}>{field(f.label, f.key, f.opts)}</Fragment>
-        ))}
-      </div>
+      <IntakeRequiredNote />
 
-      {field("Notable projects", "notableProjects", { textarea: true, autocomplete: "off" })}
-      {field("Achievements", "achievements", { textarea: true, autocomplete: "off" })}
-      {field("Skills", "skills", { autocomplete: "off" })}
-      {field("Interests", "interests", { autocomplete: "off" })}
-      {field("Important life events", "lifeEvents", { textarea: true, autocomplete: "off" })}
-
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">Tone preference</span>
-        <select
-          className="form-input mt-1"
-          name="tone"
-          autoComplete="off"
-          value={value.tone}
-          onChange={(e) => set("tone", e.target.value as TonePreference)}
+      <section
+        className="intake-section intake-section--required"
+        aria-labelledby="intake-required-heading"
+      >
+        <h2
+          id="intake-required-heading"
+          className="intake-section-heading intake-section-heading--required"
         >
-          {TONE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
+          Required
+        </h2>
+        <div className="grid md:grid-cols-2 gap-4">
+          {REQUIRED_FIELDS.map((f) => (
+            <Fragment key={f.key}>{field(f.label, f.key, f.opts)}</Fragment>
           ))}
-        </select>
-      </label>
+        </div>
+      </section>
 
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">Article length</span>
-        <select
-          className="form-input mt-1"
-          name="article-length"
-          autoComplete="off"
-          value={value.articleLength}
-          onChange={(e) => set("articleLength", e.target.value as ArticleLength)}
-        >
-          {LENGTH_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
+      <section
+        className="intake-section intake-section--optional"
+        aria-labelledby="intake-optional-heading"
+      >
+        <h2 id="intake-optional-heading" className="intake-section-heading">
+          Optional details
+        </h2>
+        <div className="grid md:grid-cols-2 gap-4">
+          {OPTIONAL_GRID_FIELDS.map((f) => (
+            <Fragment key={f.key}>{field(f.label, f.key, f.opts)}</Fragment>
           ))}
-        </select>
-      </label>
+        </div>
 
-      {field("Extra notes", "extraNotes", { textarea: true, autocomplete: "off" })}
-      {field("Pasted profile text (LinkedIn, resume, etc.)", "pastedProfileText", {
-        textarea: true,
-        autocomplete: "off",
-      })}
+        {field("Achievements", "achievements", { textarea: true, autocomplete: "off" })}
+        {field("Skills", "skills", { autocomplete: "off" })}
+        {field("Important life events", "lifeEvents", { textarea: true, autocomplete: "off" })}
+
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700">
+            Tone preference
+            <span className="intake-field-optional-tag"> (optional)</span>
+          </span>
+          <select
+            className="form-input mt-1"
+            name="tone"
+            autoComplete="off"
+            value={value.tone}
+            onChange={(e) => set("tone", e.target.value as TonePreference)}
+          >
+            {TONE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700">
+            Article length
+            <span className="intake-field-optional-tag"> (optional)</span>
+          </span>
+          <select
+            className="form-input mt-1"
+            name="article-length"
+            autoComplete="off"
+            value={value.articleLength}
+            onChange={(e) => set("articleLength", e.target.value as ArticleLength)}
+          >
+            {LENGTH_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {field("Extra notes", "extraNotes", { textarea: true, autocomplete: "off" })}
+        {field("Pasted profile text (LinkedIn, resume, etc.)", "pastedProfileText", {
+          textarea: true,
+          autocomplete: "off",
+        })}
+      </section>
     </div>
   );
 }

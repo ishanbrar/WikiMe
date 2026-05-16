@@ -966,6 +966,58 @@ body {
   line-height: 1.45;
 }
 
+.intake-required-note {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.intake-required-note strong {
+  font-weight: 600;
+  color: #475569;
+}
+
+.intake-section {
+  margin-top: 0.25rem;
+}
+
+.intake-section--required {
+  padding: 1rem 1.125rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+}
+
+.intake-section--optional {
+  padding-top: 0.5rem;
+}
+
+.intake-section-heading {
+  margin: 0 0 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.intake-section-heading--required {
+  color: #64748b;
+}
+
+.intake-section-divider {
+  margin: 1.25rem 0 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.intake-field-optional-tag {
+  font-weight: 400;
+  color: #94a3b8;
+  font-size: 0.8125rem;
+}
+
 .intake-mobile-input {
   display: block;
   width: 100%;
@@ -1440,9 +1492,43 @@ body {
 }
 
 .mode-card--creative {
+  isolation: isolate;
   background: #f8fafc !important;
-  border-color: #cbd5e1 !important;
+  border-color: rgba(56, 189, 248, 0.45) !important;
   color: #334155;
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.3),
+    0 0 10px rgba(14, 165, 233, 0.18),
+    0 0 20px rgba(14, 165, 233, 0.1);
+}
+
+.mode-card--creative::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    120deg,
+    #00e5ff,
+    #0ea5e9,
+    #38bdf8,
+    #0284c7,
+    #00e5ff
+  );
+  background-size: 300% 100%;
+  animation: mode-creative-border-shimmer 5s linear infinite;
+  opacity: 0.55;
+  padding: 2px;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
 }
 
 .mode-card--creative .mode-card-desc {
@@ -1453,7 +1539,16 @@ body {
   color: #0f172a;
 }
 
-/* Creative selected: solid fill + glow on outer edge only */
+.mode-card--creative.mode-card--dimmed {
+  opacity: 0.58;
+  filter: saturate(0.4);
+}
+
+.mode-card--creative.mode-card--dimmed::before {
+  opacity: 0.4;
+}
+
+/* Creative selected: stronger glow on outer edge */
 .mode-card--creative.mode-card--selected {
   isolation: isolate;
   border-color: #22d3ee !important;
@@ -1469,33 +1564,10 @@ body {
 }
 
 .mode-card--creative.mode-card--selected::before {
-  content: "";
-  position: absolute;
   inset: -5px;
-  border-radius: inherit;
-  z-index: -1;
-  pointer-events: none;
-  background: linear-gradient(
-    120deg,
-    #00e5ff,
-    #0ea5e9,
-    #38bdf8,
-    #0284c7,
-    #00e5ff
-  );
-  background-size: 300% 100%;
-  animation: mode-creative-border-shimmer 4s linear infinite;
-  opacity: 0.9;
-  /* Mask keeps gradient on the rim only — no inner bleed */
   padding: 3px;
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  mask-composite: exclude;
+  opacity: 0.95;
+  animation-duration: 4s;
 }
 
 .mode-card--creative.mode-card--selected .mode-card-desc {
@@ -1504,10 +1576,6 @@ body {
 
 .mode-card--creative.mode-card--selected h3 {
   color: #f0f9ff;
-}
-
-.mode-card--creative.mode-card--dimmed::before {
-  display: none;
 }
 
 @keyframes mode-creative-border-shimmer {

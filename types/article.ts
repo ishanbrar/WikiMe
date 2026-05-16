@@ -19,11 +19,8 @@ export interface IntakeData {
   currentLocation: string;
   education: string;
   occupation: string;
-  currentRole: string;
-  notableProjects: string;
   achievements: string;
   skills: string;
-  interests: string;
   lifeEvents: string;
   tone: TonePreference;
   mode: ArticleMode;

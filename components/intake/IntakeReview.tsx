@@ -4,6 +4,7 @@ import type { IntakeData } from "@/types/article";
 import { REVIEW_ROWS, displayValue } from "@/lib/intakeFields";
 import { hapticTap } from "@/lib/haptics";
 import { shouldSyncArticleTitle } from "@/lib/intakeSync";
+import { IntakeRequiredNote } from "@/components/intake/IntakeRequiredNote";
 
 export function IntakeReview({
   intake,
@@ -25,13 +26,10 @@ export function IntakeReview({
     birthplace: "hometown",
     education: "education",
     occupation: "work",
-    currentRole: "work",
-    notableProjects: "projects",
     achievements: "achievements",
     lifeEvents: "life",
     skills: "extras",
-    interests: "extras",
-    mode: "mode",
+    mode: "mode-confirm",
     tone: "style",
     articleLength: "style",
     pastedProfileText: "profile",
@@ -44,6 +42,8 @@ export function IntakeReview({
       <p className="intake-slide-sub">
         Tap any row to edit. Then continue to photo uploads.
       </p>
+
+      <IntakeRequiredNote className="mt-3 mb-1" />
 
       <ul className="intake-review-list">
         {REVIEW_ROWS.map((row) => {
@@ -73,9 +73,9 @@ export function IntakeReview({
         })}
       </ul>
 
-      {!intake.fullName.trim() && (
+      {(!intake.fullName.trim() || !intake.articleTitle.trim()) && (
         <p className="text-red-600 text-sm mt-2" role="alert">
-          Full name is required before continuing.
+          Full name and article title are required before continuing.
         </p>
       )}
 
@@ -83,7 +83,9 @@ export function IntakeReview({
         <button
           type="button"
           className="btn-primary intake-mobile-btn"
-          disabled={disabled || !intake.fullName.trim()}
+          disabled={
+            disabled || !intake.fullName.trim() || !intake.articleTitle.trim()
+          }
           onClick={() => {
             hapticTap();
             if (shouldSyncArticleTitle(intake.articleTitle, intake.fullName)) {

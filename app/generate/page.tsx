@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createDefaultIntake } from "@/components/IntakeForm";
+import { mergeLegacyIntakeFields } from "@/lib/mergeLegacyIntake";
 import { IntakeFlow } from "@/components/intake/IntakeFlow";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { HeadshotUploader } from "@/components/HeadshotUploader";
@@ -63,7 +64,12 @@ function GenerateFlow() {
       facts: ExtractedProfileFacts;
     }>();
     if (draft?.intake) {
-      setIntake(draft.intake);
+      setIntake({
+        ...createDefaultIntake(initialMode),
+        ...mergeLegacyIntakeFields(
+          draft.intake as unknown as Record<string, unknown>,
+        ),
+      } as IntakeData);
       setFacts(normalizeExtractedFacts(draft.facts ?? emptyExtractedFacts()));
     }
   }, []);
@@ -159,8 +165,11 @@ function GenerateFlow() {
       setError("Please enter your full name.");
       return;
     }
-    const title = intake.articleTitle.trim() || intake.fullName;
-    const intakeFinal = { ...intake, articleTitle: title };
+    if (!intake.articleTitle.trim()) {
+      setError("Please enter your article title.");
+      return;
+    }
+    const intakeFinal = intake;
     const controller = new AbortController();
     abortRef.current = controller;
     const { signal } = controller;

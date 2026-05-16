@@ -33,12 +33,9 @@ export const INTAKE_PLACEHOLDERS: Record<IntakeFieldKey, string> = {
   birthplace: "Austin, Texas",
   currentLocation: "Brooklyn, New York",
   education: "MIT, B.S. Computer Science",
-  occupation: "Software engineering",
-  currentRole: "Founder & CEO at Acme Inc.",
-  notableProjects: "Built X, led Y initiative, open-sourced Z…",
+  occupation: "Software engineer, Founder & CEO at Acme Inc.",
   achievements: "Key wins, awards, press mentions…",
   skills: "Design, public speaking, Python…",
-  interests: "Climbing, film, chess…",
   lifeEvents: "Moved to NYC in 2018, founded company in 2020…",
   extraNotes: "Anything else the article should mention…",
   pastedProfileText:
@@ -59,6 +56,12 @@ export interface IntakeFieldDef {
 
 export const INTAKE_SLIDES: IntakeSlide[] = [
   {
+    id: "mode",
+    type: "mode",
+    title: "Choose your mode",
+    subtitle: "Realism stays grounded in your facts. Creative builds a legendary story.",
+  },
+  {
     id: "name",
     type: "fields",
     title: "What's your name?",
@@ -78,7 +81,7 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
     id: "title",
     type: "fields",
     title: "Article title",
-    subtitle: "Usually the same as your name.",
+    subtitle: "Usually the same as your full name.",
     fields: [
       {
         key: "articleTitle",
@@ -139,39 +142,16 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
   {
     id: "work",
     type: "fields",
-    title: "Work",
-    subtitle: "Field and current role.",
+    title: "Occupation & role",
+    subtitle: "Your field, job title, or how you'd describe what you do.",
     fields: [
       {
         key: "occupation",
-        label: "Occupation / field",
+        label: "Occupation / role",
         placeholder: INTAKE_PLACEHOLDERS.occupation,
         optional: true,
         autocomplete: "organization-title",
         name: "organization-title",
-      },
-      {
-        key: "currentRole",
-        label: "Current role",
-        placeholder: INTAKE_PLACEHOLDERS.currentRole,
-        optional: true,
-        autocomplete: "organization-title",
-        name: "job-title",
-      },
-    ],
-  },
-  {
-    id: "projects",
-    type: "fields",
-    title: "Notable projects",
-    fields: [
-      {
-        key: "notableProjects",
-        label: "Projects",
-        placeholder: INTAKE_PLACEHOLDERS.notableProjects,
-        optional: true,
-        textarea: true,
-        autocomplete: "off",
       },
     ],
   },
@@ -208,7 +188,7 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
   {
     id: "extras",
     type: "fields",
-    title: "Skills & interests",
+    title: "Skills",
     fields: [
       {
         key: "skills",
@@ -217,20 +197,7 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
         optional: true,
         autocomplete: "off",
       },
-      {
-        key: "interests",
-        label: "Interests",
-        placeholder: INTAKE_PLACEHOLDERS.interests,
-        optional: true,
-        autocomplete: "off",
-      },
     ],
-  },
-  {
-    id: "mode",
-    type: "mode",
-    title: "Article mode",
-    subtitle: "Realism stays grounded; Creative invents a legend.",
   },
   {
     id: "style",
@@ -262,25 +229,28 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
       },
     ],
   },
+  {
+    id: "mode-confirm",
+    type: "mode",
+    title: "Confirm your mode",
+    subtitle: "You chose this at the start — change it here if you want something different.",
+  },
 ];
 
 export const REVIEW_ROWS: {
   key: IntakeFieldKey | "mode" | "tone" | "articleLength";
   label: string;
 }[] = [
+  { key: "mode", label: "Mode" },
   { key: "fullName", label: "Name" },
   { key: "articleTitle", label: "Title" },
   { key: "currentLocation", label: "Location" },
   { key: "birthplace", label: "Hometown" },
   { key: "education", label: "Education" },
-  { key: "occupation", label: "Occupation" },
-  { key: "currentRole", label: "Role" },
-  { key: "notableProjects", label: "Projects" },
+  { key: "occupation", label: "Occupation / role" },
   { key: "achievements", label: "Achievements" },
   { key: "lifeEvents", label: "Life events" },
   { key: "skills", label: "Skills" },
-  { key: "interests", label: "Interests" },
-  { key: "mode", label: "Mode" },
   { key: "tone", label: "Tone" },
   { key: "articleLength", label: "Length" },
   { key: "pastedProfileText", label: "Profile text" },

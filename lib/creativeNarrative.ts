@@ -89,11 +89,8 @@ function collectInputHooks(intake: IntakeData): string[] {
   add("location", intake.currentLocation);
   add("education", intake.education);
   add("occupation", intake.occupation);
-  add("role", intake.currentRole);
-  add("projects", intake.notableProjects);
   add("achievements", intake.achievements);
   add("skills", intake.skills);
-  add("interests", intake.interests);
   add("life events", intake.lifeEvents);
   add("notes", intake.extraNotes);
   if (intake.pastedProfileText?.trim()) {

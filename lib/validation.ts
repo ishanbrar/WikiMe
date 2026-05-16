@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizeExtractedFacts } from "@/lib/extractProfileFacts";
+import { mergeLegacyIntakeFields } from "@/lib/mergeLegacyIntake";
 
 const intakeFields = {
   fullName: z.string().min(1, "Name is required"),
@@ -8,11 +9,8 @@ const intakeFields = {
   currentLocation: z.string(),
   education: z.string(),
   occupation: z.string(),
-  currentRole: z.string(),
-  notableProjects: z.string(),
   achievements: z.string(),
   skills: z.string(),
-  interests: z.string(),
   lifeEvents: z.string(),
   tone: z.enum([
     "neutral",
@@ -35,11 +33,8 @@ const intakeDefaults = {
   currentLocation: "",
   education: "",
   occupation: "",
-  currentRole: "",
-  notableProjects: "",
   achievements: "",
   skills: "",
-  interests: "",
   lifeEvents: "",
   extraNotes: "",
   pastedProfileText: "",
@@ -48,7 +43,7 @@ const intakeDefaults = {
 
 export const intakeSchema = z.preprocess((val) => {
   if (!val || typeof val !== "object") return val;
-  const o = val as Record<string, unknown>;
+  const o = mergeLegacyIntakeFields(val as Record<string, unknown>);
   return {
     ...intakeDefaults,
     ...o,

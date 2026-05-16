@@ -7,8 +7,8 @@ export function buildMockArticle(
 ): ArticleJson {
   const name = intake.fullName || intake.articleTitle || "Subject";
   const isCreative = intake.mode === "creative";
-  const knownFor = intake.notableProjects
-    ? intake.notableProjects.split(/[,;]/).map((s) => s.trim()).filter(Boolean)
+  const knownFor = intake.achievements
+    ? intake.achievements.split(/[,;]/).map((s) => s.trim()).filter(Boolean).slice(0, 5)
     : ["Contributions in their field"];
 
   return {
@@ -31,7 +31,7 @@ export function buildMockArticle(
         hometown: intake.birthplace || "",
         currentLocation: intake.currentLocation || "",
         education: intake.education || "",
-        occupation: intake.occupation || intake.currentRole || "",
+        occupation: intake.occupation || "",
         yearsActive: "21st century–present",
         knownFor: knownFor.slice(0, 5),
         notableWorks: knownFor.slice(0, 3),
@@ -66,9 +66,9 @@ export function buildMockArticle(
         id: "career",
         title: "Career",
         paragraphs: [
-          intake.currentRole
-            ? `${name} has worked as ${intake.currentRole}${intake.occupation ? ` in the field of ${intake.occupation}` : ""}.`
-            : `${name}'s professional activities relate to ${intake.occupation || "their stated occupation"}.`,
+          intake.occupation
+            ? `${name}'s occupation and role are described as ${intake.occupation}.`
+            : `${name}'s professional activities were not extensively documented.`,
         ],
         ...(isCreative
           ? {
@@ -81,21 +81,12 @@ export function buildMockArticle(
             }
           : {}),
       },
-      ...(intake.notableProjects
-        ? [
-            {
-              id: "projects",
-              title: "Projects",
-              paragraphs: [intake.notableProjects],
-            },
-          ]
-        : []),
       {
         id: "personal-life",
         title: "Personal life",
         paragraphs: [
-          intake.interests
-            ? `Interests noted by the subject include ${intake.interests}.`
+          intake.skills
+            ? `Skills noted by the subject include ${intake.skills}.`
             : `Personal details beyond career information were not extensively documented.`,
         ],
       },
