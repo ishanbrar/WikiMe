@@ -14,9 +14,6 @@ export function SiteHeader({ variant = "default" }: { variant?: "default" | "lan
           <Link href="/generate" className="site-header-link">
             Create
           </Link>
-          <Link href="/a/example" className="site-header-link">
-            Example
-          </Link>
           <AuthNav />
         </nav>
       </div>

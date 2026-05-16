@@ -49,8 +49,8 @@ export function AuthNav() {
 
   if (!isSupabaseBrowserConfigured()) {
     return (
-      <Link href="/login" className="site-header-link">
-        Sign in
+      <Link href="/signup" className="site-header-cta">
+        Sign up
       </Link>
     );
   }
@@ -73,13 +73,8 @@ export function AuthNav() {
   }
 
   return (
-    <div className="site-header-auth">
-      <Link href="/login" className="site-header-link">
-        Sign in
-      </Link>
-      <Link href="/signup" className="site-header-cta">
-        Sign up
-      </Link>
-    </div>
+    <Link href="/signup" className="site-header-cta">
+      Sign up
+    </Link>
   );
 }
