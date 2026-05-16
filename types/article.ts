@@ -120,6 +120,7 @@ export interface SavedArticle {
   headshotDataUrl?: string;
   extractedFacts?: ExtractedProfileFacts;
   userId?: string;
+  creatorEmail?: string;
   isPublic?: boolean;
   createdAt: string;
   updatedAt: string;

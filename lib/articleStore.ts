@@ -26,6 +26,7 @@ type ArticleRow = {
   headshot_data_url: string | null;
   extracted_facts: SavedArticle["extractedFacts"] | null;
   user_id: string | null;
+  creator_email: string | null;
   is_public: boolean;
   created_at: string;
   updated_at: string;
@@ -41,6 +42,7 @@ function rowToSaved(row: ArticleRow): SavedArticle {
     headshotDataUrl: row.headshot_data_url ?? undefined,
     extractedFacts: row.extracted_facts ?? undefined,
     userId: row.user_id ?? undefined,
+    creatorEmail: row.creator_email ?? undefined,
     isPublic: row.is_public,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -57,6 +59,7 @@ function savedToRow(article: SavedArticle): ArticleRow {
     headshot_data_url: article.headshotDataUrl ?? null,
     extracted_facts: article.extractedFacts ?? null,
     user_id: article.userId ?? null,
+    creator_email: article.creatorEmail ?? null,
     is_public: article.isPublic ?? true,
     created_at: article.createdAt,
     updated_at: article.updatedAt,

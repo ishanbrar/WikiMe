@@ -2219,6 +2219,97 @@ body {
   font-size: 0.875rem;
 }
 
+/* ——— Admin article log ——— */
+.admin-page {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.admin-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-header h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.35rem;
+}
+
+.admin-muted {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9375rem;
+}
+
+.admin-warn {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 0.5rem;
+  color: #92400e;
+  font-size: 0.875rem;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.admin-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table-title {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.admin-table-title:hover {
+  text-decoration: underline;
+}
+
+.admin-guest {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.admin-mode,
+.admin-when {
+  color: #64748b;
+  white-space: nowrap;
+}
+
 /* ——— Article permalink ——— */
 .article-permalink {
   max-width: 72rem;

@@ -54,6 +54,7 @@ export async function POST(req: Request) {
       intake: parsed.data.intake,
       headshotDataUrl: parsed.data.headshotDataUrl,
       userId: user?.id ?? existing?.userId,
+      creatorEmail: user?.email ?? existing?.creatorEmail,
       isPublic: true,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,

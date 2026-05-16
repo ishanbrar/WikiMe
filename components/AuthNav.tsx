@@ -11,6 +11,7 @@ export function AuthNav() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseBrowserConfigured()) {
@@ -23,12 +24,27 @@ export function AuthNav() {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
       setReady(true);
+      if (data.user) {
+        fetch("/api/admin/status")
+          .then((r) => r.json())
+          .then((body: { isAdmin?: boolean }) => setIsAdmin(Boolean(body.isAdmin)))
+          .catch(() => setIsAdmin(false));
+      }
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      const next = session?.user ?? null;
+      setUser(next);
+      if (next) {
+        fetch("/api/admin/status")
+          .then((r) => r.json())
+          .then((body: { isAdmin?: boolean }) => setIsAdmin(Boolean(body.isAdmin)))
+          .catch(() => setIsAdmin(false));
+      } else {
+        setIsAdmin(false);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -58,6 +74,11 @@ export function AuthNav() {
   if (user) {
     return (
       <div className="site-header-auth">
+        {isAdmin && (
+          <Link href="/admin" className="site-header-link">
+            Admin
+          </Link>
+        )}
         <Link href="/account" className="site-header-link">
           My articles
         </Link>
