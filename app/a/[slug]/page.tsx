@@ -1,6 +1,24 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getArticleBySlugServer } from "@/lib/articleStore";
+import { articleShareMetadata } from "@/lib/articleShareMetadata";
 import { SharedArticleView } from "@/components/SharedArticleView";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const saved = await getArticleBySlugServer(slug);
+  if (!saved) {
+    return { title: "Article not found" };
+  }
+  return articleShareMetadata(
+    saved.articleJson.title || saved.intake.articleTitle,
+    saved.articleJson.subtitle,
+  );
+}
 
 export default async function SharedArticlePage({
   params,

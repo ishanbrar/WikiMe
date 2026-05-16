@@ -1,57 +1,39 @@
-"use client";
-
-import { Suspense, useEffect, useState } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import type { Metadata } from "next";
+import { Suspense } from "react";
+import { EncodedShareClient } from "@/components/EncodedShareClient";
+import { articleShareMetadata } from "@/lib/articleShareMetadata";
 import { decodeArticleFromUrl } from "@/lib/share";
-import { SharedArticleView } from "@/components/SharedArticleView";
-import type { SavedArticle } from "@/types/article";
-import { createDefaultIntake } from "@/components/IntakeForm";
-import { nanoid } from "nanoid";
 
-function EncodedShare() {
-  const searchParams = useSearchParams();
-  const d = searchParams.get("d");
-  const [saved, setSaved] = useState<SavedArticle | null>(null);
-
-  useEffect(() => {
-    if (!d) return;
-    const decoded = decodeArticleFromUrl(d);
-    if (!decoded) return;
-    setSaved({
-      id: nanoid(),
-      slug: "encoded",
-      articleJson: decoded.articleJson,
-      mode: decoded.mode,
-      intake: createDefaultIntake(decoded.mode),
-      headshotDataUrl: decoded.headshotDataUrl,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-  }, [d]);
-
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ d?: string }>;
+}): Promise<Metadata> {
+  const { d } = await searchParams;
   if (!d) {
-    return (
-      <div className="p-12 text-center">
-        <p>Missing share data.</p>
-        <Link href="/" className="text-blue-600">
-          Home
-        </Link>
-      </div>
-    );
+    return { title: "Shared article" };
   }
-
-  if (!saved) {
-    return <div className="p-12 text-center">Loading…</div>;
+  const decoded = decodeArticleFromUrl(d);
+  if (!decoded?.articleJson?.title) {
+    return { title: "Shared article" };
   }
-
-  return <SharedArticleView saved={saved} readOnly />;
+  return articleShareMetadata(
+    decoded.articleJson.title,
+    decoded.articleJson.subtitle,
+  );
 }
 
-export default function SharePage() {
+export default async function SharePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ d?: string }>;
+}) {
+  const { d } = await searchParams;
+  const encoded = d ?? null;
+
   return (
     <Suspense fallback={<div className="p-8">Loading…</div>}>
-      <EncodedShare />
+      <EncodedShareClient encoded={encoded} />
     </Suspense>
   );
 }

@@ -59,6 +59,10 @@ export function GenerationProgress({
           })}
         </ol>
         {detail && <p className="generation-progress-detail">{detail}</p>}
+        <p className="generation-progress-hint">
+          This usually takes about 30 seconds. Please don&apos;t leave this page
+          until generation finishes.
+        </p>
         <p className="generation-progress-elapsed">{elapsed}s elapsed</p>
         {canCancel && onCancel && (
           <button type="button" className="btn-secondary generation-cancel" onClick={onCancel}>

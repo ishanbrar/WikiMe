@@ -2299,6 +2299,14 @@ body {
   color: #fff;
 }
 
+.generation-progress-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #64748b;
+  text-align: center;
+}
+
 .generation-progress-detail {
   margin: 0 0 0.35rem;
   font-size: 0.875rem;
