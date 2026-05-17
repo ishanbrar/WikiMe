@@ -9,6 +9,7 @@ const bodySchema = z.object({
   intake: intakeSchema,
   facts: factsInputSchema.optional(),
   headshotDataUrl: z.string().max(600_000).optional(),
+  extraPhotoUrls: z.array(z.string().max(600_000)).max(2).optional(),
 });
 
 export async function POST(req: Request) {
@@ -22,11 +23,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const { intake, facts, headshotDataUrl } = parsed.data;
+    const { intake, facts, headshotDataUrl, extraPhotoUrls } = parsed.data;
+    const supplementalPhotos = (extraPhotoUrls ?? []).map((dataUrl) => ({
+      dataUrl,
+    }));
     const article = await generateArticle(
       intake,
       facts ?? emptyExtractedFacts(),
       headshotDataUrl ?? "",
+      supplementalPhotos,
     );
 
     return NextResponse.json({

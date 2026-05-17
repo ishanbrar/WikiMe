@@ -33,12 +33,15 @@ export function ExportControls({
   printTargetId,
   onSave,
   disabled = false,
+  inline = false,
 }: {
   article: ArticleJson;
   saved: SavedArticle | null;
   printTargetId: string;
   onSave: () => Promise<string | null>;
   disabled?: boolean;
+  /** Render Share button inline in the article toolbar row */
+  inline?: boolean;
 }) {
   const [status, setStatus] = useState("");
   const [shareUrl, setShareUrl] = useState("");
@@ -129,7 +132,9 @@ export function ExportControls({
   };
 
   return (
-    <div className={`export-controls no-print ${disabled ? "opacity-60" : ""}`}>
+    <div
+      className={`export-controls no-print ${inline ? "export-controls--inline" : ""} ${disabled ? "opacity-60" : ""}`}
+    >
       <div className="share-menu" ref={menuRef}>
         <button
           type="button"
@@ -159,8 +164,12 @@ export function ExportControls({
           </div>
         )}
       </div>
-      {status && <p className="text-sm text-gray-600 mt-2">{status}</p>}
-      {shareUrl && <p className="text-xs text-gray-500 mt-1 break-all">{shareUrl}</p>}
+      {!inline && status && (
+        <p className="text-sm text-gray-600 mt-2">{status}</p>
+      )}
+      {!inline && shareUrl && (
+        <p className="text-xs text-gray-500 mt-1 break-all">{shareUrl}</p>
+      )}
     </div>
   );
 }

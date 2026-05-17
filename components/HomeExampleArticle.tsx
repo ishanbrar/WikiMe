@@ -36,7 +36,7 @@ export function HomeExampleArticle() {
         sizes="(max-width: 640px) 100vw, 360px"
       />
       <span className="home-example-screenshot-caption">
-        Sample output · Creative mode · Tap to open live article
+        Creative Mode example · Tap to read the full article
       </span>
     </Link>
   );
@@ -46,9 +46,9 @@ export function HomeExampleArticle() {
       <section className="home-example home-example--mobile" aria-labelledby="home-example-heading">
         <div className="home-example-header">
           <div>
-            <p className="home-example-eyebrow">Sample output</p>
+            <p className="home-example-eyebrow">Creative mode sample</p>
             <h2 id="home-example-heading" className="home-example-title">
-              See what WikiMe generates
+              Maya Chen — a Creative Mode biography
             </h2>
           </div>
           <Link href={`/a/${EXAMPLE_ARTICLE_SLUG}`} className="home-example-cta">
@@ -92,13 +92,14 @@ export function HomeExampleArticle() {
     <section className="home-example" aria-labelledby="home-example-heading">
       <div className="home-example-header">
         <div>
-          <p className="home-example-eyebrow">How it works</p>
+          <p className="home-example-eyebrow">Creative mode example</p>
           <h2 id="home-example-heading" className="home-example-title">
-            From screenshot to Wikipedia article
+            Maya Chen — legendary Wikipedia-style biography
           </h2>
           <p className="home-example-desc">
-            Upload a LinkedIn (or similar) profile screenshot. Vision AI extracts facts, then
-            generates a full biography — here is Maya Chen, our demo subject.
+            WikiMe&apos;s Creative Mode turns your answers into a long, dramatic encyclopedia
+            entry. Explore Maya Chen — fictional quotes, a Controversies section, and full
+            Wikipedia layout.
           </p>
         </div>
         <Link href={`/a/${EXAMPLE_ARTICLE_SLUG}`} className="home-example-cta">

@@ -86,6 +86,8 @@ function collectInputHooks(intake: IntakeData): string[] {
   add("name", intake.fullName);
   add("title", intake.articleTitle);
   add("birthplace", intake.birthplace);
+  add("birthday", intake.birthday);
+  add("death date", intake.deathDate);
   add("location", intake.currentLocation);
   add("education", intake.education);
   add("occupation", intake.occupation);

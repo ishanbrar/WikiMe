@@ -269,6 +269,78 @@ body {
   font-family: system-ui, sans-serif;
 }
 
+.article-toolbar-bar {
+  font-family: system-ui, sans-serif;
+}
+
+.article-toolbar-bar-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.article-toolbar-actions {
+  position: relative;
+}
+
+.export-controls--inline {
+  margin-left: auto;
+}
+
+.extra-photos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.extra-photos-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.extra-photos-thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.wiki-figure {
+  float: right;
+  clear: right;
+  width: min(220px, 45%);
+  margin: 0 0 0.75rem 1.25rem;
+  border: 1px solid var(--wiki-border, #c8ccd1);
+  background: var(--wiki-bg, #fff);
+  padding: 0.35rem;
+  font-size: 0.875em;
+}
+
+.wiki-figure-image {
+  display: block;
+}
+
+.wiki-figure-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.wiki-figure-caption {
+  margin: 0.35rem 0.15rem 0.1rem;
+  padding: 0;
+  line-height: 1.35;
+  color: var(--wiki-muted, #54595d);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
 /* Wikipedia Vector article page */
 .wiki-page {
   font-family: var(--wiki-font-sans);

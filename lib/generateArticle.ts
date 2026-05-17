@@ -13,6 +13,7 @@ import {
   creativeLengthHint,
   formatCreativeBrief,
 } from "@/lib/creativeNarrative";
+import type { SupplementalPhoto } from "@/lib/articleFigures";
 import { INFOBOX_RULES } from "@/lib/infoboxHelpers";
 import { WIKI_SECTION_STRUCTURE_RULES } from "@/lib/wikiSections";
 
@@ -32,6 +33,8 @@ function buildPrompt(
       fullName: intake.fullName,
       articleTitle: intake.articleTitle,
       birthplace: intake.birthplace,
+      birthday: intake.birthday,
+      deathDate: intake.deathDate,
       currentLocation: intake.currentLocation,
       education: intake.education,
       occupation: intake.occupation,
@@ -71,6 +74,13 @@ SAFETY: No defamation of real living people beyond the subject's fictional legen
 FORBIDDEN PHRASES: Never use: ${brief.avoidGenericPhrases.map((p) => `"${p}"`).join(", ")}.`;
 }
 
+const SUPPLEMENTAL_PHOTOS_RULE = (count: number) =>
+  count > 0
+    ? `SUPPLEMENTAL PHOTOS: User provided ${count} extra photo(s). Place each exactly once via figures: [{imageIndex: 0..${count - 1}, caption}] on the best section (career, personal-life, etc.). Captions: neutral Wikipedia style, third person, 8–20 words. imageIndex is NOT the infobox headshot.`
+    : "";
+
+const CREATIVE_CONTROVERSIES_RULE = `CONTROVERSIES (creative mode): When the narrative includes disputes, backlash, scandals, or polarizing episodes, add a "controversies" section (id controversies, title "Controversies") with 2–4 paragraphs. Omit entirely if nothing controversial fits.`;
+
 const CREATIVE_QUOTES_RULE = `ATTRIBUTED QUOTES (required in creative mode):
 - Include exactly 1–2 blockquotes total across the article — like real Wikipedia biographies (journalists, rivals, colleagues, critics commenting on the subject).
 - Place each in the most relevant section via optional quotes: [{text, attribution}].
@@ -79,7 +89,7 @@ const CREATIVE_QUOTES_RULE = `ATTRIBUTED QUOTES (required in creative mode):
 
 const ARTICLE_SCHEMA = `Return ONLY valid JSON (no markdown) with keys:
 title, subtitle, summaryLead (string[]), infobox {name, imageUrl, caption, titles[], born, died, hometown, currentLocation, education, occupation, yearsActive, knownFor[], notableWorks[], awards[], allegiance[{name,flag}], branch[{name,flag}], socialLinks[{label,url}]},
-sections[{id,title,paragraphs[],quotes?:[{text,attribution}],subsections?:[{title,paragraphs[]}]}],
+sections[{id,title,paragraphs[],figures?:[{imageIndex,caption}] OR [{imageUrl,caption}],quotes?:[{text,attribution}],subsections?:[{title,paragraphs[]}]}],
 seeAlso[], references[{label,title,url,type}], externalLinks[{label,url}], properNouns[] — ONLY real Wikipedia article titles for entities (e.g. "United States Army", "Medal of Honor", "West Point", "Lahore"). No generic words, no the subject's name, no fictional places, no made-up articles.
 
 ${INFOBOX_RULES}
@@ -98,11 +108,13 @@ async function callCreativeGenerator(
   headshotUrl: string,
   brief: ReturnType<typeof buildCreativeBrief>,
   attempt: number,
+  supplementalPhotos: SupplementalPhoto[],
 ): Promise<ArticleJson> {
   const lengthHint = creativeLengthHint(intake.articleLength);
-  const system = `You are a virtuoso biographer writing Wikipedia-shaped JSON. ${creativeRules(brief)} ${CREATIVE_QUOTES_RULE} ${lengthHint} ${ARTICLE_SCHEMA}`;
+  const system = `You are a virtuoso biographer writing Wikipedia-shaped JSON. ${creativeRules(brief)} ${CREATIVE_CONTROVERSIES_RULE} ${CREATIVE_QUOTES_RULE} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos.length)} ${lengthHint} ${ARTICLE_SCHEMA}`;
   const user = `Generate a CREATIVE MODE article (attempt ${attempt}).
 tone=${intake.tone}
+supplementalPhotoCount=${supplementalPhotos.length}
 NARRATIVE_BRIEF (follow strictly):
 ${formatCreativeBrief(brief)}
 USER_DATA:
@@ -121,13 +133,17 @@ ${buildPrompt(intake, facts, headshotUrl)}`;
   });
 
   const parsed = parseJsonFromModel<unknown>(raw);
-  return normalizeArticleJson(parsed, intake, headshotUrl, { creative: true });
+  return normalizeArticleJson(parsed, intake, headshotUrl, {
+    creative: true,
+    supplementalPhotos,
+  });
 }
 
 export async function generateArticle(
   intake: IntakeData,
   facts: ExtractedProfileFacts,
   headshotUrl: string,
+  supplementalPhotos: SupplementalPhoto[] = [],
 ): Promise<ArticleJson> {
   if (!hasAiKey()) {
     const mock = buildMockArticle(intake, headshotUrl);
@@ -137,7 +153,14 @@ export async function generateArticle(
 
   if (intake.mode === "creative") {
     const brief = buildCreativeBrief(intake);
-    let article = await callCreativeGenerator(intake, facts, headshotUrl, brief, 1);
+    let article = await callCreativeGenerator(
+      intake,
+      facts,
+      headshotUrl,
+      brief,
+      1,
+      supplementalPhotos,
+    );
     const minWords = CREATIVE_MIN_WORDS[intake.articleLength];
     if (articleWordCount(article) < minWords) {
       const retryBrief = buildCreativeBrief(intake);
@@ -147,20 +170,24 @@ export async function generateArticle(
         headshotUrl,
         retryBrief,
         2,
+        supplementalPhotos,
       );
     }
     return article;
   }
 
-  const system = `You write Wikipedia-style biography JSON. ${realismRules()} ${realismLengthHint(intake.articleLength)} ${ARTICLE_SCHEMA}`;
-  const user = `Generate article for mode=realism, tone=${intake.tone}.\nData:\n${buildPrompt(intake, facts, headshotUrl)}`;
+  const system = `You write Wikipedia-style biography JSON. ${realismRules()} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos.length)} ${realismLengthHint(intake.articleLength)} ${ARTICLE_SCHEMA}`;
+  const user = `Generate article for mode=realism, tone=${intake.tone}. supplementalPhotoCount=${supplementalPhotos.length}.\nData:\n${buildPrompt(intake, facts, headshotUrl)}`;
 
   const raw = await generateText(system, user, {
     temperature: 0.5,
     maxTokens: intake.articleLength === "long" ? 6000 : 4096,
   });
   const parsed = parseJsonFromModel<unknown>(raw);
-  return normalizeArticleJson(parsed, intake, headshotUrl, { creative: false });
+  return normalizeArticleJson(parsed, intake, headshotUrl, {
+    creative: false,
+    supplementalPhotos,
+  });
 }
 
 export async function regenerateSection(

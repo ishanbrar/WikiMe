@@ -2,6 +2,11 @@ import type { ArticleJson, IntakeData } from "@/types/article";
 import { normalizeInfobox } from "@/lib/infoboxHelpers";
 import { buildMockArticle } from "@/lib/mockArticle";
 import {
+  applySupplementalPhotos,
+  resolveFigureUrlsFromIndices,
+  type SupplementalPhoto,
+} from "@/lib/articleFigures";
+import {
   normalizeWikiSections,
   parseSectionFromRaw,
 } from "@/lib/wikiSections";
@@ -33,7 +38,7 @@ export function normalizeArticleJson(
   raw: unknown,
   intake: IntakeData,
   headshotUrl: string,
-  opts?: { creative?: boolean },
+  opts?: { creative?: boolean; supplementalPhotos?: SupplementalPhoto[] },
 ): ArticleJson {
   const fallback = buildMockArticle(intake, headshotUrl);
   const isCreative = opts?.creative ?? intake.mode === "creative";
@@ -51,9 +56,13 @@ export function normalizeArticleJson(
     infobox: normalizeInfobox(inf, intake, headshotUrl),
     sections: Array.isArray(o.sections)
       ? normalizeWikiSections(
-          (o.sections as unknown[])
-            .map((s) => parseSectionFromRaw(s as Record<string, unknown>))
-            .filter((s): s is NonNullable<typeof s> => s !== null),
+          resolveFigureUrlsFromIndices(
+            (o.sections as unknown[])
+              .map((s) => parseSectionFromRaw(s as Record<string, unknown>))
+              .filter((s): s is NonNullable<typeof s> => s !== null),
+            opts?.supplementalPhotos ?? [],
+          ),
+          { creative: isCreative },
         )
       : [],
     seeAlso: strArr(o.seeAlso),
@@ -103,12 +112,25 @@ export function normalizeArticleJson(
         },
       ];
     }
-    return article;
+    return finishArticle(article, intake, opts?.supplementalPhotos);
   }
 
   if (!article.summaryLead.length) article.summaryLead = fallback.summaryLead;
   if (!article.sections.length) article.sections = fallback.sections;
   if (!article.references.length) article.references = fallback.references;
 
-  return article;
+  return finishArticle(article, intake, opts?.supplementalPhotos);
+}
+
+function finishArticle(
+  article: ArticleJson,
+  intake: IntakeData,
+  supplementalPhotos?: SupplementalPhoto[],
+): ArticleJson {
+  if (!supplementalPhotos?.length) return article;
+  return applySupplementalPhotos(
+    article,
+    supplementalPhotos,
+    intake.fullName || intake.articleTitle,
+  );
 }

@@ -12,6 +12,8 @@ const defaultIntake = (mode: ArticleMode = "realism"): IntakeData => ({
   fullName: "",
   articleTitle: "",
   birthplace: "",
+  birthday: "",
+  deathDate: "",
   currentLocation: "",
   education: "",
   occupation: "",
@@ -44,6 +46,8 @@ const REQUIRED_FIELDS: {
 
 const OPTIONAL_GRID_FIELDS: typeof REQUIRED_FIELDS = [
   { label: "Birthplace / hometown", key: "birthplace", opts: { autocomplete: "birthplace", name: "birthplace" } },
+  { label: "Birthday", key: "birthday", opts: { autocomplete: "bday", name: "bday" } },
+  { label: "Death date (if applicable)", key: "deathDate", opts: { autocomplete: "off" } },
   { label: "Current location", key: "currentLocation", opts: { autocomplete: "address-level2", name: "address-level2" } },
   { label: "Education", key: "education", opts: { autocomplete: "organization", name: "organization" } },
   {

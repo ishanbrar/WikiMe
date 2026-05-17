@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { LoadingButton } from "@/components/LoadingButton";
 import { ExportControls } from "@/components/ExportControls";
 import type { ArticleJson, IntakeData, SavedArticle } from "@/types/article";
 
@@ -32,23 +31,23 @@ export function ArticleToolbar({
   saved: SavedArticle;
   onSaveToServer: () => Promise<string | null>;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const optionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!optionsOpen) return;
     const close = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
+      if (optionsRef.current && !optionsRef.current.contains(e.target as Node)) {
+        setOptionsOpen(false);
       }
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
-  }, [menuOpen]);
+  }, [optionsOpen]);
 
   const modeSelect = (
     <select
-      className="text-sm border rounded px-2 py-1 disabled:opacity-50"
+      className="text-sm border rounded px-2 py-1 disabled:opacity-50 w-full"
       value={intakeMode}
       disabled={busy}
       onChange={(e) => onModeChange(e.target.value as IntakeData["mode"])}
@@ -59,81 +58,82 @@ export function ArticleToolbar({
   );
 
   return (
-    <>
-      <div
-        className={`article-toolbar no-print sticky top-0 z-50 bg-white/95 border-b border-slate-200 px-4 py-2 flex flex-wrap gap-2 items-center ${busy ? "opacity-60" : ""}`}
-      >
+    <div
+      className={`article-toolbar-bar no-print sticky top-0 z-50 bg-white/95 border-b border-slate-200 ${busy ? "opacity-60" : ""}`}
+    >
+      <div className="article-toolbar-bar-inner px-4 py-2 flex flex-wrap items-center gap-2">
         <button
           type="button"
-          className="btn-secondary text-sm article-toolbar-primary"
+          className="btn-secondary text-sm"
           onClick={onToggleEdit}
           disabled={busy}
         >
           {editing ? "Preview" : "Edit"}
         </button>
 
-        <div className="article-toolbar-desktop flex flex-wrap gap-2 items-center">
+        <div className="article-toolbar-actions" ref={optionsRef}>
           <button
             type="button"
             className="btn-secondary text-sm"
-            onClick={onToggleIntake}
+            onClick={() => setOptionsOpen((v) => !v)}
             disabled={busy}
-          >
-            Intake
-          </button>
-          <LoadingButton
-            className="btn-secondary text-sm"
-            loading={busy}
-            loadingLabel="Regenerating…"
-            onClick={onRegenerateAll}
-            disabled={busy}
-          >
-            Regenerate all
-          </LoadingButton>
-          {modeSelect}
-          <button type="button" className="btn-secondary text-sm" onClick={onSaveLocal} disabled={busy}>
-            Save locally
-          </button>
-        </div>
-
-        <div className="article-toolbar-more-wrap" ref={menuRef}>
-          <button
-            type="button"
-            className="btn-secondary text-sm article-toolbar-more"
-            onClick={() => setMenuOpen((v) => !v)}
-            disabled={busy}
-            aria-expanded={menuOpen}
+            aria-expanded={optionsOpen}
             aria-haspopup="menu"
           >
-            ⋯
+            Options …
           </button>
-          {menuOpen && (
+          {optionsOpen && (
             <div className="article-toolbar-menu" role="menu">
-              <button type="button" role="menuitem" onClick={() => { onToggleIntake(); setMenuOpen(false); }} disabled={busy}>
-                Intake
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onToggleIntake();
+                  setOptionsOpen(false);
+                }}
+                disabled={busy}
+              >
+                {showIntake ? "Hide intake" : "Intake"}
               </button>
-              <button type="button" role="menuitem" onClick={() => { onRegenerateAll(); setMenuOpen(false); }} disabled={busy}>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onRegenerateAll();
+                  setOptionsOpen(false);
+                }}
+                disabled={busy}
+              >
                 Regenerate all
               </button>
               <div className="article-toolbar-menu-mode" role="none">
                 <label className="text-xs text-slate-500">Mode</label>
                 {modeSelect}
               </div>
-              <button type="button" role="menuitem" onClick={() => { onSaveLocal(); setMenuOpen(false); }} disabled={busy}>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onSaveLocal();
+                  setOptionsOpen(false);
+                }}
+                disabled={busy}
+              >
                 Save locally
               </button>
             </div>
           )}
         </div>
-      </div>
 
-      <ExportControls
-        article={article}
-        saved={saved}
-        printTargetId="wiki-article-print"
-        onSave={onSaveToServer}
-        disabled={busy}
-      />
-    </>
+        <ExportControls
+          article={article}
+          saved={saved}
+          printTargetId="wiki-article-print"
+          onSave={onSaveToServer}
+          disabled={busy}
+          inline
+        />
+      </div>
+    </div>
   );
 }

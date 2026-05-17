@@ -18,6 +18,7 @@ function ArticleView() {
     article: ArticleJson;
     intake: IntakeData;
     headshotDataUrl?: string;
+    extraPhotoUrls?: string[];
     facts?: ExtractedProfileFacts;
     savedId?: string;
     slug?: string;
@@ -121,6 +122,7 @@ function ArticleView() {
       initialArticle={payload.article}
       intake={payload.intake}
       headshotDataUrl={payload.headshotDataUrl}
+      extraPhotoUrls={payload.extraPhotoUrls}
       extractedFacts={payload.facts}
       savedId={payload.savedId}
       slug={payload.slug}

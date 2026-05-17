@@ -9,6 +9,7 @@ import { AppearancePanel } from "@/components/AppearancePanel";
 import { WikiLinkedText } from "@/components/WikiLinkedText";
 import { normalizeWikiSections } from "@/lib/wikiSections";
 import { expandLinkTermsForInfobox } from "@/lib/wikipediaLinks";
+import { splitSubjectNameBold } from "@/lib/boldSubjectLead";
 import { splitSummaryLead } from "@/lib/splitLead";
 import { wikiTitleFont } from "@/lib/wikiFonts";
 
@@ -61,7 +62,9 @@ export function WikiArticlePage({
     return {
       ...article,
       infobox,
-      sections: normalizeWikiSections(article.sections),
+      sections: normalizeWikiSections(article.sections, {
+        creative: intake?.mode === "creative",
+      }),
     };
   }, [article, intake]);
 
@@ -82,27 +85,59 @@ export function WikiArticlePage({
     return splitSummaryLead(displayArticle.summaryLead);
   }, [displayArticle.summaryLead, editable]);
 
-  const renderLeadParagraph = (p: string, i: number, isFirstOverall: boolean) => (
-    <p key={isFirstOverall ? `lead-${i}` : `lead-rest-${i}`} className="wiki-paragraph">
-      {editable ? (
-        <textarea
-          className="wiki-edit-area w-full"
-          value={p}
-          onChange={(e) => {
-            const lead = [...displayArticle.summaryLead];
-            const idx = isFirstOverall ? i : i + leadTeaser.length;
-            lead[idx] = e.target.value;
-            onArticleChange?.({ ...article, summaryLead: lead });
-          }}
-        />
-      ) : (
-        <WikiLinkedText
-          text={p}
-          properNouns={linkTerms}
-          subjectName={subjectName}
-        />
-      )}
-    </p>
+  const renderLeadParagraph = (p: string, i: number, isFirstOverall: boolean) => {
+    const boldSplit =
+      !editable && isFirstOverall && i === 0
+        ? splitSubjectNameBold(p, subjectName, article.title)
+        : null;
+
+    return (
+      <p key={isFirstOverall ? `lead-${i}` : `lead-rest-${i}`} className="wiki-paragraph">
+        {editable ? (
+          <textarea
+            className="wiki-edit-area w-full"
+            value={p}
+            onChange={(e) => {
+              const lead = [...displayArticle.summaryLead];
+              const idx = isFirstOverall ? i : i + leadTeaser.length;
+              lead[idx] = e.target.value;
+              onArticleChange?.({ ...article, summaryLead: lead });
+            }}
+          />
+        ) : boldSplit ? (
+          <>
+            {boldSplit.before}
+            <strong>{boldSplit.name}</strong>
+            <WikiLinkedText
+              text={boldSplit.after}
+              properNouns={linkTerms}
+              subjectName={subjectName}
+            />
+          </>
+        ) : (
+          <WikiLinkedText
+            text={p}
+            properNouns={linkTerms}
+            subjectName={subjectName}
+          />
+        )}
+      </p>
+    );
+  };
+
+  const renderFigure = (fig: { imageUrl: string; caption: string }, key: string) => (
+    <figure key={key} className="wiki-figure">
+      <a
+        href={fig.imageUrl}
+        className="wiki-figure-image"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={fig.imageUrl} alt="" loading="lazy" />
+      </a>
+      <figcaption className="wiki-figure-caption">{fig.caption}</figcaption>
+    </figure>
   );
 
   const updateSection = (id: string, paragraphs: string[]) => {
@@ -245,8 +280,22 @@ export function WikiArticlePage({
                         <footer>— {quote.attribution}</footer>
                       </blockquote>
                     ))}
+                  {section.figures?.[pi]
+                    ? renderFigure(
+                        section.figures[pi],
+                        `${section.id}-fig-${pi}`,
+                      )
+                    : null}
                 </div>
               ))}
+              {section.figures
+                ?.slice(section.paragraphs.length)
+                .map((fig, fi) =>
+                  renderFigure(
+                    fig,
+                    `${section.id}-fig-extra-${fi}`,
+                  ),
+                )}
               {section.subsections?.map((sub, si) => (
                 <div key={`${section.id}-sub-${si}`} className="wiki-subsection">
                   <h3 className="wiki-subsection-title">

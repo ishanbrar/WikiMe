@@ -147,9 +147,16 @@ export function normalizeInfobox(
   const str = (v: unknown, fallback = "") =>
     typeof v === "string" ? v : v == null ? fallback : String(v);
 
+  const bornFromIntake = [
+    intake.birthday.trim(),
+    intake.birthplace.trim() ? intake.birthplace.trim() : "",
+  ]
+    .filter(Boolean)
+    .join(intake.birthday.trim() && intake.birthplace.trim() ? ", " : "");
   const born = pickRicherPlace(
     str(inf.born),
-    intake.birthplace ? `Unknown date, ${intake.birthplace}` : "",
+    bornFromIntake ||
+      (intake.birthplace ? `Unknown date, ${intake.birthplace}` : ""),
   );
   const hometown = normalizeHometown(str(inf.hometown, intake.birthplace), born, intake.birthplace);
   const currentLocation = pickRicherPlace(
@@ -163,7 +170,7 @@ export function normalizeInfobox(
     caption: str(inf.caption, ""),
     titles: strArr(inf.titles),
     born,
-    died: str(inf.died, ""),
+    died: str(inf.died, intake.deathDate.trim()),
     hometown,
     currentLocation,
     education: str(inf.education, intake.education),

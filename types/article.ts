@@ -16,6 +16,10 @@ export interface IntakeData {
   fullName: string;
   articleTitle: string;
   birthplace: string;
+  /** Optional birth date (e.g. 12 August 1998) */
+  birthday: string;
+  /** Optional death date (e.g. 3 March 2021); leave blank if living */
+  deathDate: string;
   currentLocation: string;
   education: string;
   occupation: string;
@@ -76,6 +80,12 @@ export interface ArticleSubsection {
   paragraphs: string[];
 }
 
+/** Wikipedia-style thumbnail figure in a section body */
+export interface ArticleFigure {
+  imageUrl: string;
+  caption: string;
+}
+
 /** Wikipedia-style blockquote attributed to a third party (creative mode). */
 export interface ArticleQuote {
   text: string;
@@ -90,6 +100,8 @@ export interface ArticleSection {
   quotes?: ArticleQuote[];
   /** Specific in-section headings (Wikipedia h3-style); TOC uses only generic `title`. */
   subsections?: ArticleSubsection[];
+  /** Optional inline photos with captions (supplemental uploads) */
+  figures?: ArticleFigure[];
 }
 
 export interface ArticleReference {
@@ -118,6 +130,8 @@ export interface SavedArticle {
   mode: ArticleMode;
   intake: IntakeData;
   headshotDataUrl?: string;
+  /** Up to 2 supplemental photos for inline article figures */
+  extraPhotoUrls?: string[];
   extractedFacts?: ExtractedProfileFacts;
   userId?: string;
   creatorEmail?: string;

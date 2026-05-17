@@ -1,4 +1,9 @@
-import type { ArticleQuote, ArticleSection, ArticleSubsection } from "@/types/article";
+import type {
+  ArticleFigure,
+  ArticleQuote,
+  ArticleSection,
+  ArticleSubsection,
+} from "@/types/article";
 
 /** Standard biography TOC entries (Wikipedia-style generic titles). */
 export const WIKI_SECTION_CATALOG: { id: string; title: string }[] = [
@@ -7,6 +12,7 @@ export const WIKI_SECTION_CATALOG: { id: string; title: string }[] = [
   { id: "career", title: "Career" },
   { id: "projects", title: "Projects" },
   { id: "public-image", title: "Public image" },
+  { id: "controversies", title: "Controversies" },
   { id: "personal-life", title: "Personal life" },
   { id: "achievements", title: "Achievements" },
   { id: "legacy", title: "Legacy" },
@@ -33,8 +39,8 @@ const ID_ALIASES: Record<string, string> = {
   project: "projects",
   "public_image": "public-image",
   reception: "public-image",
-  controversy: "public-image",
-  controversies: "public-image",
+  controversy: "controversies",
+  controversies: "controversies",
   "personal_life": "personal-life",
   biography: "personal-life",
   death: "legacy",
@@ -51,6 +57,7 @@ export const WIKI_SECTION_STRUCTURE_RULES = `WIKIPEDIA SECTION STRUCTURE (requir
   career → "Career"
   projects → "Projects"
   public-image → "Public image"
+  controversies → "Controversies" (creative mode only — include when the fictional biography has disputes, backlash, or scandal worth a dedicated section; omit if none)
   personal-life → "Personal life"
   achievements → "Achievements"
   legacy → "Legacy"
@@ -73,6 +80,7 @@ const SUBSECTION_FALLBACKS: Record<string, string[]> = {
   career: ["Early career", "Major activities", "Later developments", "Controversies"],
   projects: ["Notable initiatives", "Key projects", "Outcomes"],
   "public-image": ["Media portrayal", "Public reception", "Criticism and praise"],
+  controversies: ["Allegations", "Response", "Aftermath"],
   "personal-life": ["Relationships and family", "Personal views", "Private life"],
   achievements: ["Major accomplishments", "Recognition", "Impact"],
   legacy: ["Historical assessment", "Influence", "Memorialization"],
@@ -211,7 +219,10 @@ export function normalizeSectionId(rawId: string, rawTitle?: string): string {
   if (/project|venture|startup|operation/.test(slug + titleSlug)) {
     return "projects";
   }
-  if (/public|image|reception|controvers|media|figure/.test(slug + titleSlug)) {
+  if (/controvers/.test(slug + titleSlug)) {
+    return "controversies";
+  }
+  if (/public|image|reception|media/.test(slug + titleSlug)) {
     return "public-image";
   }
   if (/personal|marriage|family|life|allegat/.test(slug + titleSlug)) {
@@ -258,19 +269,49 @@ function parseSubsections(raw: unknown): ArticleSubsection[] {
     .filter((s): s is ArticleSubsection => s !== null);
 }
 
+export type ParsedFigure = ArticleFigure & { imageIndex?: number };
+
+function parseFigures(raw: unknown): ParsedFigure[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((f) => {
+      const o = f as Record<string, unknown>;
+      const imageUrl =
+        typeof o.imageUrl === "string"
+          ? o.imageUrl
+          : typeof o.url === "string"
+            ? o.url
+            : "";
+      const caption = typeof o.caption === "string" ? o.caption.trim() : "";
+      const imageIndex =
+        typeof o.imageIndex === "number" ? o.imageIndex : undefined;
+      if (!caption) return null;
+      if (!imageUrl && imageIndex === undefined) return null;
+      const fig: ParsedFigure = { imageUrl, caption };
+      if (imageIndex !== undefined) fig.imageIndex = imageIndex;
+      return fig;
+    })
+    .filter((f): f is ParsedFigure => f !== null);
+}
+
 function mergeSections(a: ArticleSection, b: ArticleSection): ArticleSection {
   const quotes = [...(a.quotes ?? []), ...(b.quotes ?? [])];
+  const figures = [...(a.figures ?? []), ...(b.figures ?? [])];
   return {
     id: a.id,
     title: a.title,
     paragraphs: [...a.paragraphs, ...b.paragraphs],
     quotes: quotes.length ? quotes : undefined,
+    figures: figures.length ? figures : undefined,
     subsections: [...(a.subsections ?? []), ...(b.subsections ?? [])],
   };
 }
 
 /** Force generic TOC titles and merge duplicate section ids. */
-export function normalizeWikiSections(sections: ArticleSection[]): ArticleSection[] {
+export function normalizeWikiSections(
+  sections: ArticleSection[],
+  opts?: { creative?: boolean },
+): ArticleSection[] {
   const byId = new Map<string, ArticleSection>();
 
   for (const sec of sections) {
@@ -279,16 +320,25 @@ export function normalizeWikiSections(sections: ArticleSection[]): ArticleSectio
     const paragraphs = sec.paragraphs.filter(Boolean);
     const subsections = sec.subsections ?? [];
     const quotes = sec.quotes?.length ? sec.quotes : undefined;
+    const figures = sec.figures?.length ? sec.figures : undefined;
 
     const next: ArticleSection = {
       id,
       title,
       paragraphs,
       quotes,
+      figures,
       subsections: subsections.length ? subsections : undefined,
     };
 
-    if (!paragraphs.length && !subsections.length && !quotes?.length) continue;
+    if (
+      !paragraphs.length &&
+      !subsections.length &&
+      !quotes?.length &&
+      !figures?.length
+    ) {
+      continue;
+    }
 
     const existing = byId.get(id);
     if (existing) {
@@ -298,7 +348,11 @@ export function normalizeWikiSections(sections: ArticleSection[]): ArticleSectio
     }
   }
 
-  return WIKI_SECTION_ORDER.filter((id) => byId.has(id)).map((id) =>
+  const order = opts?.creative
+    ? WIKI_SECTION_ORDER
+    : WIKI_SECTION_ORDER.filter((id) => id !== "controversies");
+
+  return order.filter((id) => byId.has(id)).map((id) =>
     polishSectionSubsections(byId.get(id)!),
   );
 }
@@ -316,14 +370,23 @@ export function parseSectionFromRaw(raw: Record<string, unknown>): ArticleSectio
     : [];
   const subsections = parseSubsections(raw.subsections);
   const quotes = parseQuotes(raw.quotes);
+  const figures = parseFigures(raw.figures);
 
-  if (!paragraphs.length && !subsections.length && !quotes.length) return null;
+  if (
+    !paragraphs.length &&
+    !subsections.length &&
+    !quotes.length &&
+    !figures.length
+  ) {
+    return null;
+  }
 
   return {
     id,
     title,
     paragraphs,
     quotes: quotes.length ? quotes : undefined,
+    figures: figures.length ? figures : undefined,
     subsections: subsections.length ? subsections : undefined,
   };
 }

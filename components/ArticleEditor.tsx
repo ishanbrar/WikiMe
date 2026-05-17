@@ -24,6 +24,7 @@ export function ArticleEditor({
   initialArticle,
   intake,
   headshotDataUrl,
+  extraPhotoUrls,
   extractedFacts,
   savedId,
   slug,
@@ -31,6 +32,7 @@ export function ArticleEditor({
   initialArticle: ArticleJson;
   intake: IntakeData;
   headshotDataUrl?: string;
+  extraPhotoUrls?: string[];
   extractedFacts?: ExtractedProfileFacts;
   savedId?: string;
   slug?: string;
@@ -103,6 +105,8 @@ export function ArticleEditor({
         body: JSON.stringify({
           intake: intakeState,
           facts: extractedFacts,
+          headshotDataUrl,
+          extraPhotoUrls: extraPhotoUrls ?? [],
         }),
       });
       const data = await res.json();

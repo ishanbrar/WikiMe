@@ -9,6 +9,7 @@ import { IntakeFlow } from "@/components/intake/IntakeFlow";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { HeadshotUploader } from "@/components/HeadshotUploader";
 import { ScreenshotUploader } from "@/components/ScreenshotUploader";
+import { ExtraPhotosUploader } from "@/components/ExtraPhotosUploader";
 import { prepareArticleForDb } from "@/lib/prepareArticleForDb";
 import type { ExtractedProfileFacts, IntakeData } from "@/types/article";
 import {
@@ -48,6 +49,7 @@ function GenerateFlow() {
   );
   const [headshot, setHeadshot] = useState<string[]>([]);
   const [screenshots, setScreenshots] = useState<string[]>([]);
+  const [extraPhotos, setExtraPhotos] = useState<string[]>([]);
   const [facts, setFacts] = useState<ExtractedProfileFacts>(emptyExtractedFacts());
   const [busy, setBusy] = useState(false);
   const [genPhase, setGenPhase] = useState<GenerationPhase | null>(null);
@@ -199,6 +201,8 @@ function GenerateFlow() {
         body: JSON.stringify({
           intake: intakeFinal,
           facts: extracted,
+          headshotDataUrl: headshot[0],
+          extraPhotoUrls: extraPhotos,
         }),
         signal,
       });
@@ -232,6 +236,7 @@ function GenerateFlow() {
         article,
         intake: intakeFinal,
         headshotDataUrl: headshot[0] ?? "",
+        extraPhotoUrls: extraPhotos,
         facts: extracted,
         mock: data.mock,
         savedId: articleId,
@@ -260,6 +265,7 @@ function GenerateFlow() {
         mode: intakeFinal.mode,
         intake: intakeFinal,
         headshotDataUrl: headshot[0],
+        extraPhotoUrls: extraPhotos,
         extractedFacts: extracted,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -332,6 +338,13 @@ function GenerateFlow() {
                   multiple
                   images={screenshots}
                   onChange={setScreenshots}
+                />
+              </div>
+              <div className="mt-8">
+                <ExtraPhotosUploader
+                  images={extraPhotos}
+                  onChange={setExtraPhotos}
+                  disabled={busy}
                 />
               </div>
               {screenshots.length > 0 && (

@@ -6,6 +6,8 @@ const intakeFields = {
   fullName: z.string().min(1, "Name is required"),
   articleTitle: z.string().min(1, "Article title is required"),
   birthplace: z.string(),
+  birthday: z.string(),
+  deathDate: z.string(),
   currentLocation: z.string(),
   education: z.string(),
   occupation: z.string(),
@@ -30,6 +32,8 @@ const intakeFields = {
 
 const intakeDefaults = {
   birthplace: "",
+  birthday: "",
+  deathDate: "",
   currentLocation: "",
   education: "",
   occupation: "",
@@ -119,6 +123,15 @@ export const articleJsonSchema = z.object({
       id: z.string(),
       title: z.string(),
       paragraphs: z.array(z.string()),
+      figures: z
+        .array(
+          z.object({
+            imageUrl: z.string(),
+            caption: z.string(),
+            imageIndex: z.number().optional(),
+          }),
+        )
+        .optional(),
       subsections: z
         .array(
           z.object({

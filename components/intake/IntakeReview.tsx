@@ -24,6 +24,8 @@ export function IntakeReview({
     articleTitle: "title",
     currentLocation: "location",
     birthplace: "hometown",
+    birthday: "hometown",
+    deathDate: "hometown",
     education: "education",
     occupation: "work",
     achievements: "achievements",

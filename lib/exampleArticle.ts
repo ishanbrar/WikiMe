@@ -2,7 +2,7 @@ import type { SavedArticle } from "@/types/article";
 
 export const EXAMPLE_ARTICLE_SLUG = "example";
 
-/** Static demo article for the homepage preview and /a/example */
+/** Static Creative Mode demo article for the homepage preview and /a/example */
 export function getExampleArticle(): SavedArticle {
   return {
     id: "example",
@@ -14,6 +14,8 @@ export function getExampleArticle(): SavedArticle {
       fullName: "Maya Chen",
       articleTitle: "Maya Chen",
       birthplace: "Seattle, Washington",
+      birthday: "14 March 1994",
+      deathDate: "",
       currentLocation: "San Francisco, California",
       education: "Stanford University (B.S. Computer Science)",
       occupation: "Software engineer, founder, and CEO of Lumen Labs",
@@ -30,29 +32,23 @@ export function getExampleArticle(): SavedArticle {
       title: "Maya Chen",
       subtitle: "American software engineer and entrepreneur",
       summaryLead: [
-        "Maya Chen (born 1994) is an American software engineer and entrepreneur known for founding Lumen Labs, a developer-tools company, and for early work on large-scale data infrastructure.",
+        "Maya Chen (born 14 March 1994) is an American software engineer and entrepreneur known for founding Lumen Labs, a developer-tools company, and for early work on large-scale data infrastructure.",
         "Chen's public profile rose after OpenGrid, an open-source analytics toolkit she co-created while at Stanford, was adopted by several Fortune 500 engineering teams. She has been described in trade press as part of a generation of founders who blend systems engineering with product narrative.",
       ],
       infobox: {
         name: "Maya Chen",
         imageUrl: "/examples/maya-chen-headshot.jpg",
         caption: "Chen in 2024",
-        born: "1994, Seattle, Washington, U.S.",
+        born: "14 March 1994, Seattle, Washington, U.S.",
         hometown: "Seattle, Washington, U.S.",
         currentLocation: "San Francisco, California, U.S.",
         education: "Stanford University",
         occupation: "Software engineer · Entrepreneur",
         yearsActive: "2016–present",
-        knownFor: [
-          "Lumen Labs",
-          "OpenGrid",
-          "WikiMe",
-        ],
+        knownFor: ["Lumen Labs", "OpenGrid", "WikiMe"],
         notableWorks: ["OpenGrid", "Lumen Labs platform"],
         awards: ["Forbes 30 Under 30 (Technology, 2023)"],
-        socialLinks: [
-          { label: "Website", url: "https://example.com" },
-        ],
+        socialLinks: [{ label: "Website", url: "https://example.com" }],
       },
       sections: [
         {
@@ -84,6 +80,28 @@ export function getExampleArticle(): SavedArticle {
             },
           ],
         },
+        {
+          id: "controversies",
+          title: "Controversies",
+          paragraphs: [
+            "In 2023, former Lumen Labs engineers alleged on social media that the company's \"always-on\" release culture had contributed to burnout on a high-profile municipal contract. Chen publicly defended the team's pacing while announcing an independent review of on-call rotations.",
+            "Critics in the open-source community also questioned whether OpenGrid's default telemetry settings collected more metadata than users were told during early betas; Lumen Labs published a revised privacy white paper and shipped opt-out controls within six weeks.",
+          ],
+        },
+        {
+          id: "personal-life",
+          title: "Personal life",
+          paragraphs: [
+            "Chen has described alpine climbing as a counterbalance to startup work and has supported scholarships for first-generation students entering computer science programs in the Pacific Northwest.",
+          ],
+        },
+        {
+          id: "legacy",
+          title: "Legacy",
+          paragraphs: [
+            "Technology historians writing in trade journals have cited Chen as an example of a founder-engineer whose public narrative emphasizes teachable systems design over personal celebrity.",
+          ],
+        },
       ],
       seeAlso: ["Women in technology", "Stanford University alumni"],
       references: [
@@ -94,9 +112,7 @@ export function getExampleArticle(): SavedArticle {
           type: "external-link",
         },
       ],
-      externalLinks: [
-        { label: "Official website", url: "https://example.com" },
-      ],
+      externalLinks: [{ label: "Official website", url: "https://example.com" }],
       properNouns: [
         "Stanford University",
         "San Francisco",
