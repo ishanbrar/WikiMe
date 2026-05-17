@@ -36,7 +36,7 @@ const FLAVORS = [
 const MYTHIC_FRAMES = [
   "treat their career as a three-act epic with a midpoint reversal",
   "structure the biography around a single symbolic object or place from the inputs",
-  "frame achievements as answers to a recurring question only they could pose",
+  "frame achievements around a recurring motif only they could embody",
   "present public life as performance and private life as counter-melody",
   "use recurring motifs (weather, maps, uniforms, machines) as narrative glue",
 ];

@@ -169,13 +169,6 @@ export function WikiArticlePage({
               <span className="wiki-tab wiki-tab-active">Article</span>
               <span className="wiki-tab">Talk</span>
             </div>
-            <div className="wiki-tabs-right">
-              {["Read", "Edit", "View history", "Tools"].map((tab, i) => (
-                <span key={tab} className={i === 0 ? "wiki-tab wiki-tab-active" : "wiki-tab"}>
-                  {tab}
-                </span>
-              ))}
-            </div>
           </nav>
         </header>
 

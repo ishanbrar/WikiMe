@@ -52,8 +52,10 @@ function buildPrompt(
   return JSON.stringify(compact);
 }
 
+const NO_QUESTIONS_RULE = `PROSE STYLE (required): Write declarative encyclopedic sentences only. Never use rhetorical questions, direct questions to the reader, or sentences ending with "?". Do not write "The question is…", "It remains unclear whether…", or "Is X or Y?" lists. State facts and attributed debates in statements (e.g. "Commentators disagree on whether…" not "Did he…?"). Subsection titles must not contain "?".`;
+
 function realismRules(): string {
-  return `REALISM MODE: Use real name. Ground in Q&A, pasted text, extracted facts only. No invented major jobs/schools/awards/crimes/medical/family/dates. Conservative phrasing if uncertain. Neutral encyclopedic tone. No marketing. References: user-provided, screenshot, or real URLs from inputs only.`;
+  return `REALISM MODE: Use real name. Ground in Q&A, pasted text, extracted facts only. No invented major jobs/schools/awards/crimes/medical/family/dates. Conservative phrasing if uncertain. Neutral encyclopedic tone. No marketing. References: user-provided, screenshot, or real URLs from inputs only. ${NO_QUESTIONS_RULE}`;
 }
 
 function creativeRules(brief: ReturnType<typeof buildCreativeBrief>): string {
@@ -71,7 +73,9 @@ TONE PREFERENCE: Apply the user's tone field (founder/athlete/academic/artist/fu
 
 SAFETY: No defamation of real living people beyond the subject's fictional legend, no explicit sexual content, no real-world criminal accusations, no medical diagnoses, no hate. Invented lore about the subject is allowed.
 
-FORBIDDEN PHRASES: Never use: ${brief.avoidGenericPhrases.map((p) => `"${p}"`).join(", ")}.`;
+FORBIDDEN PHRASES: Never use: ${brief.avoidGenericPhrases.map((p) => `"${p}"`).join(", ")}.
+
+${NO_QUESTIONS_RULE}`;
 }
 
 const SUPPLEMENTAL_PHOTOS_RULE = (count: number) =>

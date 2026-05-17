@@ -6,6 +6,7 @@ import {
   resolveFigureUrlsFromIndices,
   type SupplementalPhoto,
 } from "@/lib/articleFigures";
+import { stripQuestionsFromProse } from "@/lib/stripArticleQuestions";
 import {
   normalizeWikiSections,
   parseSectionFromRaw,
@@ -122,15 +123,54 @@ export function normalizeArticleJson(
   return finishArticle(article, intake, opts?.supplementalPhotos);
 }
 
+function sanitizeArticleProse(article: ArticleJson): ArticleJson {
+  return {
+    ...article,
+    summaryLead: article.summaryLead
+      .map(stripQuestionsFromProse)
+      .filter((p) => p.length > 0),
+    sections: article.sections
+      .map((sec) => ({
+        ...sec,
+        paragraphs: sec.paragraphs
+          .map(stripQuestionsFromProse)
+          .filter((p) => p.length > 0),
+        quotes: sec.quotes
+          ?.map((q) => ({
+            ...q,
+            text: stripQuestionsFromProse(q.text),
+          }))
+          .filter((q) => q.text.length > 0),
+        subsections: sec.subsections
+          ?.map((sub) => ({
+            ...sub,
+            paragraphs: sub.paragraphs
+              .map(stripQuestionsFromProse)
+              .filter((p) => p.length > 0),
+          }))
+          .filter((sub) => sub.paragraphs.length > 0),
+      }))
+      .filter(
+        (sec) =>
+          sec.paragraphs.length > 0 ||
+          (sec.subsections?.length ?? 0) > 0 ||
+          (sec.quotes?.length ?? 0) > 0 ||
+          (sec.figures?.length ?? 0) > 0,
+      ),
+  };
+}
+
 function finishArticle(
   article: ArticleJson,
   intake: IntakeData,
   supplementalPhotos?: SupplementalPhoto[],
 ): ArticleJson {
-  if (!supplementalPhotos?.length) return article;
-  return applySupplementalPhotos(
-    article,
+  let result = sanitizeArticleProse(article);
+  if (!supplementalPhotos?.length) return result;
+  result = applySupplementalPhotos(
+    result,
     supplementalPhotos,
     intake.fullName || intake.articleTitle,
   );
+  return sanitizeArticleProse(result);
 }
