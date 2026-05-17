@@ -12,7 +12,6 @@ const intakeFields = {
   education: z.string(),
   occupation: z.string(),
   achievements: z.string(),
-  skills: z.string(),
   lifeEvents: z.string(),
   tone: z.enum([
     "neutral",
@@ -38,7 +37,6 @@ const intakeDefaults = {
   education: "",
   occupation: "",
   achievements: "",
-  skills: "",
   lifeEvents: "",
   extraNotes: "",
   pastedProfileText: "",

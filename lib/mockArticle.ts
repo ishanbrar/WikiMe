@@ -85,8 +85,8 @@ export function buildMockArticle(
         id: "personal-life",
         title: "Personal life",
         paragraphs: [
-          intake.skills
-            ? `Skills noted by the subject include ${intake.skills}.`
+          intake.achievements
+            ? `Additional interests and skills noted by the subject include ${intake.achievements}.`
             : `Personal details beyond career information were not extensively documented.`,
         ],
       },

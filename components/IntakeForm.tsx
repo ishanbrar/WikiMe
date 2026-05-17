@@ -18,7 +18,6 @@ const defaultIntake = (mode: ArticleMode = "realism"): IntakeData => ({
   education: "",
   occupation: "",
   achievements: "",
-  skills: "",
   lifeEvents: "",
   tone: "neutral",
   mode,
@@ -155,8 +154,10 @@ export function IntakeForm({
           ))}
         </div>
 
-        {field("Achievements", "achievements", { textarea: true, autocomplete: "off" })}
-        {field("Skills", "skills", { autocomplete: "off" })}
+        {field("Achievements & skills", "achievements", {
+          textarea: true,
+          autocomplete: "off",
+        })}
         {field("Important life events", "lifeEvents", { textarea: true, autocomplete: "off" })}
 
         <label className="block">

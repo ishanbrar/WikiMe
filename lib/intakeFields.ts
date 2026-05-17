@@ -36,8 +36,7 @@ export const INTAKE_PLACEHOLDERS: Record<IntakeFieldKey, string> = {
   currentLocation: "Brooklyn, New York",
   education: "MIT, B.S. Computer Science",
   occupation: "Software engineer, Founder & CEO at Acme Inc.",
-  achievements: "Key wins, awards, press mentions…",
-  skills: "Design, public speaking, Python…",
+  achievements: "Forbes 30 Under 30; design, public speaking, Python…",
   lifeEvents: "Moved to NYC in 2018, founded company in 2020…",
   extraNotes: "Anything else the article should mention…",
   pastedProfileText:
@@ -175,11 +174,12 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
   {
     id: "achievements",
     type: "fields",
-    title: "Achievements",
+    title: "Achievements & skills",
+    subtitle: "Awards, milestones, and skills — optional.",
     fields: [
       {
         key: "achievements",
-        label: "Awards & milestones",
+        label: "Achievements & skills",
         placeholder: INTAKE_PLACEHOLDERS.achievements,
         optional: true,
         textarea: true,
@@ -198,20 +198,6 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
         placeholder: INTAKE_PLACEHOLDERS.lifeEvents,
         optional: true,
         textarea: true,
-        autocomplete: "off",
-      },
-    ],
-  },
-  {
-    id: "extras",
-    type: "fields",
-    title: "Skills",
-    fields: [
-      {
-        key: "skills",
-        label: "Skills",
-        placeholder: INTAKE_PLACEHOLDERS.skills,
-        optional: true,
         autocomplete: "off",
       },
     ],
@@ -267,9 +253,8 @@ export const REVIEW_ROWS: {
   { key: "deathDate", label: "Death date" },
   { key: "education", label: "Education" },
   { key: "occupation", label: "Occupation / role" },
-  { key: "achievements", label: "Achievements" },
+  { key: "achievements", label: "Achievements & skills" },
   { key: "lifeEvents", label: "Life events" },
-  { key: "skills", label: "Skills" },
   { key: "tone", label: "Tone" },
   { key: "articleLength", label: "Length" },
   { key: "pastedProfileText", label: "Profile text" },

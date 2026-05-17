@@ -12,6 +12,22 @@ export function mergeLegacyIntakeFields(
       occ && occ !== role ? `${occ} — ${role}` : role;
   }
 
-  const { currentRole: _r, notableProjects: _p, interests: _i, ...rest } = o;
-  return { ...rest, occupation };
+  const ach =
+    typeof o.achievements === "string" ? o.achievements.trim() : "";
+  const skills =
+    typeof o.skills === "string" ? o.skills.trim() : "";
+  let achievements = ach;
+  if (skills) {
+    achievements =
+      ach && ach !== skills ? `${ach}; ${skills}` : skills;
+  }
+
+  const {
+    currentRole: _r,
+    notableProjects: _p,
+    interests: _i,
+    skills: _s,
+    ...rest
+  } = o;
+  return { ...rest, occupation, achievements };
 }

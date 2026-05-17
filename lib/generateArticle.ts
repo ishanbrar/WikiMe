@@ -39,7 +39,6 @@ function buildPrompt(
       education: intake.education,
       occupation: intake.occupation,
       achievements: intake.achievements,
-      skills: intake.skills,
       lifeEvents: intake.lifeEvents,
       tone: intake.tone,
       extraNotes: intake.extraNotes,

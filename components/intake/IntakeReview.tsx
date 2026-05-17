@@ -30,7 +30,6 @@ export function IntakeReview({
     occupation: "work",
     achievements: "achievements",
     lifeEvents: "life",
-    skills: "extras",
     mode: "mode-confirm",
     tone: "style",
     articleLength: "style",

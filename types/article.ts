@@ -24,7 +24,6 @@ export interface IntakeData {
   education: string;
   occupation: string;
   achievements: string;
-  skills: string;
   lifeEvents: string;
   tone: TonePreference;
   mode: ArticleMode;
