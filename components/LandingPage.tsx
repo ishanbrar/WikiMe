@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { ModeSelector } from "@/components/ModeSelector";
 import { HomeExampleArticle } from "@/components/HomeExampleArticle";
+import { HomeExampleModeTabs } from "@/components/HomeExampleModeTabs";
+import {
+  EXAMPLE_REALISM_SLUG,
+  getExampleArticleSlug,
+} from "@/lib/exampleArticle";
 import type { ArticleMode } from "@/types/article";
 
 export function LandingPage() {
+  const [exampleMode, setExampleMode] = useState<ArticleMode>("realism");
+
   return (
     <div className="landing min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50">
       <section className="landing-hero">
@@ -19,13 +27,14 @@ export function LandingPage() {
           <Link href="/generate" className="landing-cta-primary">
             Start your article
           </Link>
-          <Link href="/a/example" className="landing-cta-secondary">
+          <Link href={`/a/${EXAMPLE_REALISM_SLUG}`} className="landing-cta-secondary">
             View example
           </Link>
         </div>
+        <HomeExampleModeTabs value={exampleMode} onChange={setExampleMode} />
       </section>
 
-      <HomeExampleArticle />
+      <HomeExampleArticle mode={exampleMode} />
 
       <section className="landing-features">
         <div className="landing-feature">

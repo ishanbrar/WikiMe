@@ -3,7 +3,7 @@ import path from "path";
 import type { ArticleListItem, SavedArticle } from "@/types/article";
 import { isVercelDeployment } from "@/lib/appUrl";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
-import { EXAMPLE_ARTICLE_SLUG, getExampleArticle } from "@/lib/exampleArticle";
+import { getExampleArticleBySlug } from "@/lib/exampleArticle";
 import { withHeadshotOnSaved } from "@/lib/headshotForArticle";
 
 function requirePersistentStorage(): void {
@@ -156,9 +156,8 @@ export async function listArticlesByUserServer(
 export async function getArticleBySlugServer(
   slug: string,
 ): Promise<SavedArticle | null> {
-  if (slug === EXAMPLE_ARTICLE_SLUG) {
-    return getExampleArticle();
-  }
+  const example = getExampleArticleBySlug(slug);
+  if (example) return example;
   if (isSupabaseConfigured()) {
     return getArticleBySlugSupabase(slug);
   }

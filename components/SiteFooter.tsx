@@ -23,7 +23,7 @@ export function SiteFooter() {
                 <Link href="/generate">Create article</Link>
               </li>
               <li>
-                <Link href="/a/example">Example article</Link>
+                <Link href="/a/maya-chen-realism">Example article</Link>
               </li>
               <li>
                 <Link href="/account">My articles</Link>

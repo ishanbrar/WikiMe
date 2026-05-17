@@ -8,3 +8,6 @@ export const EXAMPLE_SCREENSHOT = {
   width: 749,
   height: 1024,
 } as const;
+
+/** Realism preview (same asset until a dedicated screenshot is added) */
+export const EXAMPLE_SCREENSHOT_REALISM = EXAMPLE_SCREENSHOT;
