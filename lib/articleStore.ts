@@ -4,6 +4,7 @@ import type { ArticleListItem, SavedArticle } from "@/types/article";
 import { isVercelDeployment } from "@/lib/appUrl";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
 import { getExampleArticleBySlug } from "@/lib/exampleArticle";
+import { validateArticleSlug } from "@/lib/articleSlug";
 import { withHeadshotOnSaved } from "@/lib/headshotForArticle";
 
 function requirePersistentStorage(): void {
@@ -151,6 +152,92 @@ export async function listArticlesByUserServer(
       updatedAt: row.updated_at as string,
     };
   });
+}
+
+export async function getArticleByIdServer(
+  id: string,
+): Promise<SavedArticle | null> {
+  if (isSupabaseConfigured()) {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("articles")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return null;
+    return withHeadshotOnSaved(rowToSaved(data as ArticleRow));
+  }
+  if (isVercelDeployment()) return null;
+  try {
+    const files = await fs.readdir(DATA_DIR);
+    for (const file of files) {
+      if (!file.endsWith(".json")) continue;
+      const raw = await fs.readFile(path.join(DATA_DIR, file), "utf-8");
+      const saved = JSON.parse(raw) as SavedArticle;
+      if (saved.id === id) {
+        return withHeadshotOnSaved(saved);
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+export async function renameArticleSlugByIdServer(
+  id: string,
+  nextSlugRaw: string,
+): Promise<SavedArticle> {
+  requirePersistentStorage();
+  const validated = validateArticleSlug(nextSlugRaw);
+  if (!validated.ok) {
+    throw new Error(validated.error);
+  }
+  const nextSlug = validated.slug;
+
+  const article = await getArticleByIdServer(id);
+  if (!article) {
+    throw new Error("Article not found");
+  }
+  if (article.slug === nextSlug) {
+    return article;
+  }
+
+  const taken = await getArticleBySlugServer(nextSlug);
+  if (taken && taken.id !== id) {
+    throw new Error("That link is already in use");
+  }
+
+  const updated: SavedArticle = {
+    ...article,
+    slug: nextSlug,
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (isSupabaseConfigured()) {
+    const supabase = getSupabaseAdmin();
+    const { error } = await supabase
+      .from("articles")
+      .update({
+        slug: nextSlug,
+        updated_at: updated.updatedAt,
+      })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+    return updated;
+  }
+
+  const oldFile = path.join(DATA_DIR, `${article.slug}.json`);
+  await saveArticleFile(updated);
+  if (article.slug !== nextSlug) {
+    try {
+      await fs.unlink(oldFile);
+    } catch {
+      /* old file may not exist */
+    }
+  }
+  return updated;
 }
 
 export async function getArticleBySlugServer(

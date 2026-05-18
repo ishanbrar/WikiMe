@@ -6,6 +6,7 @@ import {
   saveArticleServer,
   getArticleBySlugServer,
 } from "@/lib/articleStore";
+import { validateArticleSlug } from "@/lib/articleSlug";
 import { prepareArticleForDb } from "@/lib/prepareArticleForDb";
 import { getAuthUser } from "@/lib/supabase/server";
 import { articleJsonSchema, intakeSchema } from "@/lib/validation";
@@ -33,7 +34,14 @@ export async function POST(req: Request) {
 
     const user = await getAuthUser();
     const now = new Date().toISOString();
-    const slug = parsed.data.slug ?? nanoid(10);
+    let slug = parsed.data.slug ?? nanoid(10);
+    if (parsed.data.slug) {
+      const checked = validateArticleSlug(parsed.data.slug);
+      if (!checked.ok) {
+        return NextResponse.json({ error: checked.error }, { status: 400 });
+      }
+      slug = checked.slug;
+    }
     const existing = parsed.data.slug
       ? await getArticleBySlugServer(parsed.data.slug)
       : null;

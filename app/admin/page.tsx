@@ -4,6 +4,7 @@ import { isAdminUser } from "@/lib/admin";
 import { listAdminArticleLog } from "@/lib/adminArticles";
 import { getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/admin";
+import { AdminSlugEditor } from "@/components/AdminSlugEditor";
 
 function formatWhen(iso: string): string {
   try {
@@ -50,8 +51,8 @@ export default async function AdminPage() {
         <div>
           <h1>Article log</h1>
           <p className="admin-muted">
-            Signed in as {user.email}. All articles saved to the server (
-            {articles.length} shown, newest first).
+            Signed in as {user.email}. {articles.length} articles (newest first).
+            Admins can edit each article&apos;s public link below.
           </p>
         </div>
         <Link href="/generate" className="btn-secondary">
@@ -81,6 +82,7 @@ export default async function AdminPage() {
             <thead>
               <tr>
                 <th scope="col">Article title</th>
+                <th scope="col">Share link</th>
                 <th scope="col">Account</th>
                 <th scope="col">Mode</th>
                 <th scope="col">Created</th>
@@ -98,6 +100,13 @@ export default async function AdminPage() {
                     >
                       {row.title}
                     </Link>
+                  </td>
+                  <td className="admin-slug-cell">
+                    <AdminSlugEditor
+                      articleId={row.id}
+                      slug={row.slug}
+                      articleUrl={row.articleUrl}
+                    />
                   </td>
                   <td>
                     {row.creatorEmail ? (
