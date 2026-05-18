@@ -2491,6 +2491,20 @@ body {
   white-space: nowrap;
 }
 
+.admin-actions-cell {
+  white-space: nowrap;
+}
+
+.admin-actions-cell a {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #2563eb;
+}
+
+.admin-actions-cell a:hover {
+  text-decoration: underline;
+}
+
 .admin-slug-cell {
   min-width: 12rem;
   max-width: 22rem;

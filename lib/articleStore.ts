@@ -29,6 +29,7 @@ type ArticleRow = {
   user_id: string | null;
   creator_email: string | null;
   is_public: boolean;
+  short_link: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -45,6 +46,7 @@ function rowToSaved(row: ArticleRow): SavedArticle {
     userId: row.user_id ?? undefined,
     creatorEmail: row.creator_email ?? undefined,
     isPublic: row.is_public,
+    shortLink: row.short_link ?? false,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -62,6 +64,7 @@ function savedToRow(article: SavedArticle): ArticleRow {
     user_id: article.userId ?? null,
     creator_email: article.creatorEmail ?? null,
     is_public: article.isPublic ?? true,
+    short_link: article.shortLink ?? false,
     created_at: article.createdAt,
     updated_at: article.updatedAt,
   };
@@ -200,10 +203,6 @@ export async function renameArticleSlugByIdServer(
   if (!article) {
     throw new Error("Article not found");
   }
-  if (article.slug === nextSlug) {
-    return article;
-  }
-
   const taken = await getArticleBySlugServer(nextSlug);
   if (taken && taken.id !== id) {
     throw new Error("That link is already in use");
@@ -212,8 +211,16 @@ export async function renameArticleSlugByIdServer(
   const updated: SavedArticle = {
     ...article,
     slug: nextSlug,
+    shortLink: true,
     updatedAt: new Date().toISOString(),
   };
+
+  if (
+    article.slug === nextSlug &&
+    article.shortLink === true
+  ) {
+    return updated;
+  }
 
   if (isSupabaseConfigured()) {
     const supabase = getSupabaseAdmin();
@@ -221,6 +228,7 @@ export async function renameArticleSlugByIdServer(
       .from("articles")
       .update({
         slug: nextSlug,
+        short_link: true,
         updated_at: updated.updatedAt,
       })
       .eq("id", id);

@@ -2,17 +2,21 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { articlePath } from "@/lib/articlePaths";
 import { normalizeArticleSlug } from "@/lib/articleSlug";
 
 export function AdminSlugEditor({
   articleId,
   slug,
   articleUrl,
+  shortLink = false,
 }: {
   articleId: string;
   slug: string;
   articleUrl: string;
+  shortLink?: boolean;
 }) {
+  const displayPath = articlePath(slug, shortLink);
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(slug);
@@ -57,7 +61,7 @@ export function AdminSlugEditor({
           target="_blank"
           rel="noopener noreferrer"
         >
-          /a/{slug}
+          {displayPath}
         </a>
         <button
           type="button"
@@ -79,7 +83,7 @@ export function AdminSlugEditor({
         Public path
       </label>
       <div className="admin-slug-input-row">
-        <span className="admin-slug-prefix">/a/</span>
+        <span className="admin-slug-prefix">/</span>
         <input
           id={`slug-${articleId}`}
           type="text"

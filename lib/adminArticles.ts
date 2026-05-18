@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import type { ArticleMode } from "@/types/article";
+import { buildArticleUrl } from "@/lib/articlePaths";
 import { getAppBaseUrl } from "@/lib/appUrl";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
 import { isVercelDeployment } from "@/lib/appUrl";
@@ -15,6 +16,7 @@ export type AdminArticleLogRow = {
   creatorEmail: string | null;
   userId: string | null;
   articleUrl: string;
+  shortLink: boolean;
 };
 
 const DATA_DIR = path.join(process.cwd(), "data", "articles");
@@ -27,6 +29,7 @@ type ArticleRow = {
   user_id: string | null;
   creator_email: string | null;
   created_at: string;
+  short_link: boolean;
 };
 
 async function resolveCreatorEmails(
@@ -64,7 +67,7 @@ export async function listAdminArticleLog(
     const { data, error } = await supabase
       .from("articles")
       .select(
-        "id, slug, article_json, mode, user_id, creator_email, created_at",
+        "id, slug, article_json, mode, user_id, creator_email, created_at, short_link",
       )
       .order("created_at", { ascending: false })
       .limit(500);
@@ -87,7 +90,8 @@ export async function listAdminArticleLog(
         createdAt: row.created_at,
         creatorEmail,
         userId: row.user_id,
-        articleUrl: `${base}/a/${row.slug}`,
+        shortLink: row.short_link ?? false,
+        articleUrl: buildArticleUrl(row.slug, row.short_link ?? false, base),
       };
     });
   }
@@ -111,7 +115,12 @@ export async function listAdminArticleLog(
         createdAt: saved.createdAt,
         creatorEmail: null,
         userId: saved.userId ?? null,
-        articleUrl: `${base}/a/${saved.slug}`,
+        shortLink: saved.shortLink ?? false,
+        articleUrl: buildArticleUrl(
+          saved.slug,
+          saved.shortLink ?? false,
+          base,
+        ),
       });
     }
     return articles.sort((a, b) =>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAppBaseUrl } from "@/lib/appUrl";
+import { buildArticleUrl } from "@/lib/articlePaths";
 import { requireAdminUser } from "@/lib/admin";
 import { renameArticleSlugByIdServer } from "@/lib/articleStore";
 import { getAuthUser } from "@/lib/supabase/server";
@@ -28,10 +29,10 @@ export async function PATCH(req: Request) {
       parsed.data.id,
       parsed.data.slug,
     );
-    const base = getAppBaseUrl(req);
     return NextResponse.json({
       slug: article.slug,
-      url: `${base}/a/${article.slug}`,
+      shortLink: true,
+      url: buildArticleUrl(article.slug, true, getAppBaseUrl(req)),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Update failed";

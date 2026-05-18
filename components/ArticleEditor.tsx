@@ -28,6 +28,7 @@ export function ArticleEditor({
   extractedFacts,
   savedId,
   slug,
+  shortLink: initialShortLink = false,
 }: {
   initialArticle: ArticleJson;
   intake: IntakeData;
@@ -36,6 +37,7 @@ export function ArticleEditor({
   extractedFacts?: ExtractedProfileFacts;
   savedId?: string;
   slug?: string;
+  shortLink?: boolean;
 }) {
   const [article, setArticle] = useState(() =>
     applyHeadshotToArticle(initialArticle, headshotDataUrl),
@@ -51,8 +53,9 @@ export function ArticleEditor({
     color: "auto",
   });
   const [shareSlug, setShareSlug] = useState(slug ?? "");
+  const [shareShortLink, setShareShortLink] = useState(initialShortLink);
   const [shareUrl, setShareUrl] = useState(() =>
-    slug ? buildShareUrl(slug) : "",
+    slug ? buildShareUrl(slug, initialShortLink) : "",
   );
 
   const saved: SavedArticle = {
@@ -63,6 +66,7 @@ export function ArticleEditor({
     intake: intakeState,
     headshotDataUrl,
     extractedFacts,
+    shortLink: shareShortLink,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -88,6 +92,7 @@ export function ArticleEditor({
     const result = await saveArticleToServer(withHeadshot);
     if (result.ok) {
       setShareSlug(result.slug);
+      setShareShortLink(result.shortLink);
       setShareUrl(result.url);
       return result.slug;
     }

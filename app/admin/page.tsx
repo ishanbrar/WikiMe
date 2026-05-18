@@ -52,7 +52,7 @@ export default async function AdminPage() {
           <h1>Article log</h1>
           <p className="admin-muted">
             Signed in as {user.email}. {articles.length} articles (newest first).
-            Admins can edit each article&apos;s public link below.
+            Admins can edit any article or set a custom link (e.g. /ishanbrar) below.
           </p>
         </div>
         <Link href="/generate" className="btn-secondary">
@@ -82,6 +82,7 @@ export default async function AdminPage() {
             <thead>
               <tr>
                 <th scope="col">Article title</th>
+                <th scope="col">Actions</th>
                 <th scope="col">Share link</th>
                 <th scope="col">Account</th>
                 <th scope="col">Mode</th>
@@ -101,11 +102,17 @@ export default async function AdminPage() {
                       {row.title}
                     </Link>
                   </td>
+                  <td className="admin-actions-cell">
+                    <Link href={`/article?slug=${encodeURIComponent(row.slug)}`}>
+                      Edit
+                    </Link>
+                  </td>
                   <td className="admin-slug-cell">
                     <AdminSlugEditor
                       articleId={row.id}
                       slug={row.slug}
                       articleUrl={row.articleUrl}
+                      shortLink={row.shortLink}
                     />
                   </td>
                   <td>

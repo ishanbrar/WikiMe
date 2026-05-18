@@ -1,23 +1,15 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getArticleBySlugServer } from "@/lib/articleStore";
-import { articleShareMetadata } from "@/lib/articleShareMetadata";
-import { SharedArticleView } from "@/components/SharedArticleView";
+import { articlePath } from "@/lib/articlePaths";
+import { sharedArticleMetadata, SharedArticlePageBody } from "@/lib/sharedArticlePage";
 
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
-}): Promise<Metadata> {
+}) {
   const { slug } = await params;
-  const saved = await getArticleBySlugServer(slug);
-  if (!saved) {
-    return { title: "Article not found" };
-  }
-  return articleShareMetadata(
-    saved.articleJson.title || saved.intake.articleTitle,
-    saved.articleJson.subtitle,
-  );
+  return sharedArticleMetadata(slug);
 }
 
 export default async function SharedArticlePage({
@@ -28,19 +20,9 @@ export default async function SharedArticlePage({
   const { slug } = await params;
   const saved = await getArticleBySlugServer(slug);
 
-  if (!saved) {
-    return (
-      <div className="p-12 text-center">
-        <h1 className="text-xl font-semibold">Article not found</h1>
-        <p className="mt-2 text-slate-600">
-          This share link may have expired or the server was restarted (file-based storage).
-        </p>
-        <Link href="/" className="text-blue-600 mt-4 inline-block">
-          Go home
-        </Link>
-      </div>
-    );
+  if (saved?.shortLink) {
+    redirect(articlePath(slug, true));
   }
 
-  return <SharedArticleView saved={saved} readOnly />;
+  return <SharedArticlePageBody slug={slug} />;
 }

@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { buildArticleUrl } from "@/lib/articlePaths";
 import { getAppBaseUrl } from "@/lib/appUrl";
+import { canEditArticle } from "@/lib/articleAccess";
 import {
   saveArticleServer,
+  getArticleByIdServer,
   getArticleBySlugServer,
 } from "@/lib/articleStore";
+import { isAdminUser } from "@/lib/admin";
 import { validateArticleSlug } from "@/lib/articleSlug";
 import { prepareArticleForDb } from "@/lib/prepareArticleForDb";
 import { getAuthUser } from "@/lib/supabase/server";
@@ -42,17 +46,22 @@ export async function POST(req: Request) {
       }
       slug = checked.slug;
     }
-    const existing = parsed.data.slug
-      ? await getArticleBySlugServer(parsed.data.slug)
-      : null;
+    let existing = slug ? await getArticleBySlugServer(slug) : null;
+    if (!existing && parsed.data.id) {
+      existing = await getArticleByIdServer(parsed.data.id);
+    }
 
-    if (
-      existing?.userId &&
-      user &&
-      existing.userId !== user.id
-    ) {
+    if (existing && !canEditArticle(user, existing)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    const adminEditingOther =
+      Boolean(
+        existing?.userId &&
+          user &&
+          isAdminUser(user) &&
+          existing.userId !== user.id,
+      );
 
     const saved: SavedArticle = prepareArticleForDb({
       id: parsed.data.id ?? existing?.id ?? nanoid(),
@@ -61,19 +70,24 @@ export async function POST(req: Request) {
       mode: parsed.data.mode,
       intake: parsed.data.intake,
       headshotDataUrl: parsed.data.headshotDataUrl,
-      userId: user?.id ?? existing?.userId,
-      creatorEmail: user?.email ?? existing?.creatorEmail,
+      userId: adminEditingOther
+        ? existing!.userId
+        : (existing?.userId ?? user?.id),
+      creatorEmail: adminEditingOther
+        ? existing!.creatorEmail
+        : (existing?.creatorEmail ?? user?.email ?? undefined),
       isPublic: true,
+      shortLink: existing?.shortLink ?? false,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     });
 
     await saveArticleServer(saved);
-    const base = getAppBaseUrl(req);
     return NextResponse.json({
       slug,
       id: saved.id,
-      url: `${base}/a/${slug}`,
+      shortLink: saved.shortLink ?? false,
+      url: buildArticleUrl(slug, saved.shortLink ?? false, getAppBaseUrl(req)),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Save failed";

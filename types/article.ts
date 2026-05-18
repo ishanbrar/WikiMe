@@ -135,6 +135,8 @@ export interface SavedArticle {
   userId?: string;
   creatorEmail?: string;
   isPublic?: boolean;
+  /** When true, public URL is /{slug} (set by admin custom link). */
+  shortLink?: boolean;
   createdAt: string;
   updatedAt: string;
 }

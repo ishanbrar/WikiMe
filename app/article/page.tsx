@@ -22,6 +22,7 @@ function ArticleView() {
     facts?: ExtractedProfileFacts;
     savedId?: string;
     slug?: string;
+    shortLink?: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -45,6 +46,7 @@ function ArticleView() {
                 facts: data.article.extractedFacts ?? emptyExtractedFacts(),
                 savedId: data.article.id,
                 slug: data.article.slug,
+                shortLink: data.article.shortLink ?? false,
               });
             }
             return;
@@ -126,6 +128,7 @@ function ArticleView() {
       extractedFacts={payload.facts}
       savedId={payload.savedId}
       slug={payload.slug}
+      shortLink={payload.shortLink}
     />
   );
 }

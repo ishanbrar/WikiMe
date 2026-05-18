@@ -110,7 +110,7 @@ export function ExportControls({
   const copyShare = async () => {
     const slug = await onSave();
     if (slug) {
-      const url = buildShareUrl(slug);
+      const url = buildShareUrl(slug, saved?.shortLink ?? false);
       setShareUrl(url);
       await navigator.clipboard.writeText(url);
       setStatus("Share link copied.");

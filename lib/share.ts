@@ -1,4 +1,5 @@
 import { getClientAppBaseUrl } from "@/lib/appUrl";
+import { buildArticleUrl } from "@/lib/articlePaths";
 import type { SavedArticle } from "@/types/article";
 
 const MAX_ENCODED_LENGTH = 12000;
@@ -44,9 +45,12 @@ export function decodeArticleFromUrl(encoded: string): {
   }
 }
 
-export function buildShareUrl(slug: string, origin?: string): string {
-  const base = origin ?? getClientAppBaseUrl();
-  return `${base}/a/${slug}`;
+export function buildShareUrl(
+  slug: string,
+  shortLink = false,
+  origin?: string,
+): string {
+  return buildArticleUrl(slug, shortLink, origin);
 }
 
 export function buildEncodedShareUrl(encoded: string, origin?: string): string {
