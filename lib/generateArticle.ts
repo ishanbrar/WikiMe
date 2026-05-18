@@ -4,7 +4,14 @@ import type {
   ExtractedProfileFacts,
   IntakeData,
 } from "@/types/article";
-import { generateText, hasAiKey, parseJsonFromModel, TEXT_MODEL_CREATIVE } from "@/lib/gemini";
+import {
+  generateText,
+  hasAiKey,
+  parseJsonFromModel,
+  TEXT_MODEL_CREATIVE,
+  TEXT_MODEL_REALISM,
+} from "@/lib/gemini";
+import { synthesizeRealismBrief } from "@/lib/realismBrief";
 import { buildMockArticle } from "@/lib/mockArticle";
 import { normalizeArticleJson, articleWordCount } from "@/lib/normalizeArticle";
 import { parseSectionFromRaw } from "@/lib/wikiSections";
@@ -201,37 +208,34 @@ export async function generateArticle(
     return article;
   }
 
+  const factSheet = await synthesizeRealismBrief(intake, facts);
+
   const system = `You are an experienced Wikipedia biographer. Output biography JSON only. ${realismRules()} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos.length)} ${realismLengthHint(intake.articleLength)} ${ARTICLE_SCHEMA}`;
-  const user = `Generate a REALISM MODE article. tone=${intake.tone}. supplementalPhotoCount=${supplementalPhotos.length}.
+  const userBase = `Generate a REALISM MODE article for ${intake.fullName}. tone=${intake.tone}. supplementalPhotoCount=${supplementalPhotos.length}. headshotUrl=${headshotUrl || "none"}.
 
-Rewrite all source material into original encyclopedic prose (do not regurgitate intake wording).
+You are given a normalized FACT SHEET produced by an editor who already read the user's questionnaire. Write original encyclopedic prose from these facts only — never paste bullet text or repeat the subject's name at the start of every sentence.
 
-SOURCE DATA (facts only — do not copy phrasing):
-${buildPrompt(intake, facts, headshotUrl)}`;
+FACT SHEET:
+${factSheet}`;
 
-  const maxTokens = intake.articleLength === "long" ? 6000 : 5000;
+  const maxTokens = intake.articleLength === "long" ? 7000 : 5500;
 
   async function runRealismPass(extraUserNote = ""): Promise<ArticleJson> {
-    const raw = await generateText(
-      system,
-      extraUserNote ? `${user}\n\n${extraUserNote}` : user,
-      {
-        temperature: extraUserNote ? 0.55 : 0.62,
-        maxTokens,
-      },
-    );
+    const user = extraUserNote ? `${userBase}\n\n${extraUserNote}` : userBase;
+    const raw = await generateText(system, user, {
+      model: TEXT_MODEL_REALISM,
+      temperature: extraUserNote ? 0.5 : 0.58,
+      maxTokens,
+    });
     let parsed: unknown;
     try {
       parsed = parseJsonFromModel<unknown>(raw);
     } catch {
-      const retryRaw = await generateText(
-        system,
-        extraUserNote ? `${user}\n\n${extraUserNote}` : user,
-        {
-          temperature: 0.5,
-          maxTokens: Math.min(maxTokens + 1500, 8192),
-        },
-      );
+      const retryRaw = await generateText(system, user, {
+        model: TEXT_MODEL_REALISM,
+        temperature: 0.45,
+        maxTokens: Math.min(maxTokens + 1500, 8192),
+      });
       parsed = parseJsonFromModel<unknown>(retryRaw);
     }
     return normalizeArticleJson(parsed, intake, headshotUrl, {
@@ -241,8 +245,13 @@ ${buildPrompt(intake, facts, headshotUrl)}`;
   }
 
   let article = await runRealismPass();
-  if (isRegurgitatedRealism(article)) {
+  if (isRegurgitatedRealism(article, intake)) {
     article = await runRealismPass(REALISM_REGURGITATION_RETRY_NOTE);
+  }
+  if (isRegurgitatedRealism(article, intake)) {
+    article = await runRealismPass(
+      `${REALISM_REGURGITATION_RETRY_NOTE}\nMerge family facts into one early-life paragraph. Athletics belong in career or personal-life once only — no duplicated paragraphs.`,
+    );
   }
   return article;
 }
@@ -281,7 +290,7 @@ export async function regenerateSection(
   const raw = await generateText(system, user, {
     temperature: isCreative ? 1.1 : 0.6,
     topP: isCreative ? 0.92 : undefined,
-    model: isCreative ? TEXT_MODEL_CREATIVE : undefined,
+    model: isCreative ? TEXT_MODEL_CREATIVE : TEXT_MODEL_REALISM,
     maxTokens,
   });
   let parsed: Record<string, unknown>;
@@ -291,7 +300,7 @@ export async function regenerateSection(
     const retryRaw = await generateText(system, user, {
       temperature: isCreative ? 0.85 : 0.55,
       topP: isCreative ? 0.9 : undefined,
-      model: isCreative ? TEXT_MODEL_CREATIVE : undefined,
+      model: isCreative ? TEXT_MODEL_CREATIVE : TEXT_MODEL_REALISM,
       maxTokens: maxTokens + 800,
     });
     parsed = parseJsonFromModel<Record<string, unknown>>(retryRaw);

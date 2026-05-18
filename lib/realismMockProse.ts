@@ -72,9 +72,8 @@ export function buildRealismEarlyLife(
   } else if (birthplace) {
     paras.push(`${name} is from ${birthplace}.`);
   }
-  if (intake.lifeEvents?.trim()) {
-    paras.push(expandLifeEvents(name, intake.lifeEvents));
-  }
+  const family = familyParagraphFromLifeEvents(name, intake.lifeEvents ?? "");
+  if (family) paras.push(family);
   return paras.length ? paras : [`Little is publicly documented about ${name}'s early life.`];
 }
 
@@ -121,10 +120,7 @@ export function buildRealismPersonalLife(
       /fenc|sport|athlet|club|hobby|climb|music|volunteer|scholarship/i.test(b) &&
       !/engineer|intern|employ/i.test(b),
   );
-  const fromLife = splitFacts(lifeEvents).filter(
-    (b) => !/born|relocat/i.test(b),
-  );
-  const bits = [...personal, ...fromLife];
+  const bits = personal;
   if (!bits.length) {
     return [`Outside of their professional activities, limited personal details are available.`];
   }
@@ -156,8 +152,50 @@ function factToSentence(fact: string): string {
   return `is also known for ${f}`;
 }
 
-function expandLifeEvents(name: string, lifeEvents: string): string {
-  const parts = splitFacts(lifeEvents);
+function familyParagraphFromLifeEvents(name: string, lifeEvents: string): string {
+  const text = normalizeListPhrase(lifeEvents);
+  if (!text) return "";
+
+  const parts: string[] = [];
+  const sonOf = text.match(/son of\s+([^.;]+)/i);
+  if (sonOf) {
+    parts.push(`${name} was born to ${titleCaseNames(sonOf[1])}`);
+  }
+  const sibling = text.match(/(?:younger|young)?\s*brother of\s+([^.;]+)/i);
+  if (sibling) {
+    parts.push(`has a younger brother, ${titleCaseNames(sibling[1])}`);
+  }
+  const father = text.match(/father\s+(\w+)\s+was\s+([^.;]+)/i);
+  if (father) {
+    parts.push(
+      `His father, ${father[1]}, was ${father[2].replace(/^\w/, (c) => c.toLowerCase())}`,
+    );
+  }
+  const committed = text.match(/committed to\s+([^.;]+?)\s+over\s+([^.;]+)/i);
+  if (committed) {
+    parts.push(
+      `committed to ${committed[1]} over ${committed[2]} for fencing`,
+    );
+  }
+  const graduated = text.match(/graduated from\s+([^.;]+)/i);
+  if (graduated) {
+    parts.push(`graduated from ${graduated[1]}`);
+  }
+
   if (!parts.length) return "";
-  return parts.map((p) => `${name} ${p.replace(/^\w/, (c) => c.toLowerCase())}.`).join(" ");
+  return `${parts[0].charAt(0).toUpperCase()}${parts[0].slice(1)}${parts.length > 1 ? `; ${parts.slice(1).join("; ")}` : ""}.`;
+}
+
+function titleCaseNames(raw: string): string {
+  return raw
+    .trim()
+    .split(/\s+and\s+/i)
+    .map((n) =>
+      n
+        .trim()
+        .split(/\s+/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(" "),
+    )
+    .join(" and ");
 }

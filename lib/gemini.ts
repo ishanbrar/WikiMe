@@ -6,6 +6,11 @@ export const TEXT_MODEL =
   process.env.OPENROUTER_TEXT_MODEL ?? "google/gemini-2.0-flash-lite-001";
 export const TEXT_MODEL_CREATIVE =
   process.env.OPENROUTER_CREATIVE_MODEL ?? "google/gemini-2.0-flash-001";
+/** Stronger model for Realism — must interpret and rewrite intake, not paste it. */
+export const TEXT_MODEL_REALISM =
+  process.env.OPENROUTER_REALISM_MODEL ??
+  process.env.OPENROUTER_TEXT_MODEL ??
+  "google/gemini-2.0-flash-001";
 
 export function hasAiKey(): boolean {
   return Boolean(
