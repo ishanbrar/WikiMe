@@ -187,9 +187,4 @@ export async function generateVision(
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 }
 
-export function parseJsonFromModel<T>(raw: string): T {
-  const trimmed = raw.trim();
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const jsonStr = fenced ? fenced[1].trim() : trimmed;
-  return JSON.parse(jsonStr) as T;
-}
+export { parseJsonFromModel } from "@/lib/parseModelJson";

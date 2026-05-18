@@ -123,19 +123,32 @@ ${formatCreativeBrief(brief)}
 USER_DATA:
 ${buildPrompt(intake, facts, headshotUrl)}`;
 
+  const maxTokens =
+    intake.articleLength === "long"
+      ? 8192
+      : intake.articleLength === "short"
+        ? 5000
+        : 7000;
+
   const raw = await generateText(system, user, {
     model: TEXT_MODEL_CREATIVE,
     temperature: attempt === 1 ? 1.05 : 1.15,
     topP: 0.92,
-    maxTokens:
-      intake.articleLength === "long"
-        ? 8192
-        : intake.articleLength === "short"
-          ? 5000
-          : 6500,
+    maxTokens,
   });
 
-  const parsed = parseJsonFromModel<unknown>(raw);
+  let parsed: unknown;
+  try {
+    parsed = parseJsonFromModel<unknown>(raw);
+  } catch {
+    const retryRaw = await generateText(system, user, {
+      model: TEXT_MODEL_CREATIVE,
+      temperature: 0.85,
+      topP: 0.9,
+      maxTokens: Math.min(maxTokens + 2048, 8192),
+    });
+    parsed = parseJsonFromModel<unknown>(retryRaw);
+  }
   return normalizeArticleJson(parsed, intake, headshotUrl, {
     creative: true,
     supplementalPhotos,
@@ -182,11 +195,21 @@ export async function generateArticle(
   const system = `You write Wikipedia-style biography JSON. ${realismRules()} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos.length)} ${realismLengthHint(intake.articleLength)} ${ARTICLE_SCHEMA}`;
   const user = `Generate article for mode=realism, tone=${intake.tone}. supplementalPhotoCount=${supplementalPhotos.length}.\nData:\n${buildPrompt(intake, facts, headshotUrl)}`;
 
+  const maxTokens = intake.articleLength === "long" ? 6000 : 5000;
   const raw = await generateText(system, user, {
     temperature: 0.5,
-    maxTokens: intake.articleLength === "long" ? 6000 : 4096,
+    maxTokens,
   });
-  const parsed = parseJsonFromModel<unknown>(raw);
+  let parsed: unknown;
+  try {
+    parsed = parseJsonFromModel<unknown>(raw);
+  } catch {
+    const retryRaw = await generateText(system, user, {
+      temperature: 0.45,
+      maxTokens: Math.min(maxTokens + 1500, 8192),
+    });
+    parsed = parseJsonFromModel<unknown>(retryRaw);
+  }
   return normalizeArticleJson(parsed, intake, headshotUrl, {
     creative: false,
     supplementalPhotos,
@@ -223,13 +246,25 @@ export async function regenerateSection(
   } ${WIKI_SECTION_STRUCTURE_RULES}`;
   const user = `Section id: ${sectionId}. Keep the generic Wikipedia section title for this id (do not use a narrative title). Existing: ${existing?.title ?? sectionId}. Article context: ${JSON.stringify({ title: currentArticle.title, intake: intake.fullName, facts, brief })}. Headshot: ${headshotUrl}`;
 
+  const maxTokens = isCreative ? 2800 : 1800;
   const raw = await generateText(system, user, {
     temperature: isCreative ? 1.1 : 0.6,
     topP: isCreative ? 0.92 : undefined,
     model: isCreative ? TEXT_MODEL_CREATIVE : undefined,
-    maxTokens: isCreative ? 2500 : 1500,
+    maxTokens,
   });
-  const parsed = parseJsonFromModel<Record<string, unknown>>(raw);
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = parseJsonFromModel<Record<string, unknown>>(raw);
+  } catch {
+    const retryRaw = await generateText(system, user, {
+      temperature: isCreative ? 0.85 : 0.55,
+      topP: isCreative ? 0.9 : undefined,
+      model: isCreative ? TEXT_MODEL_CREATIVE : undefined,
+      maxTokens: maxTokens + 800,
+    });
+    parsed = parseJsonFromModel<Record<string, unknown>>(retryRaw);
+  }
   return (
     parseSectionFromRaw(parsed) ?? {
       id: sectionId,
