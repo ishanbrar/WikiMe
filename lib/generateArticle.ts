@@ -16,6 +16,11 @@ import {
 import type { SupplementalPhoto } from "@/lib/articleFigures";
 import { INFOBOX_RULES } from "@/lib/infoboxHelpers";
 import { WIKI_SECTION_STRUCTURE_RULES } from "@/lib/wikiSections";
+import {
+  isRegurgitatedRealism,
+  REALISM_PROSE_RULES,
+  REALISM_REGURGITATION_RETRY_NOTE,
+} from "@/lib/realismProse";
 
 function realismLengthHint(len: IntakeData["articleLength"]): string {
   if (len === "short") return "Keep total under ~600 words. Fewer sections.";
@@ -54,7 +59,11 @@ function buildPrompt(
 const NO_QUESTIONS_RULE = `PROSE STYLE (required): Write declarative encyclopedic sentences only. Never use rhetorical questions, direct questions to the reader, or sentences ending with "?". Do not write "The question is…", "It remains unclear whether…", or "Is X or Y?" lists. State facts and attributed debates in statements (e.g. "Commentators disagree on whether…" not "Did he…?"). Subsection titles must not contain "?".`;
 
 function realismRules(): string {
-  return `REALISM MODE: Use real name. Ground in Q&A, pasted text, extracted facts only. No invented major jobs/schools/awards/crimes/medical/family/dates. Conservative phrasing if uncertain. Neutral encyclopedic tone. No marketing. References: user-provided, screenshot, or real URLs from inputs only. ${NO_QUESTIONS_RULE}`;
+  return `REALISM MODE: Use the subject's real name. Ground every claim in Q&A, pasted text, and extracted facts only. No invented major jobs, schools, awards, crimes, medical claims, family, or dates. If uncertain, use cautious encyclopedic wording ("has been reported to", "according to their profile") — never invent facts. Neutral tone; no marketing. References: user-provided, screenshot, or real URLs from inputs only.
+
+${REALISM_PROSE_RULES}
+
+${NO_QUESTIONS_RULE}`;
 }
 
 function creativeRules(brief: ReturnType<typeof buildCreativeBrief>): string {
@@ -192,28 +201,50 @@ export async function generateArticle(
     return article;
   }
 
-  const system = `You write Wikipedia-style biography JSON. ${realismRules()} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos.length)} ${realismLengthHint(intake.articleLength)} ${ARTICLE_SCHEMA}`;
-  const user = `Generate article for mode=realism, tone=${intake.tone}. supplementalPhotoCount=${supplementalPhotos.length}.\nData:\n${buildPrompt(intake, facts, headshotUrl)}`;
+  const system = `You are an experienced Wikipedia biographer. Output biography JSON only. ${realismRules()} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos.length)} ${realismLengthHint(intake.articleLength)} ${ARTICLE_SCHEMA}`;
+  const user = `Generate a REALISM MODE article. tone=${intake.tone}. supplementalPhotoCount=${supplementalPhotos.length}.
+
+Rewrite all source material into original encyclopedic prose (do not regurgitate intake wording).
+
+SOURCE DATA (facts only — do not copy phrasing):
+${buildPrompt(intake, facts, headshotUrl)}`;
 
   const maxTokens = intake.articleLength === "long" ? 6000 : 5000;
-  const raw = await generateText(system, user, {
-    temperature: 0.5,
-    maxTokens,
-  });
-  let parsed: unknown;
-  try {
-    parsed = parseJsonFromModel<unknown>(raw);
-  } catch {
-    const retryRaw = await generateText(system, user, {
-      temperature: 0.45,
-      maxTokens: Math.min(maxTokens + 1500, 8192),
+
+  async function runRealismPass(extraUserNote = ""): Promise<ArticleJson> {
+    const raw = await generateText(
+      system,
+      extraUserNote ? `${user}\n\n${extraUserNote}` : user,
+      {
+        temperature: extraUserNote ? 0.55 : 0.62,
+        maxTokens,
+      },
+    );
+    let parsed: unknown;
+    try {
+      parsed = parseJsonFromModel<unknown>(raw);
+    } catch {
+      const retryRaw = await generateText(
+        system,
+        extraUserNote ? `${user}\n\n${extraUserNote}` : user,
+        {
+          temperature: 0.5,
+          maxTokens: Math.min(maxTokens + 1500, 8192),
+        },
+      );
+      parsed = parseJsonFromModel<unknown>(retryRaw);
+    }
+    return normalizeArticleJson(parsed, intake, headshotUrl, {
+      creative: false,
+      supplementalPhotos,
     });
-    parsed = parseJsonFromModel<unknown>(retryRaw);
   }
-  return normalizeArticleJson(parsed, intake, headshotUrl, {
-    creative: false,
-    supplementalPhotos,
-  });
+
+  let article = await runRealismPass();
+  if (isRegurgitatedRealism(article)) {
+    article = await runRealismPass(REALISM_REGURGITATION_RETRY_NOTE);
+  }
+  return article;
 }
 
 export async function regenerateSection(
