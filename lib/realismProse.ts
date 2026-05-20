@@ -2,11 +2,9 @@ import type { ArticleJson, IntakeData } from "@/types/article";
 
 /** Phrases that indicate intake was pasted instead of encyclopedic writing. */
 /** Sentence patterns from demo/fallback builders — must never appear in AI realism output. */
+/** Phrases produced only by demo/mock builders — not normal Wikipedia prose. */
 export const REALISM_MOCK_TEMPLATE_MARKERS = [
   "has worked in roles including",
-  "holds bs ",
-  "holds b.s.",
-  "holds m.s.",
   "whose biography is documented below",
   "is an individual based in",
   "is an individual whose biography",
@@ -17,8 +15,6 @@ export const REALISM_REGURGITATION_MARKERS = [
   "according to user-provided information",
   "occupation and role are described as",
   "additional interests and skills noted by the subject include",
-  "'s education includes",
-  "education includes",
   "this article summarizes user-provided",
   "documented in this user-generated profile",
   "biographical article (demo mode)",
@@ -48,7 +44,24 @@ function normalizeForOverlap(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-/** True if a long chunk of intake text appears verbatim in the article. */
+/** True when ≥minWords consecutive words from source appear in order in the article. */
+function hasLongVerbatimWordRun(
+  blob: string,
+  source: string,
+  minWords: number,
+): boolean {
+  const words = normalizeForOverlap(source)
+    .split(/\s+/)
+    .filter((w) => w.length > 2);
+  if (words.length < minWords) return false;
+  for (let i = 0; i <= words.length - minWords; i++) {
+    const phrase = words.slice(i, i + minWords).join(" ");
+    if (phrase.length >= 40 && blob.includes(phrase)) return true;
+  }
+  return false;
+}
+
+/** True if intake was pasted wholesale (not merely the same facts rephrased). */
 function overlapsIntakeVerbatim(blob: string, intake: IntakeData): boolean {
   const fields = [
     intake.achievements,
@@ -59,33 +72,22 @@ function overlapsIntakeVerbatim(blob: string, intake: IntakeData): boolean {
     intake.pastedProfileText,
   ].filter((f): f is string => Boolean(f?.trim()));
 
-  for (const field of [intake.occupation, intake.education]) {
-    if (!field?.trim()) continue;
+  for (const field of fields) {
     const normalized = normalizeForOverlap(field);
-    if (normalized.length >= 16) {
-      const chunk = normalized.slice(0, Math.min(72, normalized.length));
-      if (blob.includes(chunk)) return true;
-    }
+    if (normalized.length < 50) continue;
+    if (blob.includes(normalized)) return true;
+    if (hasLongVerbatimWordRun(blob, field, 12)) return true;
   }
 
   for (const field of fields) {
     const normalized = normalizeForOverlap(field);
-    const clauses = normalized.split(/[.!?]+/).map((c) => c.trim()).filter((c) => c.length >= 18);
+    const clauses = normalized
+      .split(/[.!?;]+/)
+      .map((c) => c.trim())
+      .filter((c) => c.length >= 45);
     for (const clause of clauses) {
       if (blob.includes(clause)) return true;
     }
-    if (normalized.length >= 24 && blob.includes(normalized.slice(0, Math.min(48, normalized.length)))) {
-      return true;
-    }
-  }
-
-  const name = intake.fullName.trim();
-  if (name.length >= 4) {
-    const re = new RegExp(
-      `${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^.]{0,40}${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
-      "i",
-    );
-    if (re.test(blob.replace(/\s+/g, " "))) return true;
   }
 
   return false;
@@ -97,9 +99,15 @@ function hasDuplicateSectionText(article: ArticleJson): boolean {
   );
   for (let i = 0; i < bodies.length; i++) {
     for (let j = i + 1; j < bodies.length; j++) {
-      if (bodies[i].length < 80 || bodies[j].length < 80) continue;
+      if (bodies[i].length < 120 || bodies[j].length < 120) continue;
       if (bodies[i] === bodies[j]) return true;
-      if (bodies[i].includes(bodies[j].slice(0, 120))) return true;
+      if (
+        bodies[i].length > 200 &&
+        bodies[j].length > 200 &&
+        bodies[i].includes(bodies[j].slice(0, 200))
+      ) {
+        return true;
+      }
     }
   }
   return false;
@@ -115,11 +123,11 @@ export function hasMockTemplateProse(article: ArticleJson): boolean {
   return REALISM_MOCK_TEMPLATE_MARKERS.some((m) => blob.includes(m));
 }
 
-export function isRegurgitatedRealism(
+export function realismQualityIssue(
   article: ArticleJson,
   intake?: IntakeData,
-): boolean {
-  if (hasMockTemplateProse(article)) return true;
+): "mock_template" | "forbidden_phrase" | "verbatim_paste" | "duplicate_sections" | null {
+  if (hasMockTemplateProse(article)) return "mock_template";
 
   const blob = normalizeForOverlap(
     [
@@ -131,8 +139,35 @@ export function isRegurgitatedRealism(
     ].join(" "),
   );
 
-  if (REALISM_REGURGITATION_MARKERS.some((m) => blob.includes(m))) return true;
-  if (intake && overlapsIntakeVerbatim(blob, intake)) return true;
-  if (hasDuplicateSectionText(article)) return true;
-  return false;
+  if (REALISM_REGURGITATION_MARKERS.some((m) => blob.includes(m))) {
+    return "forbidden_phrase";
+  }
+  if (intake && overlapsIntakeVerbatim(blob, intake)) return "verbatim_paste";
+  if (hasDuplicateSectionText(article)) return "duplicate_sections";
+  return null;
+}
+
+export function isRegurgitatedRealism(
+  article: ArticleJson,
+  intake?: IntakeData,
+): boolean {
+  return realismQualityIssue(article, intake) !== null;
+}
+
+/** Human-readable hint for retry prompts / logs. */
+export function realismQualityIssueMessage(
+  issue: NonNullable<ReturnType<typeof realismQualityIssue>>,
+): string {
+  switch (issue) {
+    case "mock_template":
+      return "Output used demo-template phrasing.";
+    case "forbidden_phrase":
+      return "Output used forbidden meta-intake phrasing.";
+    case "verbatim_paste":
+      return "Output pasted long stretches of user intake verbatim.";
+    case "duplicate_sections":
+      return "Two sections repeated the same paragraphs.";
+    default:
+      return "Quality check failed.";
+  }
 }

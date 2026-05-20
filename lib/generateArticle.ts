@@ -30,8 +30,8 @@ import { formatSupplementalPhotosForPrompt } from "@/lib/extraPhotoUpload";
 import { INFOBOX_RULES } from "@/lib/infoboxHelpers";
 import { WIKI_SECTION_STRUCTURE_RULES } from "@/lib/wikiSections";
 import {
-  hasMockTemplateProse,
-  isRegurgitatedRealism,
+  realismQualityIssue,
+  realismQualityIssueMessage,
   REALISM_PROSE_RULES,
   REALISM_REGURGITATION_RETRY_NOTE,
 } from "@/lib/realismProse";
@@ -299,24 +299,37 @@ ${sourceFacts}`;
     ) {
       return `${REALISM_SECTIONS_REQUIRED_NOTE}\n${realismControversiesRule(intake)}`;
     }
-    if (hasMockTemplateProse(article)) return realismRewriteNote(intake.fullName);
-    if (isRegurgitatedRealism(article, intake)) {
-      return `${realismRewriteNote(intake.fullName)}\nMerge family facts into one early-life paragraph. Athletics belong in career or personal-life once only — no duplicated paragraphs.`;
-    }
-    return null;
+    const issue = realismQualityIssue(article, intake);
+    if (!issue) return null;
+    const detail = realismQualityIssueMessage(issue);
+    return `${realismRewriteNote(intake.fullName)}\nProblem detected: ${detail} Paraphrase all intake facts; keep employers and schools but rewrite sentence structure.`;
   }
 
   let article = await runRealismPass();
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     const note = needsRealismRetry(article);
     if (!note) break;
     article = await runRealismPass(note);
   }
 
-  const finalNote = needsRealismRetry(article);
-  if (finalNote) {
-    throw new Error(
-      "AI returned templated or copied text instead of an original article. Please try generating again.",
+  const finalIssue = realismQualityIssue(article, intake);
+  if (finalIssue) {
+    const wordCount = articleWordCount(article);
+    const hardBlock =
+      finalIssue === "mock_template" ||
+      finalIssue === "forbidden_phrase" ||
+      !article.sections.length ||
+      wordCount < 200;
+    if (hardBlock) {
+      throw new Error(
+        `AI returned templated or copied text instead of an original article (${realismQualityIssueMessage(finalIssue)}). Please try generating again.`,
+      );
+    }
+    console.warn(
+      "[WikiMe] Accepting realism article after retries with minor quality flag:",
+      finalIssue,
+      "words=",
+      wordCount,
     );
   }
 
