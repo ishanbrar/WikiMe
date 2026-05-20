@@ -1261,7 +1261,11 @@ body {
   gap: 1rem;
 }
 
-.site-header-logo {
+.site-header-logo,
+.site-footer-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 1.125rem;
   font-weight: 700;
   color: #0f172a;
@@ -1269,8 +1273,18 @@ body {
   letter-spacing: -0.02em;
 }
 
-.site-header-logo-accent {
-  color: #2563eb;
+.wikime-logo-mark {
+  flex-shrink: 0;
+}
+
+.wikime-logo-wordmark {
+  line-height: 1;
+}
+
+.wikime-logo-accent,
+.site-header-logo-accent,
+.site-footer-logo .wikime-logo-accent {
+  color: #0ea5e9;
 }
 
 .site-header-nav {
@@ -1353,16 +1367,6 @@ body {
   }
 }
 
-.site-footer-logo {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: #0f172a;
-  text-decoration: none;
-}
-
-.site-footer-logo span {
-  color: #2563eb;
-}
 
 .site-footer-tagline {
   margin: 0.5rem 0 0;

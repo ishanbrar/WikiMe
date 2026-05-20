@@ -3,6 +3,7 @@ import {
   textModelFallbackChain,
   visionModelFallbackChain,
 } from "@/lib/openRouter";
+import { geminiDirectGenerateContent } from "@/lib/geminiDirect";
 
 /** Per OpenRouter/Gemini request — prevents hung generations. */
 const AI_REQUEST_TIMEOUT_MS = 90_000;
@@ -43,19 +44,9 @@ function useOpenRouter(): boolean {
   return Boolean(getOpenRouterKey());
 }
 
-type TextMessage = {
-  role: "user" | "assistant" | "system";
-  content: string;
-};
-
 type VisionPart =
   | { type: "text"; text: string }
   | { type: "image_url"; image_url: { url: string } };
-
-type VisionMessage = {
-  role: "user";
-  content: VisionPart[];
-};
 
 function wrapAiFetchError(e: unknown): Error {
   if (e instanceof DOMException && e.name === "TimeoutError") {
@@ -83,28 +74,19 @@ async function directGeminiGenerateText(
   const key = getDirectGeminiKey();
   if (!key) throw new Error("No Gemini API key configured");
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  return geminiDirectGenerateContent(
+    "gemini-2.0-flash",
+    key,
+    {
       contents: [{ parts: [{ text: `${system}\n\n${user}` }] }],
       generationConfig: {
         temperature: options?.temperature ?? 0.7,
         maxOutputTokens: options?.maxTokens ?? 4096,
         responseMimeType: "application/json",
       },
-    }),
-    signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Gemini error: ${res.status} ${err.slice(0, 300)}`);
-  }
-  const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    },
+    { fallbackOutputTokens: options?.maxTokens ?? 4096 },
+  );
 }
 
 async function directGeminiVision(
@@ -122,28 +104,20 @@ async function directGeminiVision(
       return { inline_data: { mime_type: match[1], data: match[2] } };
     }),
   ];
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+
+  return geminiDirectGenerateContent(
+    "gemini-2.0-flash",
+    key,
+    {
       contents: [{ parts }],
       generationConfig: {
         temperature: 0.2,
         maxOutputTokens: 2048,
         responseMimeType: "application/json",
       },
-    }),
-    signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Gemini vision error: ${res.status} ${err.slice(0, 300)}`);
-  }
-  const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    },
+    { fallbackOutputTokens: 2048 },
+  );
 }
 
 export async function generateText(
@@ -191,28 +165,23 @@ export async function generateText(
       }
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${key}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    if (!getDirectGeminiKey()) {
+      throw new Error("Direct Gemini requires GEMINI_API_KEY when OpenRouter is not configured");
+    }
+
+    return geminiDirectGenerateContent(
+      "gemini-2.0-flash-lite",
+      getDirectGeminiKey()!,
+      {
         contents: [{ parts: [{ text: `${system}\n\n${user}` }] }],
         generationConfig: {
           temperature: options?.temperature ?? 0.7,
           maxOutputTokens: options?.maxTokens ?? 4096,
           responseMimeType: "application/json",
         },
-      }),
-      signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Gemini error: ${res.status} ${err.slice(0, 300)}`);
-    }
-    const data = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-    };
-    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+      },
+      { fallbackOutputTokens: options?.maxTokens ?? 4096 },
+    );
   } catch (e) {
     throw wrapAiFetchError(e);
   }

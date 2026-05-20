@@ -16,6 +16,10 @@ export const metadata: Metadata = {
   title: "WikiMe — Your Wikipedia-style biography",
   description:
     "Generate a realistic Wikipedia-style article about yourself from photos, screenshots, and a short questionnaire.",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icon.svg", type: "image/svg+xml" }],
+  },
 };
 
 export const viewport = {

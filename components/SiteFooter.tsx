@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { WikiMeLogo } from "@/components/WikiMeLogo";
 
 export function SiteFooter() {
   const year = new Date().getFullYear();
@@ -8,9 +9,7 @@ export function SiteFooter() {
       <div className="site-footer-inner">
         <div className="site-footer-grid">
           <div className="site-footer-col site-footer-brand-col">
-            <Link href="/" className="site-footer-logo">
-              Wiki<span>Me</span>
-            </Link>
+            <WikiMeLogo variant="footer" />
             <p className="site-footer-tagline">
               Turn your profile into a Wikipedia-style biography — grounded or legendary.
             </p>
