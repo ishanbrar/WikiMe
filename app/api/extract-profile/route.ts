@@ -8,7 +8,7 @@ import {
 import { hasAiKey } from "@/lib/gemini";
 
 const bodySchema = z.object({
-  screenshots: z.array(z.string().max(700_000)).max(6),
+  screenshots: z.array(z.string().max(500_000)).max(6),
 });
 
 export async function POST(req: Request) {

@@ -26,6 +26,7 @@ import {
   normalizeExtractedFacts,
 } from "@/lib/extractProfileFacts";
 import { parseJsonResponse } from "@/lib/apiClient";
+import { prepareUploadImages } from "@/lib/prepareUploadImages";
 import { saveArticleToServer } from "@/lib/saveArticleClient";
 import { mapWithConcurrency } from "@/lib/parallelMap";
 import { nanoid } from "nanoid";
@@ -111,13 +112,14 @@ function GenerateFlow() {
   const extractScreenshots = async (
     managed?: boolean,
     signal?: AbortSignal,
+    shots = screenshots,
   ): Promise<ExtractedProfileFacts> => {
-    if (!screenshots.length) {
+    if (!shots.length) {
       const empty = emptyExtractedFacts();
       setFacts(empty);
       return empty;
     }
-    const hashes = await Promise.all(screenshots.map(hashDataUrl));
+    const hashes = await Promise.all(shots.map(hashDataUrl));
     const cached = getCachedExtractedFacts(hashes);
     if (cached) {
       const c = normalizeExtractedFacts(cached);
@@ -128,15 +130,15 @@ function GenerateFlow() {
       setBusy(true);
       setGenPhase("extract");
       setGenStartedAt(Date.now());
-      setGenDetail(`Reading ${screenshots.length} screenshot(s)…`);
+      setGenDetail(`Reading ${shots.length} screenshot(s)…`);
     } else {
       setGenPhase("extract");
-      setGenDetail(`Reading ${screenshots.length} screenshot(s)…`);
+      setGenDetail(`Reading ${shots.length} screenshot(s)…`);
     }
     setError("");
     try {
       const parts = await mapWithConcurrency(
-        screenshots,
+        shots,
         EXTRACT_CONCURRENCY,
         (shot) => extractOne(shot, signal),
       );
@@ -186,26 +188,54 @@ function GenerateFlow() {
     );
     setError("");
     try {
+      setGenDetail("Optimizing images for upload…");
+      let prepared = await prepareUploadImages({
+        headshot: headshot[0],
+        screenshots,
+        extraPhotos,
+      });
+      if (prepared.headshot) setHeadshot([prepared.headshot]);
+      if (prepared.screenshots.length) setScreenshots(prepared.screenshots);
+      if (prepared.extraPhotos.length) setExtraPhotos(prepared.extraPhotos);
+
       let extracted = facts;
-      if (screenshots.length > 0) {
-        extracted = await extractScreenshots(true, signal);
+      if (prepared.screenshots.length > 0) {
+        extracted = await extractScreenshots(true, signal, prepared.screenshots);
         if (signal.aborted) return;
         setGenPhase("generate");
         setGenDetail("Writing your Wikipedia article…");
       }
       extracted = normalizeExtractedFacts(extracted);
 
-      const res = await fetch("/api/generate-article", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          intake: intakeFinal,
-          facts: extracted,
-          headshotDataUrl: headshot[0],
-          extraPhotoUrls: extraPhotos,
-        }),
-        signal,
-      });
+      const postGenerate = (images: typeof prepared) =>
+        fetch("/api/generate-article", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            intake: intakeFinal,
+            facts: extracted,
+            headshotDataUrl: images.headshot,
+            extraPhotoUrls: images.extraPhotos,
+          }),
+          signal,
+        });
+
+      let res = await postGenerate(prepared);
+      if (res.status === 413) {
+        setGenDetail("Images still large — compressing further…");
+        prepared = await prepareUploadImages(
+          {
+            headshot: prepared.headshot,
+            screenshots: prepared.screenshots,
+            extraPhotos: prepared.extraPhotos,
+          },
+          true,
+        );
+        if (prepared.headshot) setHeadshot([prepared.headshot]);
+        setScreenshots(prepared.screenshots);
+        setExtraPhotos(prepared.extraPhotos);
+        res = await postGenerate(prepared);
+      }
       const data = await parseJsonResponse<{
         article?: import("@/types/article").ArticleJson;
         error?: string;
@@ -226,8 +256,8 @@ function GenerateFlow() {
       }
 
       const article = data.article!;
-      if (headshot[0]) {
-        article.infobox.imageUrl = headshot[0];
+      if (prepared.headshot) {
+        article.infobox.imageUrl = prepared.headshot;
       }
 
       const articleId = nanoid();
@@ -235,8 +265,8 @@ function GenerateFlow() {
       const sessionPayload = {
         article,
         intake: intakeFinal,
-        headshotDataUrl: headshot[0] ?? "",
-        extraPhotoUrls: extraPhotos,
+        headshotDataUrl: prepared.headshot ?? "",
+        extraPhotoUrls: prepared.extraPhotos,
         facts: extracted,
         mock: data.mock,
         savedId: articleId,
@@ -264,8 +294,8 @@ function GenerateFlow() {
         articleJson: article,
         mode: intakeFinal.mode,
         intake: intakeFinal,
-        headshotDataUrl: headshot[0],
-        extraPhotoUrls: extraPhotos,
+        headshotDataUrl: prepared.headshot,
+        extraPhotoUrls: prepared.extraPhotos,
         extractedFacts: extracted,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -414,7 +444,7 @@ function GenerateFlow() {
             <p className="generate-error-text">{error}</p>
             {hasUploads && (
               <p className="generate-error-hint">
-                Your headshot and screenshots are still loaded — fix the issue and try again.
+                Your images are still loaded — try Generate again (we auto-resize photos before upload).
               </p>
             )}
             {step === 3 && (

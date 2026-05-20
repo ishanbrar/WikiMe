@@ -3,7 +3,7 @@ export async function parseJsonResponse<T>(res: Response): Promise<T> {
   if (!text) {
     throw new Error(
       res.status === 413
-        ? "Upload too large. Try fewer or smaller images."
+        ? "Upload too large even after compression. Try fewer images or smaller originals."
         : `Server error (${res.status})`,
     );
   }

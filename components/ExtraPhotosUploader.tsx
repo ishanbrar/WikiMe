@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { readFileAsDataUrl } from "@/lib/cropHeadshot";
+import { compressExtraPhoto } from "@/lib/compressImage";
 
 const MAX_PHOTOS = 2;
 
@@ -23,7 +23,7 @@ export function ExtraPhotosUploader({
       if (next.length >= MAX_PHOTOS) break;
       if (!file.type.startsWith("image/")) continue;
       try {
-        const url = await readFileAsDataUrl(file);
+        const url = await compressExtraPhoto(file);
         next.push(url);
       } catch {
         /* ignore */

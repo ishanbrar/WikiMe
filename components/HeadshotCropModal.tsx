@@ -78,7 +78,7 @@ export function HeadshotCropModal({
     if (!img) return;
     setBusy(true);
     try {
-      const cropped = exportHeadshotCrop(img, FRAME_W, FRAME_H, state);
+      const cropped = await exportHeadshotCrop(img, FRAME_W, FRAME_H, state);
       onConfirm(cropped);
     } finally {
       setBusy(false);

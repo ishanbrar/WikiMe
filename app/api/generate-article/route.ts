@@ -8,8 +8,8 @@ import { emptyExtractedFacts } from "@/lib/extractProfileFacts";
 const bodySchema = z.object({
   intake: intakeSchema,
   facts: factsInputSchema.optional(),
-  headshotDataUrl: z.string().max(600_000).optional(),
-  extraPhotoUrls: z.array(z.string().max(600_000)).max(2).optional(),
+  headshotDataUrl: z.string().max(500_000).optional(),
+  extraPhotoUrls: z.array(z.string().max(500_000)).max(2).optional(),
 });
 
 export async function POST(req: Request) {

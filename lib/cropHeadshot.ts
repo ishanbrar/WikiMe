@@ -1,3 +1,5 @@
+import { compressDataUrl } from "@/lib/compressImage";
+import { UPLOAD_LIMITS } from "@/lib/prepareUploadImages";
 import { HEADSHOT_OUTPUT } from "@/lib/headshotForArticle";
 
 export type HeadshotCropState = {
@@ -47,12 +49,12 @@ export function initialCropState(
   };
 }
 
-export function exportHeadshotCrop(
+export async function exportHeadshotCrop(
   img: HTMLImageElement,
   frameW: number,
   frameH: number,
   state: HeadshotCropState,
-): string {
+): Promise<string> {
   const base = coverScale(img.width, img.height, frameW, frameH);
   const total = base * state.scale;
   const displayW = img.width * total;
@@ -75,13 +77,8 @@ export function exportHeadshotCrop(
   if (!ctx) throw new Error("Canvas not supported");
   ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
 
-  let quality = 0.9;
-  let result = canvas.toDataURL("image/jpeg", quality);
-  while (result.length > 120_000 && quality > 0.5) {
-    quality -= 0.08;
-    result = canvas.toDataURL("image/jpeg", quality);
-  }
-  return result;
+  const cropped = canvas.toDataURL("image/jpeg", 0.9);
+  return compressDataUrl(cropped, UPLOAD_LIMITS.headshot);
 }
 
 function clamp(n: number, min: number, max: number): number {
