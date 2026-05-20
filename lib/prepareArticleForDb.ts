@@ -1,10 +1,15 @@
-import type { SavedArticle } from "@/types/article";
+import type { ArticleJson, SavedArticle } from "@/types/article";
+import { compressArticleFigureImages } from "@/lib/articleImages";
+import { compressDataUrl } from "@/lib/compressImage";
 import { applyHeadshotToArticle, isHeadshotDataUrl } from "@/lib/headshotForArticle";
+import { UPLOAD_LIMITS } from "@/lib/prepareUploadImages";
 
 const MAX_HEADSHOT_CHARS = 120_000;
 
-/** Shrink payloads so saves succeed on Vercel/Supabase (skip huge base64 blobs). */
-export function prepareArticleForDb(article: SavedArticle): SavedArticle {
+/** Shrink payloads so saves succeed on Vercel/Supabase (recompress instead of dropping images). */
+export async function prepareArticleForDb(
+  article: SavedArticle,
+): Promise<SavedArticle> {
   let headshot =
     article.headshotDataUrl?.trim() ||
     (isHeadshotDataUrl(article.articleJson.infobox.imageUrl)
@@ -12,10 +17,14 @@ export function prepareArticleForDb(article: SavedArticle): SavedArticle {
       : "");
 
   if (headshot.length > MAX_HEADSHOT_CHARS) {
-    headshot = "";
+    try {
+      headshot = await compressDataUrl(headshot, UPLOAD_LIMITS.headshot);
+    } catch {
+      headshot = "";
+    }
   }
 
-  const articleJson = applyHeadshotToArticle(
+  let articleJson = applyHeadshotToArticle(
     {
       ...article.articleJson,
       infobox: {
@@ -25,6 +34,8 @@ export function prepareArticleForDb(article: SavedArticle): SavedArticle {
     },
     headshot,
   );
+
+  articleJson = await compressArticleFigureImages(articleJson);
 
   return {
     ...article,

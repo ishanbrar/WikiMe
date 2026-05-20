@@ -18,7 +18,16 @@ import { saveArticleToServer } from "@/lib/saveArticleClient";
 import { buildShareUrl } from "@/lib/share";
 import { nanoid } from "nanoid";
 import { applyHeadshotToArticle } from "@/lib/headshotForArticle";
+import {
+  articleImageMetrics,
+  ensureArticleImages,
+  formatArticleImageMetrics,
+} from "@/lib/articleImages";
+import { enrichFactsWithIntake } from "@/lib/enrichFactsWithIntake";
 import { prepareArticleForDb } from "@/lib/prepareArticleForDb";
+import { prepareUploadImages } from "@/lib/prepareUploadImages";
+import type { ExtraPhotoUpload } from "@/lib/extraPhotoUpload";
+import { emptyExtractedFacts } from "@/lib/extractProfileFacts";
 
 export function ArticleEditor({
   initialArticle,
@@ -58,6 +67,9 @@ export function ArticleEditor({
     slug ? buildShareUrl(slug, initialShortLink) : "",
   );
 
+  const supplementalFromUrls = (): ExtraPhotoUpload[] =>
+    (extraPhotoUrls ?? []).map((dataUrl) => ({ dataUrl, description: "" }));
+
   const saved: SavedArticle = {
     id: savedId ?? nanoid(),
     slug: shareSlug || slug || nanoid(10),
@@ -84,7 +96,7 @@ export function ArticleEditor({
 
   const saveToServer = async (): Promise<string | null> => {
     const local = persistLocal();
-    const withHeadshot = prepareArticleForDb({
+    const withHeadshot = await prepareArticleForDb({
       ...local,
       articleJson: applyHeadshotToArticle(article, headshotDataUrl),
       headshotDataUrl,
@@ -104,20 +116,71 @@ export function ArticleEditor({
     setBusy(true);
     setLoadingMessage("Regenerating article…");
     try {
-      const res = await fetch("/api/generate-article", {
+      const prepared = await prepareUploadImages({
+        headshot: headshotDataUrl,
+        extraPhotos: supplementalFromUrls(),
+      });
+
+      const facts = enrichFactsWithIntake(
+        extractedFacts ?? emptyExtractedFacts(),
+        intakeState,
+      );
+
+      let res = await fetch("/api/generate-article", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           intake: intakeState,
-          facts: extractedFacts,
-          headshotDataUrl,
-          extraPhotoUrls: extraPhotoUrls ?? [],
+          facts,
+          headshotDataUrl: prepared.headshot,
+          extraPhotos: prepared.extraPhotos.map((p) => ({
+            dataUrl: p.dataUrl,
+            description: p.description.trim() || undefined,
+          })),
         }),
       });
+
+      if (res.status === 413) {
+        const preparedAgg = await prepareUploadImages(
+          {
+            headshot: prepared.headshot,
+            extraPhotos: prepared.extraPhotos,
+          },
+          true,
+        );
+        res = await fetch("/api/generate-article", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            intake: intakeState,
+            facts,
+            headshotDataUrl: preparedAgg.headshot,
+            extraPhotos: preparedAgg.extraPhotos.map((p) => ({
+              dataUrl: p.dataUrl,
+              description: p.description.trim() || undefined,
+            })),
+          }),
+        });
+      }
+
       const data = await res.json();
+      if (!res.ok) {
+        console.error(data.error ?? "Regeneration failed");
+        return;
+      }
       if (data.article) {
-        const next = data.article as ArticleJson;
-        if (headshotDataUrl) next.infobox.imageUrl = headshotDataUrl;
+        let next = ensureArticleImages(
+          data.article as ArticleJson,
+          prepared.headshot ?? headshotDataUrl,
+          prepared.extraPhotos,
+          intakeState.fullName || intakeState.articleTitle,
+        );
+        console.info(
+          "[WikiMe regen] images:",
+          formatArticleImageMetrics(
+            articleImageMetrics(next, prepared.headshot ?? headshotDataUrl),
+          ),
+        );
         setArticle(next);
       }
     } finally {
@@ -135,9 +198,13 @@ export function ArticleEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           intake: intakeState,
-          facts: extractedFacts,
+          facts: enrichFactsWithIntake(
+            extractedFacts ?? emptyExtractedFacts(),
+            intakeState,
+          ),
           article,
           sectionId,
+          headshotDataUrl,
         }),
       });
       const data = await res.json();

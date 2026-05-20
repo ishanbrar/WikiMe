@@ -71,6 +71,7 @@ export function normalizeArticleJson(
             .map((s) => parseSectionFromRaw(s as Record<string, unknown>))
             .filter((s): s is NonNullable<typeof s> => s !== null),
           opts?.supplementalPhotos ?? [],
+          intake.fullName || intake.articleTitle,
         ),
         {
           creative: isCreative,

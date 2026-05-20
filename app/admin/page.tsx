@@ -5,6 +5,8 @@ import { listAdminArticleLog } from "@/lib/adminArticles";
 import { getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/admin";
 import { AdminSlugEditor } from "@/components/AdminSlugEditor";
+import { AdminGenerationRuns } from "@/components/AdminGenerationRuns";
+import { listAdminGenerationRuns } from "@/lib/adminGenerationRuns";
 
 function formatWhen(iso: string): string {
   try {
@@ -37,10 +39,12 @@ export default async function AdminPage() {
   }
 
   let articles: Awaited<ReturnType<typeof listAdminArticleLog>> = [];
+  let generationRuns: Awaited<ReturnType<typeof listAdminGenerationRuns>> = [];
   let loadError: string | null = null;
 
   try {
     articles = await listAdminArticleLog();
+    generationRuns = await listAdminGenerationRuns(50);
   } catch (e) {
     loadError = e instanceof Error ? e.message : "Could not load article log";
   }
@@ -75,6 +79,15 @@ export default async function AdminPage() {
       {!loadError && articles.length === 0 && (
         <p className="admin-muted">No articles have been saved yet.</p>
       )}
+
+      <section className="admin-section">
+        <h2 className="admin-section-title">Generation runs</h2>
+        <p className="admin-muted">
+          Detailed logs from /generate while signed in as admin (requires{" "}
+          <code>generation_runs</code> migration).
+        </p>
+        <AdminGenerationRuns runs={generationRuns} />
+      </section>
 
       {articles.length > 0 && (
         <div className="admin-table-wrap">

@@ -63,7 +63,7 @@ export async function POST(req: Request) {
           existing.userId !== user.id,
       );
 
-    const saved: SavedArticle = prepareArticleForDb({
+    const saved: SavedArticle = await prepareArticleForDb({
       id: parsed.data.id ?? existing?.id ?? nanoid(),
       slug,
       articleJson: parsed.data.articleJson,

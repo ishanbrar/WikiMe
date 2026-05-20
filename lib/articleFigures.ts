@@ -11,9 +11,12 @@ export type SupplementalPhoto = {
 
 const PLACEMENTS: { sectionId: string; afterParagraph: number }[] = [
   { sectionId: "career", afterParagraph: 0 },
-  { sectionId: "personal-life", afterParagraph: 0 },
+  { sectionId: "education", afterParagraph: 0 },
   { sectionId: "early-life", afterParagraph: 0 },
+  { sectionId: "personal-life", afterParagraph: 0 },
   { sectionId: "public-image", afterParagraph: 0 },
+  { sectionId: "achievements", afterParagraph: 0 },
+  { sectionId: "projects", afterParagraph: 0 },
 ];
 
 function captionFromDescription(
@@ -62,25 +65,39 @@ export function applySupplementalPhotos(
   let sections = [...article.sections];
   let photoIndex = 0;
 
+  const tryPlace = (sectionIndex: number, photo: SupplementalPhoto, index: number) => {
+    if (sectionIndex === -1) return false;
+    const sec = sections[sectionIndex]!;
+    if ((sec.figures ?? []).some((f) => f.imageUrl === photo.dataUrl)) return false;
+    const figure: ArticleFigure = {
+      imageUrl: photo.dataUrl,
+      caption:
+        photo.caption?.trim() ||
+        captionFromDescription(photo.description, subjectName, index) ||
+        defaultCaption(subjectName, index),
+    };
+    sections[sectionIndex] = mergeFigureIntoSection(sec, figure, 0);
+    return true;
+  };
+
   for (const slot of PLACEMENTS) {
     if (photoIndex >= pending.length) break;
     const photo = pending[photoIndex]!;
     const si = sections.findIndex((s) => s.id === slot.sectionId);
     if (si === -1) continue;
-    const sec = sections[si]!;
-    if ((sec.figures ?? []).some((f) => f.imageUrl === photo.dataUrl)) {
-      photoIndex++;
-      continue;
-    }
-    const figure: ArticleFigure = {
-      imageUrl: photo.dataUrl,
-      caption:
-        photo.caption?.trim() ||
-        captionFromDescription(photo.description, subjectName, photoIndex) ||
-        defaultCaption(subjectName, photoIndex),
-    };
-    sections[si] = mergeFigureIntoSection(sec, figure, slot.afterParagraph);
-    photoIndex++;
+    if (tryPlace(si, photo, photoIndex)) photoIndex++;
+  }
+
+  while (photoIndex < pending.length) {
+    const photo = pending[photoIndex]!;
+    const fallbackIndex = sections.findIndex(
+      (s) =>
+        s.paragraphs.length > 0 &&
+        !(s.figures ?? []).some((f) => f.imageUrl === photo.dataUrl),
+    );
+    if (fallbackIndex === -1) break;
+    if (tryPlace(fallbackIndex, photo, photoIndex)) photoIndex++;
+    else break;
   }
 
   return { ...article, sections };
@@ -89,6 +106,7 @@ export function applySupplementalPhotos(
 export function resolveFigureUrlsFromIndices(
   sections: ArticleSection[],
   photos: SupplementalPhoto[],
+  subjectName = "",
 ): ArticleSection[] {
   return sections.map((sec) => {
     if (!sec.figures?.length) return sec;
@@ -99,13 +117,15 @@ export function resolveFigureUrlsFromIndices(
         }
         const idx = f.imageIndex;
         if (typeof idx === "number" && photos[idx]?.dataUrl) {
+          const photo = photos[idx]!;
+          const caption =
+            f.caption?.trim() ||
+            photo.caption?.trim() ||
+            captionFromDescription(photo.description, subjectName, idx) ||
+            defaultCaption(subjectName, idx);
           return {
-            imageUrl: photos[idx].dataUrl,
-            caption:
-              f.caption ||
-              photos[idx].caption ||
-              photos[idx].description ||
-              "",
+            imageUrl: photo.dataUrl,
+            caption,
           };
         }
         if (f.imageUrl) return { imageUrl: f.imageUrl, caption: f.caption };

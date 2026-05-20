@@ -27,6 +27,7 @@ import {
 } from "@/lib/creativeNarrative";
 import type { SupplementalPhoto } from "@/lib/articleFigures";
 import { formatSupplementalPhotosForPrompt } from "@/lib/extraPhotoUpload";
+import { ensureArticleImages } from "@/lib/articleImages";
 import { INFOBOX_RULES } from "@/lib/infoboxHelpers";
 import { WIKI_SECTION_STRUCTURE_RULES } from "@/lib/wikiSections";
 import {
@@ -210,10 +211,18 @@ export async function generateArticle(
   headshotUrl: string,
   supplementalPhotos: SupplementalPhoto[] = [],
 ): Promise<ArticleJson> {
+  const finalize = (article: ArticleJson) =>
+    ensureArticleImages(
+      article,
+      headshotUrl,
+      supplementalPhotos,
+      intake.fullName || intake.articleTitle,
+    );
+
   if (!hasAiKey()) {
     const mock = buildMockArticle(intake, headshotUrl);
     if (headshotUrl) mock.infobox.imageUrl = headshotUrl;
-    return mock;
+    return finalize(mock);
   }
 
   if (intake.mode === "creative") {
@@ -238,7 +247,7 @@ export async function generateArticle(
         supplementalPhotos,
       );
     }
-    return article;
+    return finalize(article);
   }
 
   const factSheet = await synthesizeRealismBrief(intake, facts);
@@ -291,8 +300,15 @@ ${sourceFacts}`;
     return normalizeArticleJson(parsed, intake, headshotUrl, normalizeOpts);
   }
 
+  const minWords =
+    intake.articleLength === "long" ? 380 : intake.articleLength === "short" ? 180 : 260;
+
   function needsRealismRetry(article: ArticleJson): string | null {
     if (!article.sections.length) return REALISM_SECTIONS_REQUIRED_NOTE;
+    const words = articleWordCount(article);
+    if (words < minWords) {
+      return `${REALISM_SECTIONS_REQUIRED_NOTE}\nArticle is only ${words} words; target at least ${minWords} words of flowing prose across all sections using the fact sheet.`;
+    }
     if (
       hasControversiesContent(intake) &&
       !article.sections.some((s) => s.id === "controversies")
@@ -333,7 +349,7 @@ ${sourceFacts}`;
     );
   }
 
-  return article;
+  return finalize(article);
 }
 
 export async function regenerateSection(

@@ -7,6 +7,12 @@ import { createDefaultIntake } from "@/components/IntakeForm";
 import { enrichIntakeControversies } from "@/lib/intakeControversies";
 import { mergeLegacyIntakeFields } from "@/lib/mergeLegacyIntake";
 import { CreateArticleForm } from "@/components/intake/CreateArticleForm";
+import {
+  articleImageMetrics,
+  ensureArticleImages,
+  formatArticleImageMetrics,
+} from "@/lib/articleImages";
+import { enrichFactsWithIntake } from "@/lib/enrichFactsWithIntake";
 import { prepareArticleForDb } from "@/lib/prepareArticleForDb";
 import type { ExtractedProfileFacts, IntakeData } from "@/types/article";
 import {
@@ -308,7 +314,23 @@ function GenerateFlow() {
           setGenDetail("Writing your Wikipedia article…");
         }
       }
-      extracted = normalizeExtractedFacts(extracted);
+      extracted = enrichFactsWithIntake(
+        normalizeExtractedFacts(extracted),
+        intakeFinal,
+      );
+
+      if (isAdmin) {
+        setGenRun((r) =>
+          r
+            ? appendGenerationLog(
+                r,
+                "info",
+                `Facts for AI: education=${extracted.education.length}, work=${extracted.work.length}, raw=${extracted.rawUsefulText.length}`,
+                "generate",
+              )
+            : r,
+        );
+      }
 
       const postGenerate = (images: typeof prepared) =>
         fetchWithTimeout(
@@ -428,9 +450,23 @@ function GenerateFlow() {
       }
 
       const data = genOutcome.data;
-      const article = data.article!;
-      if (prepared.headshot) {
-        article.infobox.imageUrl = prepared.headshot;
+      let article = data.article!;
+      article = ensureArticleImages(
+        article,
+        prepared.headshot,
+        prepared.extraPhotos,
+        intakeFinal.fullName || intakeFinal.articleTitle,
+      );
+
+      const imageReport = formatArticleImageMetrics(
+        articleImageMetrics(article, prepared.headshot),
+      );
+      if (isAdmin) {
+        setGenRun((r) =>
+          r
+            ? appendGenerationLog(r, "info", `Post-process images: ${imageReport}`, "generate")
+            : r,
+        );
       }
 
       const articleId = nanoid();
@@ -453,8 +489,7 @@ function GenerateFlow() {
           "wikime_current",
           JSON.stringify({
             ...sessionPayload,
-            article: { ...article, infobox: { ...article.infobox, imageUrl: "" } },
-            headshotDataUrl: "",
+            extraPhotoUrls: [],
           }),
         );
       }
@@ -464,7 +499,7 @@ function GenerateFlow() {
         setGenDetail("Saving your share link…");
       }
 
-      const toSave = prepareArticleForDb({
+      const toSave = await prepareArticleForDb({
         id: articleId,
         slug: articleSlug,
         articleJson: article,
@@ -477,6 +512,19 @@ function GenerateFlow() {
         updatedAt: new Date().toISOString(),
       });
 
+      if (isAdmin) {
+        setGenRun((r) =>
+          r
+            ? appendGenerationLog(
+                r,
+                "info",
+                `Save payload: headshot=${toSave.headshotDataUrl ? `${Math.round((toSave.headshotDataUrl.length ?? 0) / 1024)}KB` : "none"}, figures=${formatArticleImageMetrics(articleImageMetrics(toSave.articleJson, toSave.headshotDataUrl))}`,
+                "save",
+              )
+            : r,
+        );
+      }
+
       const saved = await runStep("save", "Saving article to server…", async () => {
         const result = await saveArticleToServer(toSave, { isAdmin });
         if (!result.ok) throw new Error(result.error);
@@ -485,7 +533,25 @@ function GenerateFlow() {
 
       if (signal.aborted) return;
 
-      setGenRun(null);
+      setGenRun((r) => {
+        if (isAdmin && r) {
+          void fetch("/api/admin/generation-runs", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mode: intakeFinal.mode,
+              success: true,
+              logs: r.logs,
+              steps: r.steps,
+              metrics: {
+                imageReport,
+                slug: saved.slug,
+              },
+            }),
+          });
+        }
+        return null;
+      });
       router.push(`/article?slug=${saved.slug}`);
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
@@ -493,9 +559,23 @@ function GenerateFlow() {
       const msg = formatGenerationError(e);
       setError(msg);
       if (isAdmin) {
-        setGenRun((r) =>
-          r ? { ...r, failed: true, errorMessage: msg } : r,
-        );
+        setGenRun((r) => {
+          const failed = r ? { ...r, failed: true, errorMessage: msg } : r;
+          if (failed) {
+            void fetch("/api/admin/generation-runs", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                mode: intake.mode,
+                success: false,
+                errorMessage: msg,
+                logs: failed.logs,
+                steps: failed.steps,
+              }),
+            });
+          }
+          return failed;
+        });
       }
     } finally {
       abortRef.current = null;

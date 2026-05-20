@@ -285,9 +285,11 @@ function parseFigures(raw: unknown): ParsedFigure[] {
       const caption = typeof o.caption === "string" ? o.caption.trim() : "";
       const imageIndex =
         typeof o.imageIndex === "number" ? o.imageIndex : undefined;
-      if (!caption) return null;
       if (!imageUrl && imageIndex === undefined) return null;
-      const fig: ParsedFigure = { imageUrl, caption };
+      const fig: ParsedFigure = {
+        imageUrl,
+        caption: caption || (imageIndex !== undefined ? " " : ""),
+      };
       if (imageIndex !== undefined) fig.imageIndex = imageIndex;
       return fig;
     })

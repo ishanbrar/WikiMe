@@ -4,6 +4,7 @@ import { regenerateSection } from "@/lib/generateArticle";
 import { hasAiKey } from "@/lib/gemini";
 import { intakeSchema, factsInputSchema, articleJsonSchema } from "@/lib/validation";
 import { emptyExtractedFacts } from "@/lib/extractProfileFacts";
+import { enrichFactsWithIntake } from "@/lib/enrichFactsWithIntake";
 
 const bodySchema = z.object({
   intake: intakeSchema,
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
     const { intake, facts, article, sectionId, headshotDataUrl } = parsed.data;
     const section = await regenerateSection(
       intake,
-      facts ?? emptyExtractedFacts(),
+      enrichFactsWithIntake(facts ?? emptyExtractedFacts(), intake),
       article,
       sectionId,
       headshotDataUrl ?? "",

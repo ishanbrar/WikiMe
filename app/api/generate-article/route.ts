@@ -4,6 +4,11 @@ import { NextResponse } from "next/server";
 export const maxDuration = 300;
 import { z } from "zod";
 import { generateArticle } from "@/lib/generateArticle";
+import {
+  articleImageMetrics,
+  formatArticleImageMetrics,
+} from "@/lib/articleImages";
+import { enrichFactsWithIntake } from "@/lib/enrichFactsWithIntake";
 import { articleWordCount } from "@/lib/normalizeArticle";
 import { adminJsonError, isAdminTestRequest } from "@/lib/adminApiDebug";
 import { hasAiKey } from "@/lib/gemini";
@@ -65,11 +70,19 @@ export async function POST(req: Request) {
     );
     log.push(`hasAiKey=${hasAiKey()}`);
 
+    const factsEnriched = enrichFactsWithIntake(
+      facts ?? emptyExtractedFacts(),
+      intake,
+    );
+    log.push(
+      `facts: education=${factsEnriched.education.length}, work=${factsEnriched.work.length}, rawText=${factsEnriched.rawUsefulText.length}`,
+    );
+
     const t0 = Date.now();
     const article = await Promise.race([
       generateArticle(
         intake,
-        facts ?? emptyExtractedFacts(),
+        factsEnriched,
         headshotDataUrl ?? "",
         supplementalPhotos,
       ),
@@ -87,6 +100,18 @@ export async function POST(req: Request) {
     ]);
     log.push(`generateArticle() finished in ${Date.now() - t0}ms`);
     log.push(`articleWordCount=${articleWordCount(article)}`);
+    log.push(`summaryLeadParagraphs=${article.summaryLead.length}`);
+    log.push(`sectionIds=${article.sections.map((s) => s.id).join(",") || "(none)"}`);
+    const img = articleImageMetrics(article, headshotDataUrl);
+    log.push(`images: ${formatArticleImageMetrics(img)}`);
+    if (supplementalPhotos.length && img.figuresWithDataUrl < supplementalPhotos.length) {
+      log.push(
+        `warn: expected up to ${supplementalPhotos.length} inline figure(s), got ${img.figuresWithDataUrl}`,
+      );
+    }
+    if (headshotDataUrl && !img.infoboxHasImage) {
+      log.push("warn: headshot was sent but infobox has no image after normalize");
+    }
 
     return NextResponse.json({
       article,

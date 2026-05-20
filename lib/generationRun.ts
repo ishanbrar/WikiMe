@@ -178,7 +178,7 @@ export function mergeServerAdminLog(
   if (!lines?.length) return run;
   let r = run;
   for (const line of lines) {
-    r = appendGenerationLog(r, "error", `[server] ${line}`, stepId);
+    r = appendGenerationLog(r, "info", `[server] ${line}`, stepId);
   }
   return r;
 }

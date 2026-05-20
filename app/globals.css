@@ -2611,6 +2611,142 @@ body {
   text-decoration: none;
 }
 
+.admin-section {
+  margin-bottom: 2.5rem;
+}
+
+.admin-section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.35rem;
+}
+
+.admin-runs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.admin-run-details {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.5rem 0.75rem;
+}
+
+.admin-run-summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+.admin-run-summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-run-status {
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.25rem;
+}
+
+.admin-run-status--ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.admin-run-status--fail {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.admin-run-meta {
+  color: #475569;
+}
+
+.admin-run-metrics-preview,
+.admin-run-error-preview {
+  color: #64748b;
+  font-size: 0.8125rem;
+}
+
+.admin-run-error-preview {
+  color: #b91c1c;
+}
+
+.admin-run-metrics {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.8125rem;
+}
+
+.admin-run-metrics dt {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.admin-run-metrics dd {
+  margin: 0;
+  color: #334155;
+  word-break: break-word;
+}
+
+.admin-run-steps {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.8125rem;
+  color: #334155;
+}
+
+.admin-run-step--error {
+  color: #b91c1c;
+}
+
+.admin-run-log {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem;
+  background: #0f172a;
+  border-radius: 0.375rem;
+  max-height: 280px;
+  overflow: auto;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  list-style: none;
+}
+
+.admin-run-log-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  padding: 0.2rem 0;
+  color: #e2e8f0;
+}
+
+.admin-run-log-line--warn {
+  color: #fde68a;
+}
+
+.admin-run-log-line--error {
+  color: #fca5a5;
+}
+
+.admin-run-log-line time {
+  color: #94a3b8;
+}
+
+.admin-run-log-line code {
+  color: #7dd3fc;
+}
+
 .admin-table-title:hover {
   text-decoration: underline;
 }
