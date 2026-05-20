@@ -3,6 +3,7 @@ import {
   dataUrlByteSize,
   type CompressOptions,
 } from "@/lib/compressImage";
+import type { ExtraPhotoUpload } from "@/lib/extraPhotoUpload";
 
 /** Per-image targets so combined JSON stays under typical serverless body limits. */
 export const UPLOAD_LIMITS = {
@@ -35,14 +36,14 @@ const AGGRESSIVE_LIMITS = {
 export type PreparedUploadImages = {
   headshot?: string;
   screenshots: string[];
-  extraPhotos: string[];
+  extraPhotos: ExtraPhotoUpload[];
 };
 
 export async function prepareUploadImages(
   input: {
     headshot?: string;
     screenshots?: string[];
-    extraPhotos?: string[];
+    extraPhotos?: ExtraPhotoUpload[];
   },
   aggressive = false,
 ): Promise<PreparedUploadImages> {
@@ -58,7 +59,10 @@ export async function prepareUploadImages(
       ),
     ),
     Promise.all(
-      (input.extraPhotos ?? []).map((s) => compressDataUrl(s, limits.extra)),
+      (input.extraPhotos ?? []).map(async (photo) => ({
+        dataUrl: await compressDataUrl(photo.dataUrl, limits.extra),
+        description: photo.description ?? "",
+      })),
     ),
   ]);
 
@@ -69,6 +73,6 @@ export function totalImagePayloadBytes(images: PreparedUploadImages): number {
   let n = 0;
   if (images.headshot) n += dataUrlByteSize(images.headshot);
   for (const s of images.screenshots) n += dataUrlByteSize(s);
-  for (const s of images.extraPhotos) n += dataUrlByteSize(s);
+  for (const s of images.extraPhotos) n += dataUrlByteSize(s.dataUrl);
   return n;
 }

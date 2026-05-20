@@ -38,6 +38,8 @@ export const INTAKE_PLACEHOLDERS: Record<IntakeFieldKey, string> = {
   occupation: "Software engineer, Founder & CEO at Acme Inc.",
   achievements: "Forbes 30 Under 30; design, public speaking, Python…",
   lifeEvents: "Moved to NYC in 2018, founded company in 2020…",
+  controversies:
+    "Optional: disputes, allegations, denials — appears as a Controversies section…",
   extraNotes: "Anything else the article should mention…",
   pastedProfileText:
     "Paste your LinkedIn About section, resume summary, or bio…",
@@ -203,6 +205,23 @@ export const INTAKE_SLIDES: IntakeSlide[] = [
     ],
   },
   {
+    id: "controversies",
+    type: "fields",
+    title: "Controversies",
+    subtitle:
+      "Optional. Disputes, scandals, or allegations — included as a Wikipedia-style Controversies section when provided.",
+    fields: [
+      {
+        key: "controversies",
+        label: "Controversies",
+        placeholder: INTAKE_PLACEHOLDERS.controversies,
+        optional: true,
+        textarea: true,
+        autocomplete: "off",
+      },
+    ],
+  },
+  {
     id: "style",
     type: "tone-length",
     title: "Tone & length",
@@ -255,6 +274,7 @@ export const REVIEW_ROWS: {
   { key: "occupation", label: "Occupation / role" },
   { key: "achievements", label: "Achievements & skills" },
   { key: "lifeEvents", label: "Life events" },
+  { key: "controversies", label: "Controversies" },
   { key: "tone", label: "Tone" },
   { key: "articleLength", label: "Length" },
   { key: "pastedProfileText", label: "Profile text" },

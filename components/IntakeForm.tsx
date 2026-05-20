@@ -19,6 +19,7 @@ const defaultIntake = (mode: ArticleMode = "realism"): IntakeData => ({
   occupation: "",
   achievements: "",
   lifeEvents: "",
+  controversies: "",
   tone: "neutral",
   mode,
   extraNotes: "",

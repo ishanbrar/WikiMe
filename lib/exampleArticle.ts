@@ -18,6 +18,7 @@ const MAYA_INTAKE_BASE = {
   achievements:
     "Forbes 30 Under 30 (Technology); Lumen Labs, OpenGrid, WikiMe; distributed systems, product design, alpine climbing",
   lifeEvents: "Relocated to the Bay Area in 2019",
+  controversies: "",
   extraNotes: "",
   pastedProfileText: "",
   articleLength: "standard" as const,

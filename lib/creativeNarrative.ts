@@ -93,6 +93,7 @@ function collectInputHooks(intake: IntakeData): string[] {
   add("occupation", intake.occupation);
   add("achievements & skills", intake.achievements);
   add("life events", intake.lifeEvents);
+  add("controversies", intake.controversies);
   add("notes", intake.extraNotes);
   if (intake.pastedProfileText?.trim()) {
     hooks.push(`profile excerpt: ${intake.pastedProfileText.slice(0, 400)}`);

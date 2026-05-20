@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ArticleJson, AppearanceSettings, IntakeData } from "@/types/article";
+import { hasControversiesContent } from "@/lib/intakeControversies";
 import { normalizeInfobox } from "@/lib/infoboxHelpers";
 import { WikiInfobox } from "@/components/WikiInfobox";
 import { WikiContents } from "@/components/WikiContents";
@@ -64,6 +65,7 @@ export function WikiArticlePage({
       infobox,
       sections: normalizeWikiSections(article.sections, {
         creative: intake?.mode === "creative",
+        includeControversies: intake ? hasControversiesContent(intake) : true,
       }),
     };
   }, [article, intake]);

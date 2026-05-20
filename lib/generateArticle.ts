@@ -11,6 +11,11 @@ import {
   TEXT_MODEL_CREATIVE,
   TEXT_MODEL_REALISM,
 } from "@/lib/gemini";
+import {
+  controversyReferenceUrls,
+  hasControversiesContent,
+  resolveControversiesText,
+} from "@/lib/intakeControversies";
 import { synthesizeRealismBrief } from "@/lib/realismBrief";
 import { buildMockArticle } from "@/lib/mockArticle";
 import { normalizeArticleJson, articleWordCount } from "@/lib/normalizeArticle";
@@ -21,6 +26,7 @@ import {
   formatCreativeBrief,
 } from "@/lib/creativeNarrative";
 import type { SupplementalPhoto } from "@/lib/articleFigures";
+import { formatSupplementalPhotosForPrompt } from "@/lib/extraPhotoUpload";
 import { INFOBOX_RULES } from "@/lib/infoboxHelpers";
 import { WIKI_SECTION_STRUCTURE_RULES } from "@/lib/wikiSections";
 import {
@@ -60,6 +66,7 @@ function buildPrompt(
       occupation: intake.occupation,
       achievements: intake.achievements,
       lifeEvents: intake.lifeEvents,
+      controversies: resolveControversiesText(intake),
       tone: intake.tone,
       extraNotes: intake.extraNotes,
       pastedProfileText: intake.pastedProfileText?.slice(0, 3000),
@@ -101,12 +108,29 @@ FORBIDDEN PHRASES: Never use: ${brief.avoidGenericPhrases.map((p) => `"${p}"`).j
 ${NO_QUESTIONS_RULE}`;
 }
 
-const SUPPLEMENTAL_PHOTOS_RULE = (count: number) =>
-  count > 0
-    ? `SUPPLEMENTAL PHOTOS: User provided ${count} extra photo(s). Place each exactly once via figures: [{imageIndex: 0..${count - 1}, caption}] on the best section (career, personal-life, etc.). Captions: neutral Wikipedia style, third person, 8–20 words. imageIndex is NOT the infobox headshot.`
+const SUPPLEMENTAL_PHOTOS_RULE = (photos: SupplementalPhoto[]) =>
+  photos.length > 0
+    ? `SUPPLEMENTAL PHOTOS: User provided ${photos.length} extra photo(s). Place each exactly once via figures: [{imageIndex: 0..${photos.length - 1}, caption}] on the best section (career, personal-life, etc.). Captions: neutral Wikipedia style, third person, 8–20 words — rewrite the user's photo notes into proper captions; do not paste notes verbatim. imageIndex is NOT the infobox headshot.
+
+USER PHOTO NOTES (by imageIndex):
+${formatSupplementalPhotosForPrompt(photos)}`
     : "";
 
 const CREATIVE_CONTROVERSIES_RULE = `CONTROVERSIES (creative mode): When the narrative includes disputes, backlash, scandals, or polarizing episodes, add a "controversies" section (id controversies, title "Controversies") with 2–4 paragraphs. Omit entirely if nothing controversial fits.`;
+
+function realismControversiesRule(intake: IntakeData): string {
+  const text = resolveControversiesText(intake);
+  if (!text) return "";
+  const urls = controversyReferenceUrls(text);
+  const urlNote =
+    urls.length > 0
+      ? ` Include these user-provided URLs in references[] (type "external-link" or "user-provided"): ${urls.join(" ")}`
+      : "";
+  return `CONTROVERSIES (required — user supplied material): You MUST include section id "controversies", title "Controversies", with 2–4 neutral encyclopedic paragraphs. Cover every allegation, named person, denial, and dispute the user described — use cautious attribution ("alleged", "according to", "has denied"). Do not omit or soften away user-provided controversy facts.${urlNote}
+
+USER CONTROVERSY NOTES:
+${text}`;
+}
 
 const CREATIVE_QUOTES_RULE = `ATTRIBUTED QUOTES (required in creative mode):
 - Include exactly 1–2 blockquotes total across the article — like real Wikipedia biographies (journalists, rivals, colleagues, critics commenting on the subject).
@@ -138,7 +162,8 @@ async function callCreativeGenerator(
   supplementalPhotos: SupplementalPhoto[],
 ): Promise<ArticleJson> {
   const lengthHint = creativeLengthHint(intake.articleLength);
-  const system = `You are a virtuoso biographer writing Wikipedia-shaped JSON. ${creativeRules(brief)} ${CREATIVE_CONTROVERSIES_RULE} ${CREATIVE_QUOTES_RULE} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos.length)} ${lengthHint} ${ARTICLE_SCHEMA}`;
+  const controversyRule = realismControversiesRule(intake);
+  const system = `You are a virtuoso biographer writing Wikipedia-shaped JSON. ${creativeRules(brief)} ${CREATIVE_CONTROVERSIES_RULE} ${controversyRule} ${CREATIVE_QUOTES_RULE} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos)} ${lengthHint} ${ARTICLE_SCHEMA}`;
   const user = `Generate a CREATIVE MODE article (attempt ${attempt}).
 tone=${intake.tone}
 supplementalPhotoCount=${supplementalPhotos.length}
@@ -218,8 +243,9 @@ export async function generateArticle(
 
   const factSheet = await synthesizeRealismBrief(intake, facts);
   const sourceFacts = buildPrompt(intake, facts, headshotUrl);
+  const controversyRule = realismControversiesRule(intake);
 
-  const system = `You are an experienced Wikipedia biographer. Output biography JSON only. ${realismRules()} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos.length)} ${realismLengthHint(intake.articleLength)} ${ARTICLE_SCHEMA}
+  const system = `You are an experienced Wikipedia biographer. Output biography JSON only. ${realismRules()} ${controversyRule} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos)} ${realismLengthHint(intake.articleLength)} ${ARTICLE_SCHEMA}
 
 CRITICAL OUTPUT RULES:
 - The JSON MUST include a non-empty "sections" array. Each section has "id", "title", and "paragraphs" (array of strings).
@@ -264,6 +290,12 @@ ${sourceFacts}`;
 
   function needsRealismRetry(article: ArticleJson): string | null {
     if (!article.sections.length) return REALISM_SECTIONS_REQUIRED_NOTE;
+    if (
+      hasControversiesContent(intake) &&
+      !article.sections.some((s) => s.id === "controversies")
+    ) {
+      return `${REALISM_SECTIONS_REQUIRED_NOTE}\n${realismControversiesRule(intake)}`;
+    }
     if (hasMockTemplateProse(article)) return realismRewriteNote(intake.fullName);
     if (isRegurgitatedRealism(article, intake)) {
       return `${realismRewriteNote(intake.fullName)}\nMerge family facts into one early-life paragraph. Athletics belong in career or personal-life once only — no duplicated paragraphs.`;

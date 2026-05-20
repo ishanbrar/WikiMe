@@ -3,6 +3,9 @@ import type { ParsedFigure } from "@/lib/wikiSections";
 
 export type SupplementalPhoto = {
   dataUrl: string;
+  /** User note about what the photo depicts — guides AI caption writing */
+  description?: string;
+  /** Final Wikipedia-style caption (from model or fallback) */
   caption?: string;
 };
 
@@ -12,6 +15,20 @@ const PLACEMENTS: { sectionId: string; afterParagraph: number }[] = [
   { sectionId: "early-life", afterParagraph: 0 },
   { sectionId: "public-image", afterParagraph: 0 },
 ];
+
+function captionFromDescription(
+  description: string | undefined,
+  subjectName: string,
+  index: number,
+): string {
+  const note = description?.trim();
+  if (!note) return "";
+  const who = subjectName.trim() || "The subject";
+  const short =
+    note.length > 72 ? `${note.slice(0, 69).trim()}…` : note;
+  if (/^[A-Z]/.test(short) && short.length <= 72) return short;
+  return `${who}, ${short.charAt(0).toLowerCase()}${short.slice(1)}`;
+}
 
 function defaultCaption(subjectName: string, index: number): string {
   const who = subjectName.trim() || "The subject";
@@ -59,6 +76,7 @@ export function applySupplementalPhotos(
       imageUrl: photo.dataUrl,
       caption:
         photo.caption?.trim() ||
+        captionFromDescription(photo.description, subjectName, photoIndex) ||
         defaultCaption(subjectName, photoIndex),
     };
     sections[si] = mergeFigureIntoSection(sec, figure, slot.afterParagraph);
@@ -83,7 +101,11 @@ export function resolveFigureUrlsFromIndices(
         if (typeof idx === "number" && photos[idx]?.dataUrl) {
           return {
             imageUrl: photos[idx].dataUrl,
-            caption: f.caption || photos[idx].caption || "",
+            caption:
+              f.caption ||
+              photos[idx].caption ||
+              photos[idx].description ||
+              "",
           };
         }
         if (f.imageUrl) return { imageUrl: f.imageUrl, caption: f.caption };

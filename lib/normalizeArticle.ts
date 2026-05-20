@@ -1,4 +1,5 @@
 import type { ArticleJson, IntakeData } from "@/types/article";
+import { hasControversiesContent } from "@/lib/intakeControversies";
 import { normalizeInfobox } from "@/lib/infoboxHelpers";
 import { buildMockArticle } from "@/lib/mockArticle";
 import {
@@ -71,7 +72,10 @@ export function normalizeArticleJson(
             .filter((s): s is NonNullable<typeof s> => s !== null),
           opts?.supplementalPhotos ?? [],
         ),
-        { creative: isCreative },
+        {
+          creative: isCreative,
+          includeControversies: hasControversiesContent(intake),
+        },
       );
     })(),
     seeAlso: strArr(o.seeAlso),

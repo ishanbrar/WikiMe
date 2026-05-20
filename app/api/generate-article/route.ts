@@ -15,6 +15,15 @@ const bodySchema = z.object({
   facts: factsInputSchema.optional(),
   headshotDataUrl: z.string().max(500_000).optional(),
   extraPhotoUrls: z.array(z.string().max(500_000)).max(2).optional(),
+  extraPhotos: z
+    .array(
+      z.object({
+        dataUrl: z.string().max(500_000),
+        description: z.string().max(400).optional(),
+      }),
+    )
+    .max(2)
+    .optional(),
 });
 
 export async function POST(req: Request) {
@@ -39,10 +48,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const { intake, facts, headshotDataUrl, extraPhotoUrls } = parsed.data;
-    const supplementalPhotos = (extraPhotoUrls ?? []).map((dataUrl) => ({
-      dataUrl,
-    }));
+    const { intake, facts, headshotDataUrl, extraPhotoUrls, extraPhotos } =
+      parsed.data;
+    const supplementalPhotos =
+      extraPhotos?.map((p) => ({
+        dataUrl: p.dataUrl,
+        description: p.description?.trim() || undefined,
+      })) ??
+      (extraPhotoUrls ?? []).map((dataUrl) => ({ dataUrl }));
 
     log.push(
       `mode=${intake.mode}, length=${intake.articleLength}, tone=${intake.tone}`,

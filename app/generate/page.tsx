@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createDefaultIntake } from "@/components/IntakeForm";
+import { enrichIntakeControversies } from "@/lib/intakeControversies";
 import { mergeLegacyIntakeFields } from "@/lib/mergeLegacyIntake";
 import { IntakeFlow } from "@/components/intake/IntakeFlow";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -31,6 +32,7 @@ import {
   apiErrorMessage,
   type ApiErrorBody,
 } from "@/lib/adminFetch";
+import { type ExtraPhotoUpload } from "@/lib/extraPhotoUpload";
 import { prepareUploadImages } from "@/lib/prepareUploadImages";
 import { saveArticleToServer } from "@/lib/saveArticleClient";
 import { mapWithConcurrency } from "@/lib/parallelMap";
@@ -70,7 +72,7 @@ function GenerateFlow() {
   );
   const [headshot, setHeadshot] = useState<string[]>([]);
   const [screenshots, setScreenshots] = useState<string[]>([]);
-  const [extraPhotos, setExtraPhotos] = useState<string[]>([]);
+  const [extraPhotos, setExtraPhotos] = useState<ExtraPhotoUpload[]>([]);
   const [facts, setFacts] = useState<ExtractedProfileFacts>(emptyExtractedFacts());
   const [busy, setBusy] = useState(false);
   const [genPhase, setGenPhase] = useState<GenerationPhase | null>(null);
@@ -91,8 +93,10 @@ function GenerateFlow() {
     if (draft?.intake) {
       setIntake({
         ...createDefaultIntake(initialMode),
-        ...mergeLegacyIntakeFields(
-          draft.intake as unknown as Record<string, unknown>,
+        ...enrichIntakeControversies(
+          mergeLegacyIntakeFields(
+            draft.intake as unknown as Record<string, unknown>,
+          ),
         ),
       } as IntakeData);
       setFacts(normalizeExtractedFacts(draft.facts ?? emptyExtractedFacts()));
@@ -322,7 +326,10 @@ function GenerateFlow() {
               intake: intakeFinal,
               facts: extracted,
               headshotDataUrl: images.headshot,
-              extraPhotoUrls: images.extraPhotos,
+              extraPhotos: images.extraPhotos.map((p) => ({
+                dataUrl: p.dataUrl,
+                description: p.description.trim() || undefined,
+              })),
             }),
             signal,
           },
@@ -438,7 +445,7 @@ function GenerateFlow() {
         article,
         intake: intakeFinal,
         headshotDataUrl: prepared.headshot ?? "",
-        extraPhotoUrls: prepared.extraPhotos,
+        extraPhotoUrls: prepared.extraPhotos.map((p) => p.dataUrl),
         facts: extracted,
         mock: data.mock,
         savedId: articleId,
@@ -470,7 +477,7 @@ function GenerateFlow() {
         mode: intakeFinal.mode,
         intake: intakeFinal,
         headshotDataUrl: prepared.headshot,
-        extraPhotoUrls: prepared.extraPhotos,
+        extraPhotoUrls: prepared.extraPhotos.map((p) => p.dataUrl),
         extractedFacts: extracted,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -570,7 +577,7 @@ function GenerateFlow() {
               </div>
               <div className="mt-8">
                 <ExtraPhotosUploader
-                  images={extraPhotos}
+                  photos={extraPhotos}
                   onChange={setExtraPhotos}
                   disabled={busy}
                 />

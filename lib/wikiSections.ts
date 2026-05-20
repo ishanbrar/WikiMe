@@ -57,7 +57,7 @@ export const WIKI_SECTION_STRUCTURE_RULES = `WIKIPEDIA SECTION STRUCTURE (requir
   career → "Career"
   projects → "Projects"
   public-image → "Public image"
-  controversies → "Controversies" (creative mode only — include when the fictional biography has disputes, backlash, or scandal worth a dedicated section; omit if none)
+  controversies → "Controversies" (include when the user supplied controversy notes, or in creative mode when disputes/scandals fit; omit if none)
   personal-life → "Personal life"
   achievements → "Achievements"
   legacy → "Legacy"
@@ -310,7 +310,7 @@ function mergeSections(a: ArticleSection, b: ArticleSection): ArticleSection {
 /** Force generic TOC titles and merge duplicate section ids. */
 export function normalizeWikiSections(
   sections: ArticleSection[],
-  opts?: { creative?: boolean },
+  opts?: { creative?: boolean; includeControversies?: boolean },
 ): ArticleSection[] {
   const byId = new Map<string, ArticleSection>();
 
@@ -348,9 +348,10 @@ export function normalizeWikiSections(
     }
   }
 
-  const order = opts?.creative
-    ? WIKI_SECTION_ORDER
-    : WIKI_SECTION_ORDER.filter((id) => id !== "controversies");
+  const order =
+    opts?.creative || opts?.includeControversies
+      ? WIKI_SECTION_ORDER
+      : WIKI_SECTION_ORDER.filter((id) => id !== "controversies");
 
   return order.filter((id) => byId.has(id)).map((id) =>
     polishSectionSubsections(byId.get(id)!),

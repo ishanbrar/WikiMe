@@ -1,4 +1,5 @@
 import type { ExtractedProfileFacts, IntakeData } from "@/types/article";
+import { resolveControversiesText } from "@/lib/intakeControversies";
 import { generateText, TEXT_MODEL_REALISM } from "@/lib/gemini";
 
 function formatIntakeForEditor(intake: IntakeData, facts: ExtractedProfileFacts): string {
@@ -15,6 +16,8 @@ function formatIntakeForEditor(intake: IntakeData, facts: ExtractedProfileFacts)
   if (intake.achievements) lines.push(`Achievements & skills: ${intake.achievements}`);
   if (intake.lifeEvents) lines.push(`Life events / family: ${intake.lifeEvents}`);
   if (intake.extraNotes) lines.push(`Extra notes: ${intake.extraNotes}`);
+  const controversies = resolveControversiesText(intake);
+  if (controversies) lines.push(`Controversies (must appear in article): ${controversies}`);
   if (intake.pastedProfileText?.trim()) {
     lines.push(`Pasted profile:\n${intake.pastedProfileText.slice(0, 3000)}`);
   }
@@ -40,7 +43,8 @@ export async function synthesizeRealismBrief(
 Read the user's messy questionnaire and screenshot extracts. Output a structured FACT SHEET in plain English (not JSON).
 
 Rules:
-- Use bullet lists under headings: Identity, Family, Education, Career, Athletics and awards, Other
+- Use bullet lists under headings: Identity, Family, Education, Career, Athletics and awards, Controversies (only if user supplied controversy material), Other
+- Never drop controversy facts — copy every allegation, name, denial, and URL into Controversies bullets
 - One discrete fact per bullet; deduplicate overlapping items across fields
 - Fix obvious typos when meaning is clear (e.g. rbtother→brother, Indiciual→Individual, itern→intern, hpt→HPE, younga→younger, nikki→Nikki)
 - Attribute facts correctly (father's squash career belongs under Family about the father, not as the subject's job)

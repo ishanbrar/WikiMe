@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizeExtractedFacts } from "@/lib/extractProfileFacts";
+import { enrichIntakeControversies } from "@/lib/intakeControversies";
 import { mergeLegacyIntakeFields } from "@/lib/mergeLegacyIntake";
 
 const intakeFields = {
@@ -13,6 +14,7 @@ const intakeFields = {
   occupation: z.string(),
   achievements: z.string(),
   lifeEvents: z.string(),
+  controversies: z.string(),
   tone: z.enum([
     "neutral",
     "founder",
@@ -38,6 +40,7 @@ const intakeDefaults = {
   occupation: "",
   achievements: "",
   lifeEvents: "",
+  controversies: "",
   extraNotes: "",
   pastedProfileText: "",
   articleLength: "standard" as const,
@@ -45,7 +48,9 @@ const intakeDefaults = {
 
 export const intakeSchema = z.preprocess((val) => {
   if (!val || typeof val !== "object") return val;
-  const o = mergeLegacyIntakeFields(val as Record<string, unknown>);
+  const o = enrichIntakeControversies(
+    mergeLegacyIntakeFields(val as Record<string, unknown>),
+  );
   return {
     ...intakeDefaults,
     ...o,

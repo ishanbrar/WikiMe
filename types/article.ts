@@ -25,6 +25,8 @@ export interface IntakeData {
   occupation: string;
   achievements: string;
   lifeEvents: string;
+  /** Optional disputes/scandals for a Wikipedia-style Controversies section */
+  controversies: string;
   tone: TonePreference;
   mode: ArticleMode;
   extraNotes: string;
