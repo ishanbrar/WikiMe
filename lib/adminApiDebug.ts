@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { isAdminUser } from "@/lib/admin";
+import { ADMIN_TEST_HEADER } from "@/lib/adminConstants";
 import { getAuthUser } from "@/lib/supabase/server";
 
-export const ADMIN_TEST_HEADER = "x-wikime-admin-test";
+export { ADMIN_TEST_HEADER } from "@/lib/adminConstants";
 
 export async function isAdminTestRequest(req: Request): Promise<boolean> {
   if (req.headers.get(ADMIN_TEST_HEADER) !== "1") return false;

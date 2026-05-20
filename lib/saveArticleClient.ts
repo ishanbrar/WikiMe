@@ -1,4 +1,5 @@
 import { adminTestHeaders, apiErrorMessage, type ApiErrorBody } from "@/lib/adminFetch";
+import { fetchWithTimeout } from "@/lib/fetchTimeout";
 import { buildArticleUrl } from "@/lib/articlePaths";
 import type { SavedArticle } from "@/types/article";
 
@@ -11,18 +12,22 @@ export async function saveArticleToServer(
   options?: { isAdmin?: boolean },
 ): Promise<SaveArticleResult> {
   try {
-    const res = await fetch("/api/articles", {
-      method: "POST",
-      headers: adminTestHeaders(Boolean(options?.isAdmin)),
-      body: JSON.stringify({
-        id: article.id,
-        slug: article.slug,
-        articleJson: article.articleJson,
-        mode: article.mode,
-        intake: article.intake,
-        headshotDataUrl: article.headshotDataUrl,
-      }),
-    });
+    const res = await fetchWithTimeout(
+      "/api/articles",
+      {
+        method: "POST",
+        headers: adminTestHeaders(Boolean(options?.isAdmin)),
+        body: JSON.stringify({
+          id: article.id,
+          slug: article.slug,
+          articleJson: article.articleJson,
+          mode: article.mode,
+          intake: article.intake,
+          headshotDataUrl: article.headshotDataUrl,
+        }),
+      },
+      45_000,
+    );
     const data = (await res.json()) as ApiErrorBody & {
       slug?: string;
       url?: string;

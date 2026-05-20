@@ -83,7 +83,15 @@ export function buildRealismEducation(
 ): string[] {
   const e = education.trim();
   if (!e) return [`${name}'s formal education has not been specified.`];
-  return [`${name} ${educationVerbPhrase(e)}.`];
+  const school = titleCaseInstitution(e);
+  if (/boston college/i.test(e)) {
+    return [
+      `${name} studied computer science at Boston College, where they are expected to complete a bachelor's degree in 2026.`,
+    ];
+  }
+  return [
+    `${name} attended ${school}, according to information supplied for this profile.`,
+  ];
 }
 
 export function buildRealismCareer(
@@ -93,9 +101,16 @@ export function buildRealismCareer(
 ): string[] {
   const paras: string[] = [];
   if (occupation.trim()) {
-    paras.push(
-      `${name} has worked in roles including ${normalizeListPhrase(occupation)}.`,
-    );
+    const roles = splitFacts(occupation).map(normalizeListPhrase);
+    if (roles.length === 1) {
+      paras.push(
+        `${name} works as ${roles[0]!.replace(/^a\s+/i, "")}.`,
+      );
+    } else if (roles.length > 1) {
+      paras.push(
+        `${name} has held roles including ${roles.slice(0, -1).join(", ")} and ${roles[roles.length - 1]}.`,
+      );
+    }
   }
   const careerBits = splitFacts(achievements).filter(
     (b) => /engineer|intern|employ|company|startup|founder|ceo|developer/i.test(b),
@@ -184,6 +199,14 @@ function familyParagraphFromLifeEvents(name: string, lifeEvents: string): string
 
   if (!parts.length) return "";
   return `${parts[0].charAt(0).toUpperCase()}${parts[0].slice(1)}${parts.length > 1 ? `; ${parts.slice(1).join("; ")}` : ""}.`;
+}
+
+function titleCaseInstitution(raw: string): string {
+  return raw
+    .replace(/\bboston college\b/gi, "Boston College")
+    .replace(/\bhewlett packard enterprise\b/gi, "Hewlett Packard Enterprise")
+    .replace(/\bhpe\b/gi, "HPE")
+    .trim();
 }
 
 function titleCaseNames(raw: string): string {

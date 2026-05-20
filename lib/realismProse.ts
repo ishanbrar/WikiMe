@@ -1,6 +1,18 @@
 import type { ArticleJson, IntakeData } from "@/types/article";
 
 /** Phrases that indicate intake was pasted instead of encyclopedic writing. */
+/** Sentence patterns from demo/fallback builders — must never appear in AI realism output. */
+export const REALISM_MOCK_TEMPLATE_MARKERS = [
+  "has worked in roles including",
+  "holds bs ",
+  "holds b.s.",
+  "holds m.s.",
+  "whose biography is documented below",
+  "is an individual based in",
+  "is an individual whose biography",
+  "outside of their professional activities, limited personal details",
+] as const;
+
 export const REALISM_REGURGITATION_MARKERS = [
   "according to user-provided information",
   "occupation and role are described as",
@@ -39,6 +51,15 @@ function overlapsIntakeVerbatim(blob: string, intake: IntakeData): boolean {
     intake.pastedProfileText,
   ].filter((f): f is string => Boolean(f?.trim()));
 
+  for (const field of [intake.occupation, intake.education]) {
+    if (!field?.trim()) continue;
+    const normalized = normalizeForOverlap(field);
+    if (normalized.length >= 16) {
+      const chunk = normalized.slice(0, Math.min(72, normalized.length));
+      if (blob.includes(chunk)) return true;
+    }
+  }
+
   for (const field of fields) {
     const normalized = normalizeForOverlap(field);
     const clauses = normalized.split(/[.!?]+/).map((c) => c.trim()).filter((c) => c.length >= 18);
@@ -76,10 +97,22 @@ function hasDuplicateSectionText(article: ArticleJson): boolean {
   return false;
 }
 
+export function hasMockTemplateProse(article: ArticleJson): boolean {
+  const blob = normalizeForOverlap(
+    [
+      ...article.summaryLead,
+      ...article.sections.flatMap((s) => s.paragraphs),
+    ].join(" "),
+  );
+  return REALISM_MOCK_TEMPLATE_MARKERS.some((m) => blob.includes(m));
+}
+
 export function isRegurgitatedRealism(
   article: ArticleJson,
   intake?: IntakeData,
 ): boolean {
+  if (hasMockTemplateProse(article)) return true;
+
   const blob = normalizeForOverlap(
     [
       ...article.summaryLead,

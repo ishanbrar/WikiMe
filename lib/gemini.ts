@@ -1,5 +1,8 @@
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
+/** Per OpenRouter/Gemini request — prevents hung generations. */
+const AI_REQUEST_TIMEOUT_MS = 90_000;
+
 export const VISION_MODEL =
   process.env.OPENROUTER_VISION_MODEL ?? "google/gemini-2.0-flash-001";
 export const TEXT_MODEL =
@@ -47,6 +50,16 @@ type VisionMessage = {
   content: VisionPart[];
 };
 
+function wrapAiFetchError(e: unknown): Error {
+  if (e instanceof DOMException && e.name === "TimeoutError") {
+    return new Error(
+      "AI request timed out (90s). Try again with a shorter article or fewer images.",
+    );
+  }
+  if (e instanceof Error) return e;
+  return new Error(String(e));
+}
+
 export async function generateText(
   system: string,
   user: string,
@@ -60,6 +73,7 @@ export async function generateText(
   const key = getApiKey();
   if (!key) throw new Error("No AI API key configured");
 
+  try {
   if (useOpenRouter()) {
     const messages: TextMessage[] = [
       { role: "system", content: system },
@@ -83,6 +97,7 @@ export async function generateText(
         max_tokens: options?.maxTokens ?? 4096,
         response_format: { type: "json_object" },
       }),
+      signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
     });
     if (!res.ok) {
       const err = await res.text();
@@ -106,6 +121,7 @@ export async function generateText(
         responseMimeType: "application/json",
       },
     }),
+    signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) {
     const err = await res.text();
@@ -115,6 +131,9 @@ export async function generateText(
     candidates?: { content?: { parts?: { text?: string }[] } }[];
   };
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  } catch (e) {
+    throw wrapAiFetchError(e);
+  }
 }
 
 export async function generateVision(
@@ -124,6 +143,7 @@ export async function generateVision(
   const key = getApiKey();
   if (!key) throw new Error("No AI API key configured");
 
+  try {
   if (useOpenRouter()) {
     const content: VisionPart[] = [
       { type: "text", text: prompt },
@@ -150,6 +170,7 @@ export async function generateVision(
         max_tokens: 2048,
         response_format: { type: "json_object" },
       }),
+      signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
     });
     if (!res.ok) {
       const err = await res.text();
@@ -181,6 +202,7 @@ export async function generateVision(
         responseMimeType: "application/json",
       },
     }),
+    signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) {
     const err = await res.text();
@@ -190,6 +212,9 @@ export async function generateVision(
     candidates?: { content?: { parts?: { text?: string }[] } }[];
   };
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  } catch (e) {
+    throw wrapAiFetchError(e);
+  }
 }
 
 export { parseJsonFromModel } from "@/lib/parseModelJson";

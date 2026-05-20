@@ -357,17 +357,38 @@ export function normalizeWikiSections(
   );
 }
 
+/** Models sometimes return a single string or "content" instead of paragraphs[]. */
+export function coerceParagraphsArray(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw
+      .map((p) => (typeof p === "string" ? p.trim() : ""))
+      .filter(Boolean);
+  }
+  if (typeof raw === "string" && raw.trim()) return [raw.trim()];
+  return [];
+}
+
+/** Pull sections[] from common alternate JSON shapes. */
+export function extractSectionsRaw(o: Record<string, unknown>): unknown[] {
+  if (Array.isArray(o.sections)) return o.sections;
+  if (Array.isArray(o.Sections)) return o.Sections;
+  const nested = o.article;
+  if (nested && typeof nested === "object") {
+    const a = nested as Record<string, unknown>;
+    if (Array.isArray(a.sections)) return a.sections;
+  }
+  return [];
+}
+
 export function parseSectionFromRaw(raw: Record<string, unknown>): ArticleSection | null {
   const id = normalizeSectionId(
     typeof raw.id === "string" ? raw.id : "",
     typeof raw.title === "string" ? raw.title : "",
   );
   const title = WIKI_SECTION_TITLES[id] ?? "Career";
-  const paragraphs = Array.isArray(raw.paragraphs)
-    ? raw.paragraphs.filter(
-        (p): p is string => typeof p === "string" && p.trim().length > 0,
-      )
-    : [];
+  const paragraphs = coerceParagraphsArray(
+    raw.paragraphs ?? raw.content ?? raw.body ?? raw.text,
+  );
   const subsections = parseSubsections(raw.subsections);
   const quotes = parseQuotes(raw.quotes);
   const figures = parseFigures(raw.figures);

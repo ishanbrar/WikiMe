@@ -24,10 +24,18 @@ import type { SupplementalPhoto } from "@/lib/articleFigures";
 import { INFOBOX_RULES } from "@/lib/infoboxHelpers";
 import { WIKI_SECTION_STRUCTURE_RULES } from "@/lib/wikiSections";
 import {
+  hasMockTemplateProse,
   isRegurgitatedRealism,
   REALISM_PROSE_RULES,
   REALISM_REGURGITATION_RETRY_NOTE,
 } from "@/lib/realismProse";
+
+const REALISM_SECTIONS_REQUIRED_NOTE = `Your previous JSON was missing a valid "sections" array or section bodies were empty. Return complete JSON with sections: [{id, title, paragraphs: string[]}, ...] using ids early-life, education, career, personal-life as needed. Each section needs at least 2 original encyclopedic sentences — not templates.`;
+
+function realismRewriteNote(fullName: string): string {
+  return `${REALISM_REGURGITATION_RETRY_NOTE}
+Write as a Wikipedia biographer for ${fullName}: varied sentence openings, proper capitalization (Boston College, Hewlett Packard Enterprise, India), no semicolon-chained notes, do not start every sentence with their full name.`;
+}
 
 function realismLengthHint(len: IntakeData["articleLength"]): string {
   if (len === "short") return "Keep total under ~600 words. Fewer sections.";
@@ -209,22 +217,35 @@ export async function generateArticle(
   }
 
   const factSheet = await synthesizeRealismBrief(intake, facts);
+  const sourceFacts = buildPrompt(intake, facts, headshotUrl);
 
-  const system = `You are an experienced Wikipedia biographer. Output biography JSON only. ${realismRules()} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos.length)} ${realismLengthHint(intake.articleLength)} ${ARTICLE_SCHEMA}`;
+  const system = `You are an experienced Wikipedia biographer. Output biography JSON only. ${realismRules()} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos.length)} ${realismLengthHint(intake.articleLength)} ${ARTICLE_SCHEMA}
+
+CRITICAL OUTPUT RULES:
+- The JSON MUST include a non-empty "sections" array. Each section has "id", "title", and "paragraphs" (array of strings).
+- NEVER use template phrases like "has worked in roles including", "holds BS", or paste occupation/education fields verbatim into body text.
+- Body prose must be rewritten from facts — infobox fields are summaries only.`;
+
   const userBase = `Generate a REALISM MODE article for ${intake.fullName}. tone=${intake.tone}. supplementalPhotoCount=${supplementalPhotos.length}. headshotUrl=${headshotUrl || "none"}.
 
-You are given a normalized FACT SHEET produced by an editor who already read the user's questionnaire. Write original encyclopedic prose from these facts only — never paste bullet text or repeat the subject's name at the start of every sentence.
+FACT SHEET (editor notes — rewrite into original prose; do not copy bullets verbatim):
+${factSheet}
 
-FACT SHEET:
-${factSheet}`;
+RAW SOURCE DATA (for accuracy only — do not paste into paragraphs):
+${sourceFacts}`;
 
   const maxTokens = intake.articleLength === "long" ? 7000 : 5500;
+  const normalizeOpts = {
+    creative: false as const,
+    supplementalPhotos,
+    allowMockSectionFallback: false,
+  };
 
   async function runRealismPass(extraUserNote = ""): Promise<ArticleJson> {
     const user = extraUserNote ? `${userBase}\n\n${extraUserNote}` : userBase;
     const raw = await generateText(system, user, {
       model: TEXT_MODEL_REALISM,
-      temperature: extraUserNote ? 0.5 : 0.58,
+      temperature: extraUserNote ? 0.5 : 0.62,
       maxTokens,
     });
     let parsed: unknown;
@@ -238,21 +259,32 @@ ${factSheet}`;
       });
       parsed = parseJsonFromModel<unknown>(retryRaw);
     }
-    return normalizeArticleJson(parsed, intake, headshotUrl, {
-      creative: false,
-      supplementalPhotos,
-    });
+    return normalizeArticleJson(parsed, intake, headshotUrl, normalizeOpts);
+  }
+
+  function needsRealismRetry(article: ArticleJson): string | null {
+    if (!article.sections.length) return REALISM_SECTIONS_REQUIRED_NOTE;
+    if (hasMockTemplateProse(article)) return realismRewriteNote(intake.fullName);
+    if (isRegurgitatedRealism(article, intake)) {
+      return `${realismRewriteNote(intake.fullName)}\nMerge family facts into one early-life paragraph. Athletics belong in career or personal-life once only — no duplicated paragraphs.`;
+    }
+    return null;
   }
 
   let article = await runRealismPass();
-  if (isRegurgitatedRealism(article, intake)) {
-    article = await runRealismPass(REALISM_REGURGITATION_RETRY_NOTE);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const note = needsRealismRetry(article);
+    if (!note) break;
+    article = await runRealismPass(note);
   }
-  if (isRegurgitatedRealism(article, intake)) {
-    article = await runRealismPass(
-      `${REALISM_REGURGITATION_RETRY_NOTE}\nMerge family facts into one early-life paragraph. Athletics belong in career or personal-life once only — no duplicated paragraphs.`,
+
+  const finalNote = needsRealismRetry(article);
+  if (finalNote) {
+    throw new Error(
+      "AI returned templated or copied text instead of an original article. Please try generating again.",
     );
   }
+
   return article;
 }
 

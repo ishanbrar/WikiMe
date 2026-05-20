@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+
+/** Vercel Pro allows up to 300s; keeps multi-step realism from dying at default 10–60s. */
+export const maxDuration = 300;
 import { z } from "zod";
 import { generateArticle } from "@/lib/generateArticle";
 import { articleWordCount } from "@/lib/normalizeArticle";
@@ -50,12 +53,25 @@ export async function POST(req: Request) {
     log.push(`hasAiKey=${hasAiKey()}`);
 
     const t0 = Date.now();
-    const article = await generateArticle(
-      intake,
-      facts ?? emptyExtractedFacts(),
-      headshotDataUrl ?? "",
-      supplementalPhotos,
-    );
+    const article = await Promise.race([
+      generateArticle(
+        intake,
+        facts ?? emptyExtractedFacts(),
+        headshotDataUrl ?? "",
+        supplementalPhotos,
+      ),
+      new Promise<never>((_, reject) => {
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                "Article generation timed out on the server. Try a shorter article length or fewer images.",
+              ),
+            ),
+          285_000,
+        );
+      }),
+    ]);
     log.push(`generateArticle() finished in ${Date.now() - t0}ms`);
     log.push(`articleWordCount=${articleWordCount(article)}`);
 

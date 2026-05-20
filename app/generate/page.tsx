@@ -52,8 +52,11 @@ import {
   type GenerationRunState,
 } from "@/lib/generationRun";
 import { runGenerationStep } from "@/lib/generationRunClient";
+import { fetchWithTimeout } from "@/lib/fetchTimeout";
 
 const EXTRACT_CONCURRENCY = 3;
+const EXTRACT_FETCH_TIMEOUT_MS = 90_000;
+const GENERATE_FETCH_TIMEOUT_MS = 300_000;
 
 function GenerateFlow() {
   const router = useRouter();
@@ -109,6 +112,7 @@ function GenerateFlow() {
     setGenPhase(null);
     setGenDetail("");
     setBusy(false);
+    setError("");
   };
 
   const cancelGeneration = () => {
@@ -122,12 +126,16 @@ function GenerateFlow() {
     shot: string,
     signal?: AbortSignal,
   ): Promise<ExtractedProfileFacts> => {
-    const res = await fetch("/api/extract-profile", {
-      method: "POST",
-      headers: adminTestHeaders(isAdmin),
-      body: JSON.stringify({ screenshots: [shot] }),
-      signal,
-    });
+    const res = await fetchWithTimeout(
+      "/api/extract-profile",
+      {
+        method: "POST",
+        headers: adminTestHeaders(isAdmin),
+        body: JSON.stringify({ screenshots: [shot] }),
+        signal,
+      },
+      EXTRACT_FETCH_TIMEOUT_MS,
+    );
     const data = await parseJsonResponse<ApiErrorBody & { facts?: unknown }>(res);
     if (!res.ok) {
       throw new Error(apiErrorMessage(data, res));
@@ -305,17 +313,21 @@ function GenerateFlow() {
       extracted = normalizeExtractedFacts(extracted);
 
       const postGenerate = (images: typeof prepared) =>
-        fetch("/api/generate-article", {
-          method: "POST",
-          headers: adminTestHeaders(isAdmin),
-          body: JSON.stringify({
-            intake: intakeFinal,
-            facts: extracted,
-            headshotDataUrl: images.headshot,
-            extraPhotoUrls: images.extraPhotos,
-          }),
-          signal,
-        });
+        fetchWithTimeout(
+          "/api/generate-article",
+          {
+            method: "POST",
+            headers: adminTestHeaders(isAdmin),
+            body: JSON.stringify({
+              intake: intakeFinal,
+              facts: extracted,
+              headshotDataUrl: images.headshot,
+              extraPhotoUrls: images.extraPhotos,
+            }),
+            signal,
+          },
+          GENERATE_FETCH_TIMEOUT_MS,
+        );
 
       const parseGenerateResponse = async (res: Response) => {
         const data = await parseJsonResponse<
@@ -486,13 +498,11 @@ function GenerateFlow() {
       }
     } finally {
       abortRef.current = null;
-      if (!isAdmin || !adminFailed) {
-        setBusy(false);
+      setBusy(false);
+      if (!adminFailed) {
         setGenPhase(null);
         setGenDetail("");
-        if (!adminFailed) setGenRun(null);
-      } else {
-        setBusy(false);
+        setGenRun(null);
       }
     }
   };
@@ -503,17 +513,23 @@ function GenerateFlow() {
 
   return (
     <div className={`min-h-screen bg-slate-50 ${isMobile ? "intake-mobile-page" : ""}`}>
-      {(busy || genRun?.failed) && (isAdmin ? genRun : genPhase) && (
+      {(busy || genRun?.failed || (!isAdmin && error && genPhase)) &&
+        (isAdmin ? genRun : genPhase) && (
         <GenerationProgress
           phase={isAdmin ? undefined : genPhase ?? undefined}
           detail={genDetail}
           startedAt={genStartedAt}
-          onCancel={genRun?.failed ? undefined : cancelGeneration}
-          canCancel={!genRun?.failed}
+          onCancel={genRun?.failed || error ? undefined : cancelGeneration}
+          canCancel={busy && !genRun?.failed && !error}
           adminSteps={isAdmin ? genRun?.steps : undefined}
           adminLogs={isAdmin ? genRun?.logs : undefined}
           adminError={isAdmin ? genRun?.errorMessage ?? error : undefined}
-          onDismiss={genRun?.failed ? dismissGeneration : undefined}
+          clientError={!isAdmin ? error || undefined : undefined}
+          onDismiss={
+            genRun?.failed || (!isAdmin && error && !busy)
+              ? dismissGeneration
+              : undefined
+          }
         />
       )}
 

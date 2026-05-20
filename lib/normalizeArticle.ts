@@ -8,6 +8,7 @@ import {
 } from "@/lib/articleFigures";
 import { stripQuestionsFromProse } from "@/lib/stripArticleQuestions";
 import {
+  extractSectionsRaw,
   normalizeWikiSections,
   parseSectionFromRaw,
 } from "@/lib/wikiSections";
@@ -39,7 +40,12 @@ export function normalizeArticleJson(
   raw: unknown,
   intake: IntakeData,
   headshotUrl: string,
-  opts?: { creative?: boolean; supplementalPhotos?: SupplementalPhoto[] },
+  opts?: {
+    creative?: boolean;
+    supplementalPhotos?: SupplementalPhoto[];
+    /** When false, empty sections stay empty (triggers AI retry) instead of demo mock text. */
+    allowMockSectionFallback?: boolean;
+  },
 ): ArticleJson {
   const fallback = buildMockArticle(intake, headshotUrl);
   const isCreative = opts?.creative ?? intake.mode === "creative";
@@ -55,17 +61,19 @@ export function normalizeArticleJson(
     subtitle: str(o.subtitle, ""),
     summaryLead: strArr(o.summaryLead),
     infobox: normalizeInfobox(inf, intake, headshotUrl),
-    sections: Array.isArray(o.sections)
-      ? normalizeWikiSections(
-          resolveFigureUrlsFromIndices(
-            (o.sections as unknown[])
-              .map((s) => parseSectionFromRaw(s as Record<string, unknown>))
-              .filter((s): s is NonNullable<typeof s> => s !== null),
-            opts?.supplementalPhotos ?? [],
-          ),
-          { creative: isCreative },
-        )
-      : [],
+    sections: (() => {
+      const sectionRaws = extractSectionsRaw(o);
+      if (!sectionRaws.length) return [];
+      return normalizeWikiSections(
+        resolveFigureUrlsFromIndices(
+          sectionRaws
+            .map((s) => parseSectionFromRaw(s as Record<string, unknown>))
+            .filter((s): s is NonNullable<typeof s> => s !== null),
+          opts?.supplementalPhotos ?? [],
+        ),
+        { creative: isCreative },
+      );
+    })(),
     seeAlso: strArr(o.seeAlso),
     references: Array.isArray(o.references)
       ? (o.references as unknown[]).map((r, i) => {
@@ -116,8 +124,11 @@ export function normalizeArticleJson(
     return finishArticle(article, intake, opts?.supplementalPhotos);
   }
 
+  const allowMockSections = opts?.allowMockSectionFallback !== false;
   if (!article.summaryLead.length) article.summaryLead = fallback.summaryLead;
-  if (!article.sections.length) article.sections = fallback.sections;
+  if (!article.sections.length && allowMockSections) {
+    article.sections = fallback.sections;
+  }
   if (!article.references.length) article.references = fallback.references;
 
   return finishArticle(article, intake, opts?.supplementalPhotos);

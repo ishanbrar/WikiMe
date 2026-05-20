@@ -1,4 +1,4 @@
-import { ADMIN_TEST_HEADER } from "@/lib/adminApiDebug";
+import { ADMIN_TEST_HEADER } from "@/lib/adminConstants";
 
 export function adminTestHeaders(isAdmin: boolean): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };

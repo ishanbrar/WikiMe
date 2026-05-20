@@ -32,6 +32,7 @@ export function GenerationProgress({
   adminSteps,
   adminLogs,
   adminError,
+  clientError,
   onDismiss,
 }: {
   phase?: GenerationPhase;
@@ -43,6 +44,8 @@ export function GenerationProgress({
   adminSteps?: GenerationRunStep[];
   adminLogs?: GenerationLogEntry[];
   adminError?: string;
+  /** Non-admin: surfaced on the loading overlay when generation fails */
+  clientError?: string;
   onDismiss?: () => void;
 }) {
   const [elapsed, setElapsed] = useState(0);
@@ -56,7 +59,12 @@ export function GenerationProgress({
   }, [startedAt]);
 
   const current = phase ? phaseIndex(phase) : -1;
-  const failed = Boolean(adminError || adminSteps?.some((s) => s.status === "error"));
+  const failed = Boolean(
+    adminError ||
+      clientError ||
+      adminSteps?.some((s) => s.status === "error"),
+  );
+  const showSlowHint = !failed && elapsed >= 90;
 
   return (
     <div className="loading-overlay" role="alert" aria-live="polite" aria-busy={!failed}>
@@ -142,7 +150,18 @@ export function GenerationProgress({
               This usually takes about 60 seconds. Please don&apos;t leave this page
               until generation finishes.
             </p>
+            {clientError && (
+              <p className="generation-progress-failure" role="alert">
+                {clientError}
+              </p>
+            )}
           </>
+        )}
+        {showSlowHint && (
+          <p className="generation-progress-hint generation-progress-hint--warn">
+            Still working — realism mode can take up to a few minutes. If this exceeds 5
+            minutes, cancel and try a shorter article.
+          </p>
         )}
         <p className="generation-progress-elapsed">{elapsed}s elapsed</p>
         {failed && onDismiss ? (
