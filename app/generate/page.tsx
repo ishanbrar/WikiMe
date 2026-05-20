@@ -6,11 +6,7 @@ import Link from "next/link";
 import { createDefaultIntake } from "@/components/IntakeForm";
 import { enrichIntakeControversies } from "@/lib/intakeControversies";
 import { mergeLegacyIntakeFields } from "@/lib/mergeLegacyIntake";
-import { IntakeFlow } from "@/components/intake/IntakeFlow";
-import { useIsMobile } from "@/hooks/useIsMobile";
-import { HeadshotUploader } from "@/components/HeadshotUploader";
-import { ScreenshotUploader } from "@/components/ScreenshotUploader";
-import { ExtraPhotosUploader } from "@/components/ExtraPhotosUploader";
+import { CreateArticleForm } from "@/components/intake/CreateArticleForm";
 import { prepareArticleForDb } from "@/lib/prepareArticleForDb";
 import type { ExtractedProfileFacts, IntakeData } from "@/types/article";
 import {
@@ -37,7 +33,6 @@ import { prepareUploadImages } from "@/lib/prepareUploadImages";
 import { saveArticleToServer } from "@/lib/saveArticleClient";
 import { mapWithConcurrency } from "@/lib/parallelMap";
 import { nanoid } from "nanoid";
-import { LoadingButton } from "@/components/LoadingButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import {
   GenerationProgress,
@@ -66,7 +61,6 @@ function GenerateFlow() {
   const initialMode =
     searchParams.get("mode") === "creative" ? "creative" : "realism";
 
-  const [step, setStep] = useState(1);
   const [intake, setIntake] = useState<IntakeData>(() =>
     createDefaultIntake(initialMode),
   );
@@ -515,11 +509,9 @@ function GenerateFlow() {
   };
 
   const saved = getSavedArticles();
-  const isMobile = useIsMobile();
-  const hasUploads = headshot.length > 0 || screenshots.length > 0;
 
   return (
-    <div className={`min-h-screen bg-slate-50 ${isMobile ? "intake-mobile-page" : ""}`}>
+    <div className="min-h-screen bg-slate-50">
       {(busy || genRun?.failed || (!isAdmin && error && genPhase)) &&
         (isAdmin ? genRun : genPhase) && (
         <GenerationProgress
@@ -540,132 +532,22 @@ function GenerateFlow() {
         />
       )}
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-4 pb-1 safe-top">
-        <p className="text-sm text-slate-500 text-right">Step {step} of 3</p>
-      </div>
-
-      <main className={`max-w-3xl mx-auto px-6 pb-16 ${busy ? "ui-busy" : ""}`}>
-        {step === 1 && (
-          <section className={isMobile ? "px-0 -mx-2" : ""}>
-            <IntakeFlow
-              value={intake}
-              onChange={setIntake}
-              onComplete={() => setStep(2)}
-              disabled={busy}
-            />
-          </section>
-        )}
-
-        {step === 2 && (
-          <section className="pb-24">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 mb-6">Uploads</h1>
-            <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0">
-              <HeadshotUploader
-                label="Headshot (for infobox)"
-                image={headshot[0] ?? ""}
-                subjectName={intake.fullName || intake.articleTitle}
-                onChange={(url) => setHeadshot(url ? [url] : [])}
-                disabled={busy}
-              />
-              <div className="mt-8">
-                <ScreenshotUploader
-                  label="Social profile screenshots"
-                  multiple
-                  images={screenshots}
-                  onChange={setScreenshots}
-                />
-              </div>
-              <div className="mt-8">
-                <ExtraPhotosUploader
-                  photos={extraPhotos}
-                  onChange={setExtraPhotos}
-                  disabled={busy}
-                />
-              </div>
-              {screenshots.length > 0 && (
-                <LoadingButton
-                  className="btn-secondary mt-4"
-                  loading={busy}
-                  loadingLabel="Extracting…"
-                  onClick={() => void extractScreenshots()}
-                  disabled={busy}
-                >
-                  Preview extract facts
-                </LoadingButton>
-              )}
-              <div className="intake-mobile-actions static mt-8 !bg-transparent">
-                <div className="flex gap-3 w-full">
-                  <button
-                    type="button"
-                    className="btn-secondary intake-mobile-btn flex-1"
-                    onClick={() => setStep(1)}
-                    disabled={busy}
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-primary intake-mobile-btn flex-1"
-                    onClick={() => setStep(3)}
-                    disabled={busy}
-                  >
-                    Continue
-                  </button>
-                </div>
-              </div>
-            </fieldset>
-          </section>
-        )}
-
-        {step === 3 && (
-          <section>
-            <h1 className="text-2xl font-bold text-slate-900 mb-4">Generate</h1>
-            <p className="text-slate-600 mb-6">
-              Mode: <strong>{intake.mode === "creative" ? "Creative" : "Realism"}</strong>
-              {" · "}
-              Length: <strong>{intake.articleLength}</strong>
-            </p>
-            <LoadingButton
-              loading={busy}
-              loadingLabel="Generating…"
-              onClick={() => void generate()}
-              disabled={busy}
-            >
-              Generate article
-            </LoadingButton>
-            <button
-              type="button"
-              className="btn-secondary ml-3"
-              onClick={() => setStep(2)}
-              disabled={busy}
-            >
-              Back
-            </button>
-          </section>
-        )}
-
-        {error && !busy && !genRun?.failed && (
-          <div className="generate-error-banner mt-4" role="alert">
-            <p className="generate-error-text whitespace-pre-wrap">{error}</p>
-            {hasUploads && (
-              <p className="generate-error-hint">
-                Your images are still loaded — try Generate again (we auto-resize photos before upload).
-              </p>
-            )}
-            {step === 3 && (
-              <button
-                type="button"
-                className="btn-primary mt-3"
-                onClick={() => {
-                  setError("");
-                  void generate();
-                }}
-              >
-                Retry generation
-              </button>
-            )}
-          </div>
-        )}
+      <main className={`max-w-3xl mx-auto px-4 sm:px-6 pt-6 pb-16 safe-top ${busy ? "ui-busy" : ""}`}>
+        <CreateArticleForm
+          intake={intake}
+          onIntakeChange={setIntake}
+          headshot={headshot[0] ?? ""}
+          onHeadshotChange={(url) => setHeadshot(url ? [url] : [])}
+          screenshots={screenshots}
+          onScreenshotsChange={setScreenshots}
+          extraPhotos={extraPhotos}
+          onExtraPhotosChange={setExtraPhotos}
+          busy={busy}
+          onGenerate={() => void generate()}
+          onExtractScreenshots={() => void extractScreenshots()}
+          generateError={error && !genRun?.failed ? error : undefined}
+          onClearGenerateError={() => setError("")}
+        />
 
         {saved.length > 0 && (
           <section className="mt-12 border-t pt-8">

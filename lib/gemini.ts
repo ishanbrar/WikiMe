@@ -1,4 +1,8 @@
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+import {
+  openRouterChatCompletion,
+  textModelFallbackChain,
+  visionModelFallbackChain,
+} from "@/lib/openRouter";
 
 /** Per OpenRouter/Gemini request — prevents hung generations. */
 const AI_REQUEST_TIMEOUT_MS = 90_000;
@@ -23,17 +27,20 @@ export function hasAiKey(): boolean {
   );
 }
 
+function getOpenRouterKey(): string | null {
+  return process.env.OPENROUTER_API_KEY ?? null;
+}
+
+function getDirectGeminiKey(): string | null {
+  return process.env.GEMINI_API_KEY ?? null;
+}
+
 function getApiKey(): string | null {
-  return (
-    process.env.OPENROUTER_API_KEY ??
-    process.env.GEMINI_API_KEY ??
-    process.env.OPENAI_API_KEY ??
-    null
-  );
+  return getOpenRouterKey() ?? getDirectGeminiKey() ?? process.env.OPENAI_API_KEY ?? null;
 }
 
 function useOpenRouter(): boolean {
-  return Boolean(process.env.OPENROUTER_API_KEY);
+  return Boolean(getOpenRouterKey());
 }
 
 type TextMessage = {
@@ -60,56 +67,23 @@ function wrapAiFetchError(e: unknown): Error {
   return new Error(String(e));
 }
 
-export async function generateText(
+function isRateLimitError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return /rate limit|429/i.test(msg);
+}
+
+async function directGeminiGenerateText(
   system: string,
   user: string,
   options?: {
     temperature?: number;
     maxTokens?: number;
-    model?: string;
-    topP?: number;
   },
 ): Promise<string> {
-  const key = getApiKey();
-  if (!key) throw new Error("No AI API key configured");
+  const key = getDirectGeminiKey();
+  if (!key) throw new Error("No Gemini API key configured");
 
-  try {
-  if (useOpenRouter()) {
-    const messages: TextMessage[] = [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ];
-    const res = await fetch(OPENROUTER_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer":
-          process.env.NEXT_PUBLIC_APP_URL ??
-          (process.env.VERCEL === "1" ? "https://wikime.online" : "http://localhost:3003"),
-        "X-Title": "WikiMe",
-      },
-      body: JSON.stringify({
-        model: options?.model ?? TEXT_MODEL,
-        messages,
-        temperature: options?.temperature ?? 0.7,
-        top_p: options?.topP,
-        max_tokens: options?.maxTokens ?? 4096,
-        response_format: { type: "json_object" },
-      }),
-      signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`OpenRouter error: ${res.status} ${err}`);
-    }
-    const data = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
-    };
-    return data.choices?.[0]?.message?.content ?? "";
-  }
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${key}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -125,62 +99,20 @@ export async function generateText(
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Gemini error: ${res.status} ${err}`);
+    throw new Error(`Gemini error: ${res.status} ${err.slice(0, 300)}`);
   }
   const data = (await res.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
   };
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-  } catch (e) {
-    throw wrapAiFetchError(e);
-  }
 }
 
-export async function generateVision(
+async function directGeminiVision(
   prompt: string,
   imageDataUrls: string[],
 ): Promise<string> {
-  const key = getApiKey();
-  if (!key) throw new Error("No AI API key configured");
-
-  try {
-  if (useOpenRouter()) {
-    const content: VisionPart[] = [
-      { type: "text", text: prompt },
-      ...imageDataUrls.map((url) => ({
-        type: "image_url" as const,
-        image_url: { url },
-      })),
-    ];
-    const messages: VisionMessage[] = [{ role: "user", content }];
-    const res = await fetch(OPENROUTER_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer":
-          process.env.NEXT_PUBLIC_APP_URL ??
-          (process.env.VERCEL === "1" ? "https://wikime.online" : "http://localhost:3003"),
-        "X-Title": "WikiMe",
-      },
-      body: JSON.stringify({
-        model: VISION_MODEL,
-        messages,
-        temperature: 0.2,
-        max_tokens: 2048,
-        response_format: { type: "json_object" },
-      }),
-      signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`OpenRouter vision error: ${res.status} ${err}`);
-    }
-    const data = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
-    };
-    return data.choices?.[0]?.message?.content ?? "";
-  }
+  const key = getDirectGeminiKey();
+  if (!key) throw new Error("No Gemini API key configured");
 
   const parts = [
     { text: prompt },
@@ -206,12 +138,127 @@ export async function generateVision(
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Gemini vision error: ${res.status} ${err}`);
+    throw new Error(`Gemini vision error: ${res.status} ${err.slice(0, 300)}`);
   }
   const data = (await res.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
   };
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+}
+
+export async function generateText(
+  system: string,
+  user: string,
+  options?: {
+    temperature?: number;
+    maxTokens?: number;
+    model?: string;
+    topP?: number;
+  },
+): Promise<string> {
+  const key = getApiKey();
+  if (!key) throw new Error("No AI API key configured");
+
+  const preferred = options?.model ?? TEXT_MODEL;
+
+  try {
+    if (useOpenRouter()) {
+      try {
+        return await openRouterChatCompletion(
+          getOpenRouterKey()!,
+          {
+            messages: [
+              { role: "system", content: system },
+              { role: "user", content: user },
+            ],
+            temperature: options?.temperature ?? 0.7,
+            top_p: options?.topP,
+            max_tokens: options?.maxTokens ?? 4096,
+            response_format: { type: "json_object" },
+          },
+          {
+            models: textModelFallbackChain(preferred),
+            signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
+            label: "generateText",
+          },
+        );
+      } catch (e) {
+        if (isRateLimitError(e) && getDirectGeminiKey()) {
+          console.warn("[WikiMe] OpenRouter rate-limited; falling back to GEMINI_API_KEY");
+          return await directGeminiGenerateText(system, user, options);
+        }
+        throw e;
+      }
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${key}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `${system}\n\n${user}` }] }],
+        generationConfig: {
+          temperature: options?.temperature ?? 0.7,
+          maxOutputTokens: options?.maxTokens ?? 4096,
+          responseMimeType: "application/json",
+        },
+      }),
+      signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Gemini error: ${res.status} ${err.slice(0, 300)}`);
+    }
+    const data = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  } catch (e) {
+    throw wrapAiFetchError(e);
+  }
+}
+
+export async function generateVision(
+  prompt: string,
+  imageDataUrls: string[],
+): Promise<string> {
+  const key = getApiKey();
+  if (!key) throw new Error("No AI API key configured");
+
+  try {
+    if (useOpenRouter()) {
+      const content: VisionPart[] = [
+        { type: "text", text: prompt },
+        ...imageDataUrls.map((url) => ({
+          type: "image_url" as const,
+          image_url: { url },
+        })),
+      ];
+      try {
+        return await openRouterChatCompletion(
+          getOpenRouterKey()!,
+          {
+            messages: [{ role: "user", content }],
+            temperature: 0.2,
+            max_tokens: 2048,
+            response_format: { type: "json_object" },
+          },
+          {
+            models: visionModelFallbackChain(VISION_MODEL),
+            signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
+            label: "generateVision",
+          },
+        );
+      } catch (e) {
+        if (isRateLimitError(e) && getDirectGeminiKey()) {
+          console.warn("[WikiMe] OpenRouter vision rate-limited; falling back to GEMINI_API_KEY");
+          return await directGeminiVision(prompt, imageDataUrls);
+        }
+        throw e;
+      }
+    }
+
+    return await directGeminiVision(prompt, imageDataUrls);
   } catch (e) {
     throw wrapAiFetchError(e);
   }
