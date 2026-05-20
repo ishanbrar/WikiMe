@@ -1,3 +1,4 @@
+import { adminTestHeaders, apiErrorMessage, type ApiErrorBody } from "@/lib/adminFetch";
 import { buildArticleUrl } from "@/lib/articlePaths";
 import type { SavedArticle } from "@/types/article";
 
@@ -7,11 +8,12 @@ export type SaveArticleResult =
 
 export async function saveArticleToServer(
   article: SavedArticle,
+  options?: { isAdmin?: boolean },
 ): Promise<SaveArticleResult> {
   try {
     const res = await fetch("/api/articles", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: adminTestHeaders(Boolean(options?.isAdmin)),
       body: JSON.stringify({
         id: article.id,
         slug: article.slug,
@@ -21,14 +23,13 @@ export async function saveArticleToServer(
         headshotDataUrl: article.headshotDataUrl,
       }),
     });
-    const data = (await res.json()) as {
+    const data = (await res.json()) as ApiErrorBody & {
       slug?: string;
       url?: string;
       shortLink?: boolean;
-      error?: string;
     };
     if (!res.ok) {
-      return { ok: false, error: data.error ?? "Could not save article" };
+      return { ok: false, error: apiErrorMessage(data, res) };
     }
     const slug = data.slug!;
     const shortLink = data.shortLink ?? false;

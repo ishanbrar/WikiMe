@@ -26,15 +26,32 @@ import {
   normalizeExtractedFacts,
 } from "@/lib/extractProfileFacts";
 import { parseJsonResponse } from "@/lib/apiClient";
+import {
+  adminTestHeaders,
+  apiErrorMessage,
+  type ApiErrorBody,
+} from "@/lib/adminFetch";
 import { prepareUploadImages } from "@/lib/prepareUploadImages";
 import { saveArticleToServer } from "@/lib/saveArticleClient";
 import { mapWithConcurrency } from "@/lib/parallelMap";
 import { nanoid } from "nanoid";
 import { LoadingButton } from "@/components/LoadingButton";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import {
   GenerationProgress,
   type GenerationPhase,
 } from "@/components/GenerationProgress";
+import {
+  appendGenerationLog,
+  completeGenerationStep,
+  createGenerationRun,
+  formatGenerationError,
+  mergeServerAdminLog,
+  skipGenerationStep,
+  startGenerationStep,
+  type GenerationRunState,
+} from "@/lib/generationRun";
+import { runGenerationStep } from "@/lib/generationRunClient";
 
 const EXTRACT_CONCURRENCY = 3;
 
@@ -57,6 +74,8 @@ function GenerateFlow() {
   const [genDetail, setGenDetail] = useState("");
   const [genStartedAt, setGenStartedAt] = useState(0);
   const [error, setError] = useState("");
+  const [genRun, setGenRun] = useState<GenerationRunState | null>(null);
+  const isAdmin = useIsAdmin();
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -85,29 +104,46 @@ function GenerateFlow() {
     persistDraft();
   }, [persistDraft]);
 
+  const dismissGeneration = () => {
+    setGenRun(null);
+    setGenPhase(null);
+    setGenDetail("");
+    setBusy(false);
+  };
+
   const cancelGeneration = () => {
     abortRef.current?.abort();
     abortRef.current = null;
-    setBusy(false);
-    setGenPhase(null);
-    setGenDetail("");
+    dismissGeneration();
     setError("Generation cancelled. Your uploads and intake answers are still here.");
   };
 
-  const extractOne = async (
+  const fetchExtractOne = async (
     shot: string,
     signal?: AbortSignal,
   ): Promise<ExtractedProfileFacts> => {
     const res = await fetch("/api/extract-profile", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: adminTestHeaders(isAdmin),
       body: JSON.stringify({ screenshots: [shot] }),
       signal,
     });
-    const data = await parseJsonResponse<{ facts?: unknown; error?: string }>(res);
-    if (!res.ok) throw new Error(data.error ?? "Extraction failed");
+    const data = await parseJsonResponse<ApiErrorBody & { facts?: unknown }>(res);
+    if (!res.ok) {
+      throw new Error(apiErrorMessage(data, res));
+    }
+    if (isAdmin && data.adminLog?.length) {
+      setGenRun((r) =>
+        r ? mergeServerAdminLog(r, data.adminLog, "extract") : r,
+      );
+    }
     return normalizeExtractedFacts(data.facts);
   };
+
+  const extractOne = async (
+    shot: string,
+    signal?: AbortSignal,
+  ): Promise<ExtractedProfileFacts> => fetchExtractOne(shot, signal);
 
   const extractScreenshots = async (
     managed?: boolean,
@@ -178,39 +214,100 @@ function GenerateFlow() {
     abortRef.current = controller;
     const { signal } = controller;
 
+    const shotCount = screenshots.length;
     setBusy(true);
     setGenStartedAt(Date.now());
-    setGenPhase(screenshots.length > 0 ? "extract" : "generate");
-    setGenDetail(
-      screenshots.length > 0
-        ? "Reading your screenshots…"
-        : "Writing your Wikipedia article…",
-    );
     setError("");
+    setGenRun(isAdmin ? createGenerationRun(shotCount) : null);
+    setGenPhase(shotCount > 0 ? "extract" : "generate");
+    setGenDetail(
+      isAdmin
+        ? "Starting generation pipeline…"
+        : shotCount > 0
+          ? "Reading your screenshots…"
+          : "Writing your Wikipedia article…",
+    );
+
+    let adminFailed = false;
+
     try {
-      setGenDetail("Optimizing images for upload…");
-      let prepared = await prepareUploadImages({
-        headshot: headshot[0],
-        screenshots,
-        extraPhotos,
-      });
+      const runStep = async <T,>(
+        stepId: string,
+        label: string,
+        fn: () => Promise<T>,
+      ): Promise<T> => {
+        if (isAdmin) {
+          setGenDetail(label);
+          return runGenerationStep(setGenRun, stepId, fn, label);
+        }
+        setGenDetail(label);
+        return fn();
+      };
+
+      let prepared = await runStep(
+        "prepare-images",
+        "Optimizing images for upload…",
+        () =>
+          prepareUploadImages({
+            headshot: headshot[0],
+            screenshots,
+            extraPhotos,
+          }),
+      );
       if (prepared.headshot) setHeadshot([prepared.headshot]);
       if (prepared.screenshots.length) setScreenshots(prepared.screenshots);
       if (prepared.extraPhotos.length) setExtraPhotos(prepared.extraPhotos);
 
       let extracted = facts;
       if (prepared.screenshots.length > 0) {
-        extracted = await extractScreenshots(true, signal, prepared.screenshots);
+        if (!isAdmin) {
+          setGenPhase("extract");
+        }
+        const hashes = await Promise.all(prepared.screenshots.map(hashDataUrl));
+        const cached = getCachedExtractedFacts(hashes);
+        if (cached) {
+          if (isAdmin) {
+            setGenRun((r) => {
+              if (!r) return r;
+              let next = appendGenerationLog(r, "info", "Using cached screenshot extract");
+              for (let i = 0; i < prepared.screenshots.length; i++) {
+                next = skipGenerationStep(
+                  next,
+                  `extract-${i}`,
+                  "Cached from earlier extract",
+                );
+              }
+              return next;
+            });
+          }
+          extracted = normalizeExtractedFacts(cached);
+        } else if (isAdmin) {
+          let merged = emptyExtractedFacts();
+          for (let i = 0; i < prepared.screenshots.length; i++) {
+            const part = await runStep(
+              `extract-${i}`,
+              `Extracting screenshot ${i + 1} of ${prepared.screenshots.length}…`,
+              () => fetchExtractOne(prepared.screenshots[i], signal),
+            );
+            merged = mergeExtractedFacts(merged, part);
+          }
+          cacheExtractedFacts(hashes, merged);
+          extracted = merged;
+        } else {
+          extracted = await extractScreenshots(true, signal, prepared.screenshots);
+        }
         if (signal.aborted) return;
-        setGenPhase("generate");
-        setGenDetail("Writing your Wikipedia article…");
+        if (!isAdmin) {
+          setGenPhase("generate");
+          setGenDetail("Writing your Wikipedia article…");
+        }
       }
       extracted = normalizeExtractedFacts(extracted);
 
       const postGenerate = (images: typeof prepared) =>
         fetch("/api/generate-article", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: adminTestHeaders(isAdmin),
           body: JSON.stringify({
             intake: intakeFinal,
             facts: extracted,
@@ -220,41 +317,104 @@ function GenerateFlow() {
           signal,
         });
 
-      let res = await postGenerate(prepared);
-      if (res.status === 413) {
+      const parseGenerateResponse = async (res: Response) => {
+        const data = await parseJsonResponse<
+          ApiErrorBody & {
+            article?: import("@/types/article").ArticleJson;
+            mock?: boolean;
+            details?: { fieldErrors?: Record<string, string[]> };
+          }
+        >(res);
+        if (!res.ok) {
+          if (isAdmin && data.adminLog?.length) {
+            setGenRun((r) =>
+              r ? mergeServerAdminLog(r, data.adminLog, "generate") : r,
+            );
+          }
+          const detail = data.details?.fieldErrors
+            ? Object.entries(data.details.fieldErrors)
+                .map(([k, v]) => `${k}: ${v.join(", ")}`)
+                .join("; ")
+            : "";
+          const msg = apiErrorMessage(data, res);
+          throw new Error(detail ? `${msg} — ${detail}` : msg);
+        }
+        if (isAdmin && data.adminLog?.length) {
+          setGenRun((r) => {
+            if (!r) return r;
+            let next = r;
+            for (const line of data.adminLog!) {
+              next = appendGenerationLog(next, "info", `[server] ${line}`, "generate");
+            }
+            return next;
+          });
+        }
+        return data;
+      };
+
+      const callGenerateApi = async (images: typeof prepared) => {
+        const res = await postGenerate(images);
+        if (res.status === 413) return { ok: false as const, res };
+        const data = await parseGenerateResponse(res);
+        return { ok: true as const, data, res };
+      };
+
+      if (isAdmin) {
+        setGenRun((r) =>
+          r
+            ? startGenerationStep(r, "generate", "Writing your Wikipedia article (AI)…")
+            : r,
+        );
+      } else {
+        setGenPhase("generate");
+        setGenDetail("Writing your Wikipedia article…");
+      }
+
+      let genOutcome = await callGenerateApi(prepared);
+      if (!genOutcome.ok) {
         setGenDetail("Images still large — compressing further…");
-        prepared = await prepareUploadImages(
-          {
-            headshot: prepared.headshot,
-            screenshots: prepared.screenshots,
-            extraPhotos: prepared.extraPhotos,
-          },
-          true,
+        prepared = await runStep(
+          "prepare-images",
+          "Images still large — compressing further…",
+          () =>
+            prepareUploadImages(
+              {
+                headshot: prepared.headshot,
+                screenshots: prepared.screenshots,
+                extraPhotos: prepared.extraPhotos,
+              },
+              true,
+            ),
         );
         if (prepared.headshot) setHeadshot([prepared.headshot]);
         setScreenshots(prepared.screenshots);
         setExtraPhotos(prepared.extraPhotos);
-        res = await postGenerate(prepared);
+        if (isAdmin) {
+          setGenRun((r) =>
+            r
+              ? startGenerationStep(
+                  r,
+                  "generate",
+                  "Retrying article generation after compression…",
+                )
+              : r,
+          );
+        }
+        genOutcome = await callGenerateApi(prepared);
+        if (!genOutcome.ok) {
+          throw new Error(
+            "Upload too large even after compression. Try fewer or smaller images.",
+          );
+        }
       }
-      const data = await parseJsonResponse<{
-        article?: import("@/types/article").ArticleJson;
-        error?: string;
-        details?: { fieldErrors?: Record<string, string[]> };
-        mock?: boolean;
-      }>(res);
-      if (!res.ok) {
-        const detail = data.details?.fieldErrors
-          ? Object.entries(data.details.fieldErrors)
-              .map(([k, v]) => `${k}: ${v.join(", ")}`)
-              .join("; ")
-          : "";
-        throw new Error(
-          detail
-            ? `${data.error ?? "Generation failed"} — ${detail}`
-            : (data.error ?? "Generation failed"),
+
+      if (isAdmin) {
+        setGenRun((r) =>
+          r ? completeGenerationStep(r, "generate", "Article JSON received") : r,
         );
       }
 
+      const data = genOutcome.data;
       const article = data.article!;
       if (prepared.headshot) {
         article.infobox.imageUrl = prepared.headshot;
@@ -286,8 +446,11 @@ function GenerateFlow() {
         );
       }
 
-      setGenPhase("save");
-      setGenDetail("Saving your share link…");
+      if (!isAdmin) {
+        setGenPhase("save");
+        setGenDetail("Saving your share link…");
+      }
+
       const toSave = prepareArticleForDb({
         id: articleId,
         slug: articleSlug,
@@ -300,22 +463,37 @@ function GenerateFlow() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
-      const saved = await saveArticleToServer(toSave);
+
+      const saved = await runStep("save", "Saving article to server…", async () => {
+        const result = await saveArticleToServer(toSave, { isAdmin });
+        if (!result.ok) throw new Error(result.error);
+        return result;
+      });
+
       if (signal.aborted) return;
 
-      if (!saved.ok) {
-        throw new Error(saved.error);
-      }
-
+      setGenRun(null);
       router.push(`/article?slug=${saved.slug}`);
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
-      setError(e instanceof Error ? e.message : "Generation failed");
+      adminFailed = true;
+      const msg = formatGenerationError(e);
+      setError(msg);
+      if (isAdmin) {
+        setGenRun((r) =>
+          r ? { ...r, failed: true, errorMessage: msg } : r,
+        );
+      }
     } finally {
       abortRef.current = null;
-      setBusy(false);
-      setGenPhase(null);
-      setGenDetail("");
+      if (!isAdmin || !adminFailed) {
+        setBusy(false);
+        setGenPhase(null);
+        setGenDetail("");
+        if (!adminFailed) setGenRun(null);
+      } else {
+        setBusy(false);
+      }
     }
   };
 
@@ -325,13 +503,17 @@ function GenerateFlow() {
 
   return (
     <div className={`min-h-screen bg-slate-50 ${isMobile ? "intake-mobile-page" : ""}`}>
-      {busy && genPhase && (
+      {(busy || genRun?.failed) && (isAdmin ? genRun : genPhase) && (
         <GenerationProgress
-          phase={genPhase}
+          phase={isAdmin ? undefined : genPhase ?? undefined}
           detail={genDetail}
           startedAt={genStartedAt}
-          onCancel={cancelGeneration}
-          canCancel
+          onCancel={genRun?.failed ? undefined : cancelGeneration}
+          canCancel={!genRun?.failed}
+          adminSteps={isAdmin ? genRun?.steps : undefined}
+          adminLogs={isAdmin ? genRun?.logs : undefined}
+          adminError={isAdmin ? genRun?.errorMessage ?? error : undefined}
+          onDismiss={genRun?.failed ? dismissGeneration : undefined}
         />
       )}
 
@@ -439,9 +621,9 @@ function GenerateFlow() {
           </section>
         )}
 
-        {error && !busy && (
+        {error && !busy && !genRun?.failed && (
           <div className="generate-error-banner mt-4" role="alert">
-            <p className="generate-error-text">{error}</p>
+            <p className="generate-error-text whitespace-pre-wrap">{error}</p>
             {hasUploads && (
               <p className="generate-error-hint">
                 Your images are still loaded — try Generate again (we auto-resize photos before upload).

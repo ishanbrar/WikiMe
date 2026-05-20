@@ -2625,6 +2625,142 @@ body {
   min-width: min(100%, 20rem);
 }
 
+.generation-progress-card--admin {
+  min-width: min(100%, 28rem);
+  max-width: 32rem;
+  max-height: min(90vh, 42rem);
+  overflow-y: auto;
+  text-align: left;
+}
+
+.generation-admin-badge {
+  margin: 0 0 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7c3aed;
+  text-align: center;
+}
+
+.generation-steps-admin {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.generation-step-admin {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.generation-step-admin--active {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.generation-step-admin--done,
+.generation-step-admin--success {
+  color: #16a34a;
+}
+
+.generation-step-admin--error {
+  color: #b91c1c;
+}
+
+.generation-step-admin--skipped {
+  color: #94a3b8;
+}
+
+.generation-step-admin-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.generation-step-sub {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+.generation-step-error-text {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #b91c1c;
+  white-space: pre-wrap;
+}
+
+.generation-progress-failure {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.75rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  color: #991b1b;
+  white-space: pre-wrap;
+}
+
+.generation-log-panel {
+  margin-top: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  background: #0f172a;
+  border-radius: 0.375rem;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.generation-log-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+}
+
+.generation-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+}
+
+.generation-log-line {
+  display: grid;
+  grid-template-columns: 4.5rem 5.5rem 1fr;
+  gap: 0.35rem;
+  padding: 0.2rem 0;
+  color: #cbd5e1;
+}
+
+.generation-log-line--warn {
+  color: #fcd34d;
+}
+
+.generation-log-line--error {
+  color: #fca5a5;
+}
+
+.generation-log-step {
+  color: #64748b;
+}
+
+.generation-dismiss {
+  display: block;
+  margin: 0.75rem auto 0;
+}
+
 .generation-steps {
   list-style: none;
   margin: 0 0 1rem;
