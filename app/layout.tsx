@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
+import { CANONICAL_APP_URL } from "@/lib/appUrl";
 import { wikiTitleFont } from "@/lib/wikiFonts";
 import "./globals.css";
 
@@ -11,6 +12,7 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(CANONICAL_APP_URL),
   title: "WikiMe — Your Wikipedia-style biography",
   description:
     "Generate a realistic Wikipedia-style article about yourself from photos, screenshots, and a short questionnaire.",

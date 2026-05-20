@@ -40,7 +40,7 @@ const REALISM_SECTIONS_REQUIRED_NOTE = `Your previous JSON was missing a valid "
 
 function realismRewriteNote(fullName: string): string {
   return `${REALISM_REGURGITATION_RETRY_NOTE}
-Write as a Wikipedia biographer for ${fullName}: varied sentence openings, proper capitalization (Boston College, Hewlett Packard Enterprise, India), no semicolon-chained notes, do not start every sentence with their full name.`;
+Write as a Wikipedia biographer for ${fullName}: cohesive paragraphs with transitions ("After…", "During…", "Later…"), proper capitalization (Boston College, Hewlett Packard Enterprise, India), no semicolon-chained notes, no one-sentence-per-field staccato style, and do not start every sentence with their full name.`;
 }
 
 function realismLengthHint(len: IntakeData["articleLength"]): string {
@@ -250,11 +250,14 @@ export async function generateArticle(
 CRITICAL OUTPUT RULES:
 - The JSON MUST include a non-empty "sections" array. Each section has "id", "title", and "paragraphs" (array of strings).
 - NEVER use template phrases like "has worked in roles including", "holds BS", or paste occupation/education fields verbatim into body text.
-- Body prose must be rewritten from facts — infobox fields are summaries only.`;
+- Body prose must be rewritten from facts — infobox fields are summaries only.
+- Paragraphs must read like Wikipedia: objective, connected, and chronological where possible — not a series of standalone sentences for each questionnaire field.`;
 
   const userBase = `Generate a REALISM MODE article for ${intake.fullName}. tone=${intake.tone}. supplementalPhotoCount=${supplementalPhotos.length}. headshotUrl=${headshotUrl || "none"}.
 
-FACT SHEET (editor notes — rewrite into original prose; do not copy bullets verbatim):
+Write as if drafting a real Wikipedia biography: neutral, factual, and readable — weave the fact sheet into flowing paragraphs with transitions, not one sentence per bullet.
+
+FACT SHEET (editor notes — synthesize into narrative prose; do not copy bullets verbatim):
 ${factSheet}
 
 RAW SOURCE DATA (for accuracy only — do not paste into paragraphs):

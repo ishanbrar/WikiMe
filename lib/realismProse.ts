@@ -28,13 +28,21 @@ export const REALISM_REGURGITATION_MARKERS = [
 export const REALISM_PROSE_RULES = `REALISM WRITING (required):
 - Use the JSON inputs only as source facts. Rewrite everything into original third-person encyclopedic prose — never paste, quote, or lightly rephrase intake strings.
 - FORBIDDEN: "is associated with", "education includes", "occupation and role are described as", "according to user-provided", "noted by the subject include", "This article summarizes", listing comma-separated intake in one sentence, or repeating the user's exact wording.
-- REQUIRED STYLE: Wikipedia biography voice — neutral, declarative, varied sentence openings. Use "was born", "grew up in", "attended", "studied", "worked as", "competed as", "was named", etc.
-- summaryLead: 2–3 sentences in classic lead style (identity, origin/education, career or distinction). No meta text about how the article was written.
-- Each section: at least 2 substantive sentences that weave multiple facts (chronology, context, relationships). Split career vs athletics vs personal life logically.
+- FORBIDDEN STRUCTURE: Do not write one isolated sentence per intake field. No staccato résumé lines like "X was born in Y. X attended Z. X works at W." with no connection between them.
+
+NARRATIVE FLOW (like a real Wikipedia biography):
+- Write cohesive paragraphs: each paragraph should read as a small story arc (background → development → outcome), not a bullet list turned into sentences.
+- Link facts with natural transitions: "After graduating from…", "During his time at…", "While working at…", "In parallel with…", "Following this…", "He later…", "By [year]…", "Subsequently…", "In addition to…".
+- Vary sentence length and openings; alternate short factual statements with longer sentences that combine related details.
+- Use pronouns or surname after the subject is introduced in a section — do not begin every sentence with the full name.
+- Objective, neutral tone: report what happened without hype, marketing, or editorializing. Prefer "has been described as" or "according to…" only when the source material is uncertain — otherwise state facts plainly.
+- summaryLead: 2–3 flowing sentences in classic Wikipedia lead style (who they are, formative background, current role or notability). Sentences should connect logically, not read as three unrelated facts.
+- Each section: 2–4 paragraphs when material allows; each paragraph 3–5 sentences that weave multiple related facts (chronology, cause and effect, family context, institution names).
+- Split career, education, athletics, and personal life logically; within a section, order events chronologically where possible.
 - Fix obvious typos in source data when meaning is clear (e.g. itern→intern, hpt→HPE). Do not invent employers, degrees, awards, or dates not supported by the inputs.
 - achievements, sports, and awards belong in career or their own section — not as a raw list in personal life.`;
 
-export const REALISM_REGURGITATION_RETRY_NOTE = `CRITICAL: Your previous draft repeated user intake verbatim. Rewrite completely in original Wikipedia prose. Do not use any forbidden template phrases from the realism rules.`;
+export const REALISM_REGURGITATION_RETRY_NOTE = `CRITICAL: Your previous draft repeated user intake verbatim or read like disconnected one-line facts. Rewrite completely in flowing Wikipedia prose with transitions between sentences. Do not use any forbidden template phrases from the realism rules.`;
 
 function normalizeForOverlap(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ").trim();

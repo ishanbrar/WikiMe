@@ -50,7 +50,8 @@ Rules:
 - Attribute facts correctly (father's squash career belongs under Family about the father, not as the subject's job)
 - Normalize employers and schools to proper names (Boston College, Hewlett Packard Enterprise)
 - Do NOT write encyclopedic paragraphs — only clear fact bullets
-- Do NOT copy user sentences verbatim — rewrite each idea as a short neutral note`;
+- Do NOT copy user sentences verbatim — rewrite each idea as a short neutral note
+- Add a brief "Narrative thread" bullet list (2–4 items) under Identity: suggested chronological arc for the biographer (e.g. upbringing → education → career → athletics)`;
 
   const user = `Subject: ${intake.fullName}\nArticle length target: ${intake.articleLength}\n\n${formatIntakeForEditor(intake, facts)}`;
 

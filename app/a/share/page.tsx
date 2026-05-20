@@ -2,6 +2,11 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { EncodedShareClient } from "@/components/EncodedShareClient";
 import { articleShareMetadata } from "@/lib/articleShareMetadata";
+import {
+  articleHasSharePreviewImage,
+  buildEncodedShareOgImageUrl,
+} from "@/lib/headshotOgImage";
+import { getAppBaseUrl } from "@/lib/appUrl";
 import { decodeArticleFromUrl } from "@/lib/share";
 
 export async function generateMetadata({
@@ -17,9 +22,19 @@ export async function generateMetadata({
   if (!decoded?.articleJson?.title) {
     return { title: "Shared article" };
   }
+  const headshot = decoded.headshotDataUrl?.trim() || "";
+  const baseUrl = getAppBaseUrl();
+  let ogImageUrl: string | undefined;
+  if (headshot.startsWith("http://") || headshot.startsWith("https://")) {
+    ogImageUrl = headshot;
+  } else if (articleHasSharePreviewImage(headshot)) {
+    ogImageUrl = buildEncodedShareOgImageUrl(d, baseUrl);
+  }
+
   return articleShareMetadata(
     decoded.articleJson.title,
     decoded.articleJson.subtitle,
+    { ogImageUrl },
   );
 }
 

@@ -1,19 +1,41 @@
 import Link from "next/link";
 import { getArticleBySlugServer } from "@/lib/articleStore";
+import { getExampleArticleBySlug } from "@/lib/exampleArticle";
 import { articleShareMetadata } from "@/lib/articleShareMetadata";
+import {
+  articleHasSharePreviewImage,
+  buildArticleOgImageUrl,
+  buildArticlePageUrl,
+  resolveArticleHeadshotUrl,
+} from "@/lib/headshotOgImage";
+import { getAppBaseUrl } from "@/lib/appUrl";
 import { SharedArticleView } from "@/components/SharedArticleView";
 import type { Metadata } from "next";
 
 export async function sharedArticleMetadata(
   slug: string,
 ): Promise<Metadata> {
-  const saved = await getArticleBySlugServer(slug);
+  const saved =
+    (await getArticleBySlugServer(slug)) ??
+    getExampleArticleBySlug(slug) ??
+    null;
   if (!saved) {
     return { title: "Article not found" };
   }
+
+  const baseUrl = getAppBaseUrl();
+  const headshot = resolveArticleHeadshotUrl(saved);
+  const ogImageUrl = articleHasSharePreviewImage(headshot)
+    ? buildArticleOgImageUrl(slug, baseUrl)
+    : undefined;
+
   return articleShareMetadata(
     saved.articleJson.title || saved.intake.articleTitle,
     saved.articleJson.subtitle,
+    {
+      ogImageUrl,
+      pageUrl: buildArticlePageUrl(slug, saved.shortLink ?? false, baseUrl),
+    },
   );
 }
 
