@@ -40,13 +40,20 @@ export default async function AdminPage() {
 
   let articles: Awaited<ReturnType<typeof listAdminArticleLog>> = [];
   let generationRuns: Awaited<ReturnType<typeof listAdminGenerationRuns>> = [];
-  let loadError: string | null = null;
+  let articlesError: string | null = null;
+  let generationRunsError: string | null = null;
 
   try {
     articles = await listAdminArticleLog();
+  } catch (e) {
+    articlesError = e instanceof Error ? e.message : "Could not load article log";
+  }
+
+  try {
     generationRuns = await listAdminGenerationRuns(50);
   } catch (e) {
-    loadError = e instanceof Error ? e.message : "Could not load article log";
+    generationRunsError =
+      e instanceof Error ? e.message : "Could not load generation runs";
   }
 
   return (
@@ -70,24 +77,29 @@ export default async function AdminPage() {
         </p>
       )}
 
-      {loadError && (
+      {articlesError && (
         <p className="account-error" role="alert">
-          {loadError}
+          {articlesError}
         </p>
-      )}
-
-      {!loadError && articles.length === 0 && (
-        <p className="admin-muted">No articles have been saved yet.</p>
       )}
 
       <section className="admin-section">
         <h2 className="admin-section-title">Generation runs</h2>
         <p className="admin-muted">
-          Detailed logs from /generate while signed in as admin (requires{" "}
-          <code>generation_runs</code> migration).
+          Detailed logs from /generate while signed in as admin.
         </p>
-        <AdminGenerationRuns runs={generationRuns} />
+        {generationRunsError ? (
+          <p className="admin-warn" role="alert">
+            {generationRunsError}
+          </p>
+        ) : (
+          <AdminGenerationRuns runs={generationRuns} />
+        )}
       </section>
+
+      {!articlesError && articles.length === 0 && (
+        <p className="admin-muted">No articles have been saved yet.</p>
+      )}
 
       {articles.length > 0 && (
         <div className="admin-table-wrap">

@@ -7,6 +7,8 @@ import type { ArticleJson, IntakeData, SavedArticle } from "@/types/article";
 export function ArticleToolbar({
   editing,
   onToggleEdit,
+  showHeadshot,
+  onToggleHeadshot,
   showIntake,
   onToggleIntake,
   busy,
@@ -20,6 +22,8 @@ export function ArticleToolbar({
 }: {
   editing: boolean;
   onToggleEdit: () => void;
+  showHeadshot: boolean;
+  onToggleHeadshot: () => void;
   showIntake: boolean;
   onToggleIntake: () => void;
   busy: boolean;
@@ -84,6 +88,17 @@ export function ArticleToolbar({
           </button>
           {optionsOpen && (
             <div className="article-toolbar-menu" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onToggleHeadshot();
+                  setOptionsOpen(false);
+                }}
+                disabled={busy}
+              >
+                {showHeadshot ? "Hide headshot" : "Headshot"}
+              </button>
               <button
                 type="button"
                 role="menuitem"

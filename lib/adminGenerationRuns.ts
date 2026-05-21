@@ -63,7 +63,14 @@ export async function listAdminGenerationRuns(
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (/generation_runs/i.test(error.message) && /schema cache|not find/i.test(error.message)) {
+      throw new Error(
+        "Table public.generation_runs is missing. Run supabase/migrations/20260520120000_generation_runs.sql in the Supabase SQL Editor (or: supabase db push).",
+      );
+    }
+    throw new Error(error.message);
+  }
 
   return (data ?? []).map((row) => ({
     id: row.id as string,

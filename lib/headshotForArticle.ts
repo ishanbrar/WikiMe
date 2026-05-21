@@ -33,6 +33,22 @@ export function applyHeadshotToArticle(
   };
 }
 
+/** Set or clear the infobox portrait (stored headshot + infobox image stay in sync). */
+export function updateArticleHeadshot(
+  articleJson: ArticleJson,
+  headshotDataUrl?: string | null,
+): ArticleJson {
+  const trimmed = headshotDataUrl?.trim() ?? "";
+  if (!trimmed) {
+    if (!articleJson.infobox.imageUrl?.trim()) return articleJson;
+    return {
+      ...articleJson,
+      infobox: { ...articleJson.infobox, imageUrl: "" },
+    };
+  }
+  return applyHeadshotToArticle(articleJson, trimmed);
+}
+
 export function withHeadshotOnSaved(saved: SavedArticle): SavedArticle {
   return {
     ...saved,

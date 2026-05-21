@@ -17,7 +17,11 @@ import { saveArticleLocal } from "@/lib/storage";
 import { saveArticleToServer } from "@/lib/saveArticleClient";
 import { buildShareUrl } from "@/lib/share";
 import { nanoid } from "nanoid";
-import { applyHeadshotToArticle } from "@/lib/headshotForArticle";
+import {
+  applyHeadshotToArticle,
+  updateArticleHeadshot,
+} from "@/lib/headshotForArticle";
+import { HeadshotUploader } from "@/components/HeadshotUploader";
 import {
   articleImageMetrics,
   ensureArticleImages,
@@ -51,8 +55,12 @@ export function ArticleEditor({
   const [article, setArticle] = useState(() =>
     applyHeadshotToArticle(initialArticle, headshotDataUrl),
   );
+  const [headshot, setHeadshot] = useState(
+    () => headshotDataUrl?.trim() || initialArticle.infobox.imageUrl?.trim() || "",
+  );
   const [intakeState, setIntakeState] = useState(intake);
   const [editing, setEditing] = useState(false);
+  const [showHeadshot, setShowHeadshot] = useState(false);
   const [showIntake, setShowIntake] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
@@ -70,13 +78,18 @@ export function ArticleEditor({
   const supplementalFromUrls = (): ExtraPhotoUpload[] =>
     (extraPhotoUrls ?? []).map((dataUrl) => ({ dataUrl, description: "" }));
 
+  const onHeadshotChange = (dataUrl: string) => {
+    setHeadshot(dataUrl);
+    setArticle((prev) => updateArticleHeadshot(prev, dataUrl));
+  };
+
   const saved: SavedArticle = {
     id: savedId ?? nanoid(),
     slug: shareSlug || slug || nanoid(10),
     articleJson: article,
     mode: intakeState.mode,
     intake: intakeState,
-    headshotDataUrl,
+    headshotDataUrl: headshot || undefined,
     extractedFacts,
     shortLink: shareShortLink,
     createdAt: new Date().toISOString(),
@@ -98,8 +111,8 @@ export function ArticleEditor({
     const local = persistLocal();
     const withHeadshot = await prepareArticleForDb({
       ...local,
-      articleJson: applyHeadshotToArticle(article, headshotDataUrl),
-      headshotDataUrl,
+      articleJson: applyHeadshotToArticle(article, headshot),
+      headshotDataUrl: headshot || undefined,
     });
     const result = await saveArticleToServer(withHeadshot);
     if (result.ok) {
@@ -117,7 +130,7 @@ export function ArticleEditor({
     setLoadingMessage("Regenerating article…");
     try {
       const prepared = await prepareUploadImages({
-        headshot: headshotDataUrl,
+        headshot: headshot || undefined,
         extraPhotos: supplementalFromUrls(),
       });
 
@@ -171,14 +184,18 @@ export function ArticleEditor({
       if (data.article) {
         let next = ensureArticleImages(
           data.article as ArticleJson,
-          prepared.headshot ?? headshotDataUrl,
+          prepared.headshot ?? headshot,
           prepared.extraPhotos,
           intakeState.fullName || intakeState.articleTitle,
         );
+        next = updateArticleHeadshot(next, prepared.headshot ?? headshot);
+        if (prepared.headshot ?? headshot) {
+          setHeadshot(prepared.headshot ?? headshot);
+        }
         console.info(
           "[WikiMe regen] images:",
           formatArticleImageMetrics(
-            articleImageMetrics(next, prepared.headshot ?? headshotDataUrl),
+            articleImageMetrics(next, prepared.headshot ?? headshot),
           ),
         );
         setArticle(next);
@@ -204,7 +221,7 @@ export function ArticleEditor({
           ),
           article,
           sectionId,
-          headshotDataUrl,
+          headshotDataUrl: headshot || undefined,
         }),
       });
       const data = await res.json();
@@ -234,6 +251,8 @@ export function ArticleEditor({
       <ArticleToolbar
         editing={editing}
         onToggleEdit={() => setEditing(!editing)}
+        showHeadshot={showHeadshot}
+        onToggleHeadshot={() => setShowHeadshot(!showHeadshot)}
         showIntake={showIntake}
         onToggleIntake={() => setShowIntake(!showIntake)}
         busy={busy}
@@ -245,6 +264,23 @@ export function ArticleEditor({
         saved={saved}
         onSaveToServer={saveToServer}
       />
+
+      {(showHeadshot || editing) && (
+        <div
+          className={`no-print max-w-2xl mx-auto p-6 bg-slate-50 border-b ${busy ? "ui-busy" : ""}`}
+        >
+          <HeadshotUploader
+            label="Infobox headshot"
+            image={headshot}
+            subjectName={intakeState.fullName || intakeState.articleTitle}
+            onChange={onHeadshotChange}
+            disabled={busy}
+          />
+          <p className="text-xs text-slate-500 mt-3">
+            Changes appear in the infobox immediately. Use Share / save to keep them on your link.
+          </p>
+        </div>
+      )}
 
       {showIntake && (
         <div
