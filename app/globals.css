@@ -39,6 +39,208 @@ body {
   z-index: 1;
 }
 
+/* Readable text on Vanta sky background */
+.landing .landing-title {
+  color: #0f172a;
+  text-shadow:
+    0 1px 2px rgba(255, 255, 255, 0.95),
+    0 0 24px rgba(255, 255, 255, 0.65);
+}
+
+.landing .landing-lead {
+  color: #1e293b;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
+}
+
+.landing .landing-cta-secondary {
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(15, 23, 42, 0.18);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
+}
+
+.landing .landing-modes h2 {
+  color: #0f172a;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
+}
+
+.landing .home-mode-tabs {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.1);
+}
+
+.landing .home-mode-tab {
+  color: #334155;
+}
+
+.landing .home-example-eyebrow {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.landing .home-example-title {
+  color: #0f172a;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.85);
+}
+
+.landing .home-example-desc {
+  color: #1e293b;
+}
+
+.landing .home-example-demo-label {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.landing .home-example-demo-arrow {
+  color: #475569;
+}
+
+.landing .home-example-cta {
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.1);
+}
+
+.landing .home-example-cta:hover {
+  color: #1d4ed8;
+  background: #fff;
+}
+
+body:has(.landing) .site-header {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  border-bottom-color: rgba(15, 23, 42, 0.08);
+}
+
+body:has(.landing) .site-header-link {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+body:has(.landing) .site-header-link:hover {
+  color: #0f172a;
+}
+
+body:has(.landing) .site-footer {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border-top-color: rgba(15, 23, 42, 0.08);
+}
+
+body:has(.landing) .site-footer-tagline,
+body:has(.landing) .site-footer-copy {
+  color: #475569;
+}
+
+body:has(.landing) .site-footer-heading {
+  color: #64748b;
+}
+
+/* Readable text on animated sky background */
+.landing .landing-title {
+  color: #0f172a;
+  text-shadow:
+    0 1px 2px rgba(255, 255, 255, 0.95),
+    0 0 24px rgba(255, 255, 255, 0.65);
+}
+
+.landing .landing-lead {
+  color: #1e293b;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
+}
+
+.landing .landing-cta-secondary {
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(15, 23, 42, 0.18);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
+}
+
+.landing .landing-cta-secondary:hover {
+  background: #fff;
+}
+
+.landing .home-mode-tabs {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 2px 14px rgba(15, 23, 42, 0.1);
+}
+
+.landing .home-mode-tab {
+  color: #334155;
+}
+
+.landing .home-example-eyebrow {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.landing .home-example-desc {
+  color: #1e293b;
+}
+
+.landing .home-example-demo-label {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.landing .home-example-demo-arrow {
+  color: #475569;
+}
+
+.landing .home-example-cta {
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.1);
+}
+
+.landing .home-example-cta:hover {
+  color: #1d4ed8;
+  background: #fff;
+}
+
+.landing .landing-modes h2 {
+  color: #0f172a;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
+}
+
+body:has(.landing) .site-header {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  border-bottom-color: rgba(15, 23, 42, 0.1);
+}
+
+body:has(.landing) .site-header-link {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+body:has(.landing) .site-header-link:hover {
+  color: #0f172a;
+}
+
+body:has(.landing) .site-footer {
+  background: rgba(255, 255, 255, 0.92);
+  border-top-color: rgba(15, 23, 42, 0.1);
+}
+
+body:has(.landing) .site-footer-tagline,
+body:has(.landing) .site-footer-copy {
+  color: #475569;
+}
+
+body:has(.landing) .site-footer-heading {
+  color: #64748b;
+}
+
 .form-input {
   display: block;
   width: 100%;
