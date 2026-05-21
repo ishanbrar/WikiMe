@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { GenerationLogEntry, GenerationRunStep } from "@/lib/generationRun";
+import { formatUnknownError } from "@/lib/formatError";
 
 function stepMarker(step: GenerationRunStep): string {
   if (step.status === "success") return "✓";
@@ -39,7 +40,7 @@ export function GenerationProgress({
   steps?: GenerationRunStep[];
   logs?: GenerationLogEntry[];
   showAdminBadge?: boolean;
-  errorMessage?: string;
+  errorMessage?: string | unknown;
   /** Headshot, screenshots, or extra photos — longer generation time */
   hasUploads?: boolean;
   onDismiss?: () => void;
@@ -53,8 +54,9 @@ export function GenerationProgress({
     return () => clearInterval(id);
   }, [startedAt]);
 
+  const errorText = errorMessage != null ? formatUnknownError(errorMessage) : "";
   const failed = Boolean(
-    errorMessage || steps?.some((s) => s.status === "error"),
+    errorText || steps?.some((s) => s.status === "error"),
   );
   const progressPct = useMemo(
     () => (steps?.length ? stepProgressPercent(steps) : 0),
@@ -113,7 +115,9 @@ export function GenerationProgress({
                       <span className="generation-step-sub">{step.detail}</span>
                     )}
                     {step.error && (
-                      <span className="generation-step-error-text">{step.error}</span>
+                      <span className="generation-step-error-text">
+                        {formatUnknownError(step.error)}
+                      </span>
                     )}
                     {step.startedAt && step.endedAt && (
                       <span className="generation-step-sub">
@@ -145,9 +149,9 @@ export function GenerationProgress({
           </p>
         )}
 
-        {errorMessage && (
+        {errorText && (
           <p className="generation-progress-failure" role="alert">
-            {errorMessage}
+            {errorText}
           </p>
         )}
 

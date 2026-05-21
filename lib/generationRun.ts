@@ -1,3 +1,5 @@
+import { formatUnknownError } from "@/lib/formatError";
+
 export type GenerationStepStatus =
   | "pending"
   | "active"
@@ -150,7 +152,7 @@ export function failGenerationStep(
   stepId: string,
   err: unknown,
 ): GenerationRunState {
-  const message = formatGenerationError(err);
+  const message = formatUnknownError(err);
   let r = appendGenerationLog(run, "error", message, stepId);
   return {
     ...r,
@@ -187,10 +189,4 @@ function stepLabel(run: GenerationRunState, stepId: string): string {
   return run.steps.find((s) => s.id === stepId)?.label ?? stepId;
 }
 
-export function formatGenerationError(err: unknown): string {
-  if (err instanceof DOMException && err.name === "AbortError") {
-    return "Cancelled";
-  }
-  if (err instanceof Error) return err.message;
-  return String(err);
-}
+export { formatUnknownError as formatGenerationError } from "@/lib/formatError";

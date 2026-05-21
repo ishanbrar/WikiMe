@@ -11,6 +11,7 @@ import {
 import { enrichFactsWithIntake } from "@/lib/enrichFactsWithIntake";
 import { articleWordCount } from "@/lib/normalizeArticle";
 import { adminJsonError, isAdminTestRequest } from "@/lib/adminApiDebug";
+import { formatUnknownError } from "@/lib/formatError";
 import { hasAiKey } from "@/lib/gemini";
 import { intakeSchema, factsInputSchema } from "@/lib/validation";
 import { emptyExtractedFacts } from "@/lib/extractProfileFacts";
@@ -119,7 +120,7 @@ export async function POST(req: Request) {
       ...(adminDebug ? { adminLog: log } : {}),
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Generation failed";
+    const message = formatUnknownError(e);
     log.push(`Error: ${message}`);
     if (e instanceof Error && e.stack) log.push(e.stack);
 
