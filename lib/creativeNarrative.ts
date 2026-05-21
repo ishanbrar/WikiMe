@@ -114,7 +114,19 @@ export function buildCreativeBrief(intake: IntakeData): CreativeBrief {
   };
 }
 
-export function creativeLengthHint(len: IntakeData["articleLength"]): string {
+export function creativeLengthHint(
+  len: IntakeData["articleLength"],
+  opts?: { sparse?: boolean },
+): string {
+  if (opts?.sparse) {
+    if (len === "short") {
+      return "SPARSE USER INPUT: They only gave a name plus brief notes. TARGET ~380–520 words total (shorter is fine). Keep 4–5 Wikipedia sections with tight paragraphs; invent less filler and tie every invented beat to the few facts given. Lead: 1–2 short paragraphs.";
+    }
+    if (len === "long") {
+      return "SPARSE USER INPUT: They only gave a name plus brief notes. TARGET ~650–900 words total — do not pad to epic length. Rich but compact sections; still follow narrativeAngle. Lead: 2 paragraphs.";
+    }
+    return "SPARSE USER INPUT: They only gave a name plus brief notes. TARGET ~480–650 words total. About 5 sections, 2 paragraphs each where possible; avoid bloated subplots. Lead: 2 paragraphs.";
+  }
   if (len === "short") {
     return "TARGET ~900–1200 words total. At least 5 sections, 2–3 paragraphs each. Subsections only where needed (0–2 per section). Lead: 2 paragraphs.";
   }

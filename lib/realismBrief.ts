@@ -9,7 +9,14 @@ import { generateText, TEXT_MODEL_REALISM } from "@/lib/gemini";
 export async function synthesizeRealismBrief(
   intake: IntakeData,
   facts: ExtractedProfileFacts,
+  opts?: { sparse?: boolean },
 ): Promise<string> {
+  const sparse = opts?.sparse ?? false;
+  const sparseRule = sparse
+    ? `
+
+MINIMAL INPUT MODE: The user supplied very little text beyond the subject name. Still output every heading, but where nothing is known write a single honest bullet like "No further details supplied" rather than inventing employers, schools, dates, or family.`
+    : "";
   const system = `You are a research editor preparing notes for a Wikipedia biographer.
 
 Read the user's messy questionnaire and screenshot extracts. Output a structured FACT SHEET in plain English (not JSON).
@@ -24,7 +31,7 @@ Rules:
 - Normalize employers and schools to proper names (Boston College, Hewlett Packard Enterprise)
 - Do NOT write encyclopedic paragraphs — only clear fact bullets
 - Do NOT copy user sentences verbatim — rewrite each idea as a short neutral note
-- Add a brief "Narrative thread" bullet list (2–4 items) under Identity: suggested chronological arc for the biographer (e.g. upbringing → education → career → athletics)`;
+- Add a brief "Narrative thread" bullet list (2–4 items) under Identity: suggested chronological arc for the biographer (e.g. upbringing → education → career → athletics)${sparseRule}`;
 
   const user = `Subject: ${intake.fullName}\nLength: ${intake.articleLength}\n\n${buildStructuredIntakeForBrief(intake, facts)}`;
 
@@ -32,5 +39,6 @@ Rules:
     model: TEXT_MODEL_REALISM,
     temperature: 0.25,
     maxTokens: realismFactSheetMaxTokens(intake),
+    requestTimeoutMs: sparse ? 120_000 : 90_000,
   });
 }

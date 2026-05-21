@@ -4,7 +4,7 @@ export async function parseJsonResponse<T>(res: Response): Promise<T> {
     throw new Error(
       res.status === 413
         ? "Upload too large even after compression. Try fewer images or smaller originals."
-        : `Server error (${res.status})`,
+        : `Empty response from server (HTTP ${res.status} ${res.statusText || ""}). The app may be busy or restarting — try again in a moment.`,
     );
   }
   try {
@@ -13,7 +13,7 @@ export async function parseJsonResponse<T>(res: Response): Promise<T> {
     throw new Error(
       res.status === 413
         ? "Upload too large. Try fewer or smaller images."
-        : `Unexpected server response (${res.status})`,
+        : `Could not read server JSON (HTTP ${res.status} ${res.statusText || ""}). Try again; if it persists, pick a shorter article length.`,
     );
   }
 }

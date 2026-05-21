@@ -51,7 +51,7 @@ type VisionPart =
 function wrapAiFetchError(e: unknown): Error {
   if (e instanceof DOMException && e.name === "TimeoutError") {
     return new Error(
-      "AI request timed out (90s). Try again with a shorter article or fewer images.",
+      "AI request timed out. Try again with a shorter article length, fewer images, or wait a minute if the AI service is busy.",
     );
   }
   if (e instanceof Error) return e;
@@ -128,12 +128,15 @@ export async function generateText(
     maxTokens?: number;
     model?: string;
     topP?: number;
+    /** Wall-clock cap for the OpenRouter HTTP request (direct Gemini uses SDK defaults). */
+    requestTimeoutMs?: number;
   },
 ): Promise<string> {
   const key = getApiKey();
   if (!key) throw new Error("No AI API key configured");
 
   const preferred = options?.model ?? TEXT_MODEL;
+  const requestTimeoutMs = options?.requestTimeoutMs ?? AI_REQUEST_TIMEOUT_MS;
 
   try {
     if (useOpenRouter()) {
@@ -152,7 +155,7 @@ export async function generateText(
           },
           {
             models: textModelFallbackChain(preferred),
-            signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
+            signal: AbortSignal.timeout(requestTimeoutMs),
             label: "generateText",
           },
         );

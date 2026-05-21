@@ -38,6 +38,14 @@ export async function fetchWithTimeout(
         `Request timed out after ${Math.round(timeoutMs / 1000)}s. Try again with a shorter article or fewer images.`,
       );
     }
+    if (e instanceof TypeError) {
+      const m = e.message?.toLowerCase() ?? "";
+      if (m === "load failed" || m === "failed to fetch" || m.includes("network")) {
+        throw new Error(
+          "Network error while contacting the server (connection was reset or blocked). Check your connection, try again in a moment, or use smaller photos.",
+        );
+      }
+    }
     throw e;
   } finally {
     clear();

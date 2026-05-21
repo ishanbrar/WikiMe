@@ -38,8 +38,10 @@ import {
 } from "@/lib/realismProse";
 import { buildCompactGenerationPayload } from "@/lib/compactGenerationPayload";
 import {
-  REALISM_MIN_WORDS,
+  creativeMinWordsForIntake,
+  isSparseGenerationInput,
   realismArticleMaxTokens,
+  realismMinWordsForIntake,
 } from "@/lib/structuredIntakeForPrompt";
 
 const REALISM_SECTIONS_REQUIRED_NOTE = `Your previous JSON was missing a valid "sections" array or section bodies were empty. Return complete JSON with sections: [{id, title, paragraphs: string[]}, ...] using ids early-life, education, career, personal-life as needed. Each section needs at least 2 original encyclopedic sentences — not templates.`;
@@ -49,8 +51,9 @@ function realismRewriteNote(fullName: string): string {
 Write as a Wikipedia biographer for ${fullName}: cohesive paragraphs with transitions ("After…", "During…", "Later…"), proper capitalization (Boston College, Hewlett Packard Enterprise, India), no semicolon-chained notes, no one-sentence-per-field staccato style, and do not start every sentence with their full name.`;
 }
 
-function realismLengthHint(len: IntakeData["articleLength"]): string {
-  const min = REALISM_MIN_WORDS[len];
+function realismLengthHint(intake: IntakeData, facts: ExtractedProfileFacts): string {
+  const min = realismMinWordsForIntake(intake, facts);
+  const len = intake.articleLength;
   if (len === "short") {
     return `Target at least ${min} words total. Use fewer sections but complete sentences.`;
   }
@@ -137,11 +140,9 @@ ${INFOBOX_RULES}
 
 ${WIKI_SECTION_STRUCTURE_RULES}`;
 
-const CREATIVE_MIN_WORDS: Record<IntakeData["articleLength"], number> = {
-  short: 700,
-  standard: 1400,
-  long: 2400,
-};
+const SPARSE_INPUT_RULE = `SPARSE BIOGRAPHY INPUT: The user only provided a name plus very little text. Produce a complete article anyway.
+- REALISM: Use cautious encyclopedic language for unknowns ("little has been published about…", "according to the user's note…"). Do not invent employers, schools, awards, or family. Keep sections shorter but still structured.
+- CREATIVE: Invent lore that clearly branches from the few given facts; do not contradict them. Prefer compact scenes over encyclopedic sprawl.`;
 
 async function callCreativeGenerator(
   intake: IntakeData,
@@ -151,9 +152,11 @@ async function callCreativeGenerator(
   attempt: number,
   supplementalPhotos: SupplementalPhoto[],
 ): Promise<ArticleJson> {
-  const lengthHint = creativeLengthHint(intake.articleLength);
+  const sparse = isSparseGenerationInput(intake, facts);
+  const lengthHint = creativeLengthHint(intake.articleLength, { sparse });
   const controversyRule = realismControversiesRule(intake);
-  const system = `You are a virtuoso biographer writing Wikipedia-shaped JSON. ${creativeRules(brief)} ${CREATIVE_CONTROVERSIES_RULE} ${controversyRule} ${CREATIVE_QUOTES_RULE} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos)} ${lengthHint} ${ARTICLE_SCHEMA}`;
+  const sparseRule = sparse ? `${SPARSE_INPUT_RULE} ` : "";
+  const system = `You are a virtuoso biographer writing Wikipedia-shaped JSON. ${creativeRules(brief)} ${CREATIVE_CONTROVERSIES_RULE} ${controversyRule} ${CREATIVE_QUOTES_RULE} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos)} ${sparseRule}${lengthHint} ${ARTICLE_SCHEMA}`;
   const user = `Generate a CREATIVE MODE article (attempt ${attempt}).
 tone=${intake.tone}
 supplementalPhotoCount=${supplementalPhotos.length}
@@ -174,6 +177,7 @@ ${buildPrompt(intake, facts, headshotUrl)}`;
     temperature: attempt === 1 ? 1.05 : 1.15,
     topP: 0.92,
     maxTokens,
+    requestTimeoutMs: sparse ? 150_000 : 120_000,
   });
 
   let parsed: unknown;
@@ -185,6 +189,7 @@ ${buildPrompt(intake, facts, headshotUrl)}`;
       temperature: 0.85,
       topP: 0.9,
       maxTokens: Math.min(maxTokens + 2048, 8192),
+      requestTimeoutMs: sparse ? 150_000 : 120_000,
     });
     parsed = parseJsonFromModel<unknown>(retryRaw);
   }
@@ -224,7 +229,7 @@ export async function generateArticle(
       1,
       supplementalPhotos,
     );
-    const minWords = CREATIVE_MIN_WORDS[intake.articleLength];
+    const minWords = creativeMinWordsForIntake(intake, facts);
     if (articleWordCount(article) < minWords) {
       const retryBrief = buildCreativeBrief(intake);
       article = await callCreativeGenerator(
@@ -239,11 +244,13 @@ export async function generateArticle(
     return finalize(article);
   }
 
-  const factSheet = await synthesizeRealismBrief(intake, facts);
+  const sparse = isSparseGenerationInput(intake, facts);
+  const factSheet = await synthesizeRealismBrief(intake, facts, { sparse });
   const sourceFacts = buildPrompt(intake, facts, headshotUrl);
   const controversyRule = realismControversiesRule(intake);
 
-  const system = `You are an experienced Wikipedia biographer. Output biography JSON only. ${realismRules()} ${controversyRule} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos)} ${realismLengthHint(intake.articleLength)} ${ARTICLE_SCHEMA}
+  const sparseRule = sparse ? `${SPARSE_INPUT_RULE}\n\n` : "";
+  const system = `You are an experienced Wikipedia biographer. Output biography JSON only. ${realismRules()} ${controversyRule} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos)} ${sparseRule}${realismLengthHint(intake, facts)} ${ARTICLE_SCHEMA}
 
 CRITICAL OUTPUT RULES:
 - The JSON MUST include a non-empty "sections" array with at least early-life, education, career, and personal-life when facts support them (plus controversies if user supplied any).
@@ -275,6 +282,7 @@ ${sourceFacts}`;
       model: TEXT_MODEL_REALISM,
       temperature: extraUserNote ? 0.5 : 0.62,
       maxTokens,
+      requestTimeoutMs: sparse ? 150_000 : 120_000,
     });
     let parsed: unknown;
     try {
@@ -284,13 +292,14 @@ ${sourceFacts}`;
         model: TEXT_MODEL_REALISM,
         temperature: 0.45,
         maxTokens: Math.min(maxTokens + 1500, 8192),
+        requestTimeoutMs: sparse ? 150_000 : 120_000,
       });
       parsed = parseJsonFromModel<unknown>(retryRaw);
     }
     return normalizeArticleJson(parsed, intake, headshotUrl, normalizeOpts);
   }
 
-  const minWords = REALISM_MIN_WORDS[intake.articleLength];
+  const minWords = realismMinWordsForIntake(intake, facts);
 
   function needsRealismRetry(article: ArticleJson): string | null {
     if (!article.sections.length) return REALISM_SECTIONS_REQUIRED_NOTE;

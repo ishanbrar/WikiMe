@@ -374,18 +374,27 @@ function GenerateFlow() {
       };
 
       const callGenerateApi = async (images: typeof prepared, mode: ArticleMode) => {
-        const res = await postGenerate(images, mode);
-        if (res.status === 413) return { ok: false as const, res, mode };
-        const data = await parseGenerateResponse(res);
-        return { ok: true as const, data, res, mode };
+        try {
+          const res = await postGenerate(images, mode);
+          if (res.status === 413) return { ok: false as const, res, mode };
+          const data = await parseGenerateResponse(res);
+          return { ok: true as const, data, res, mode };
+        } catch (e) {
+          const phase = mode === "realism" ? "Realism article" : "Creative article";
+          throw new Error(`${phase}: ${formatGenerationError(e)}`);
+        }
       };
 
       const generateBothModes = async (images: typeof prepared) => {
-        setGenDetail("Writing Realism and Creative articles (AI)…");
-        let outcomes = await Promise.all([
-          callGenerateApi(images, "realism"),
-          callGenerateApi(images, "creative"),
-        ]);
+        const runSequential = async () => {
+          setGenDetail("Writing Realism article (AI)…");
+          const realism = await callGenerateApi(images, "realism");
+          setGenDetail("Writing Creative article (AI)…");
+          const creative = await callGenerateApi(images, "creative");
+          return [realism, creative] as const;
+        };
+
+        let outcomes = [...(await runSequential())];
         if (outcomes.some((o) => !o.ok)) {
           setGenDetail("Images still large — compressing further…");
           images = await runStep(
@@ -404,11 +413,8 @@ function GenerateFlow() {
           if (images.headshot) setHeadshot([images.headshot]);
           setScreenshots(images.screenshots);
           setExtraPhotos(images.extraPhotos);
-          setGenDetail("Retrying Realism and Creative generation…");
-          outcomes = await Promise.all([
-            callGenerateApi(images, "realism"),
-            callGenerateApi(images, "creative"),
-          ]);
+          setGenDetail("Retrying Realism then Creative generation…");
+          outcomes = [...(await runSequential())];
           if (outcomes.some((o) => !o.ok)) {
             throw new Error(
               "Upload too large even after compression. Try fewer or smaller images.",
@@ -423,7 +429,7 @@ function GenerateFlow() {
           ? startGenerationStep(
               r,
               "generate",
-              "Writing Realism and Creative articles (AI)…",
+              "Writing Realism article, then Creative (AI)…",
             )
           : r,
       );
@@ -437,7 +443,7 @@ function GenerateFlow() {
 
       const subjectLabel = intakeFinal.fullName || intakeFinal.articleTitle;
       const finishArticle = (raw: ArticleJson, mode: ArticleMode) => {
-        let article = ensureArticleImages(
+        const article = ensureArticleImages(
           raw,
           prepared.headshot,
           prepared.extraPhotos,
@@ -450,7 +456,13 @@ function GenerateFlow() {
       const realismOutcome = outcomes.find((o) => o.ok && o.mode === "realism");
       const creativeOutcome = outcomes.find((o) => o.ok && o.mode === "creative");
       if (!realismOutcome?.ok || !creativeOutcome?.ok) {
-        throw new Error("One or both article generations failed.");
+        const bad = outcomes.filter((o) => !o.ok);
+        const detail = bad
+          .map((o) => `${o.mode}: HTTP ${o.res.status}`)
+          .join("; ");
+        throw new Error(
+          `Article generation did not complete (${detail}). Try a shorter length or fewer images, then generate again.`,
+        );
       }
 
       const realismPack = finishArticle(realismOutcome.data.article!, "realism");

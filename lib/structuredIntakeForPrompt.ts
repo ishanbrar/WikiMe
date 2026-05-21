@@ -145,3 +145,72 @@ export const REALISM_MIN_WORDS: Record<IntakeData["articleLength"], number> = {
   standard: 260,
   long: 380,
 };
+
+const CREATIVE_MIN_WORDS_BASE: Record<IntakeData["articleLength"], number> = {
+  short: 700,
+  standard: 1400,
+  long: 2400,
+};
+
+const CREATIVE_MIN_WORDS_SPARSE: Record<IntakeData["articleLength"], number> = {
+  short: 360,
+  standard: 480,
+  long: 680,
+};
+
+/** Characters across extracted screenshot / profile facts. */
+export function extractedFactsTextVolume(facts: ExtractedProfileFacts): number {
+  let n = 0;
+  n += String(facts.detectedName ?? "").length;
+  n += String(facts.headline ?? "").length;
+  n += String(facts.bio ?? "").length;
+  n += String(facts.location ?? "").length;
+  for (const s of facts.education) n += String(s).length;
+  for (const s of facts.work) n += String(s).length;
+  for (const s of facts.projects) n += String(s).length;
+  for (const s of facts.skills) n += String(s).length;
+  for (const s of facts.links) n += String(s).length;
+  for (const s of facts.notableClaims) n += String(s).length;
+  for (const s of facts.rawUsefulText) n += String(s).length;
+  return n;
+}
+
+export function generationSourceVolume(
+  intake: IntakeData,
+  facts: ExtractedProfileFacts,
+): number {
+  return intakeTextVolume(intake) + extractedFactsTextVolume(facts);
+}
+
+/**
+ * True when questionnaire + extracted profile text is still small.
+ * Screenshots with rich extracts raise this above the threshold so we keep full length targets.
+ */
+export const SPARSE_GENERATION_CHAR_THRESHOLD = 1800;
+
+export function isSparseGenerationInput(
+  intake: IntakeData,
+  facts: ExtractedProfileFacts,
+): boolean {
+  return generationSourceVolume(intake, facts) < SPARSE_GENERATION_CHAR_THRESHOLD;
+}
+
+/** Realism retry threshold — reduced when the biography payload is tiny. */
+export function realismMinWordsForIntake(
+  intake: IntakeData,
+  facts: ExtractedProfileFacts,
+): number {
+  const base = REALISM_MIN_WORDS[intake.articleLength];
+  if (!isSparseGenerationInput(intake, facts)) return base;
+  return Math.max(120, Math.floor(base * 0.62));
+}
+
+/** Creative retry threshold — heavy defaults are unrealistic for a one-line bio. */
+export function creativeMinWordsForIntake(
+  intake: IntakeData,
+  facts: ExtractedProfileFacts,
+): number {
+  return isSparseGenerationInput(intake, facts)
+    ? CREATIVE_MIN_WORDS_SPARSE[intake.articleLength]
+    : CREATIVE_MIN_WORDS_BASE[intake.articleLength];
+}
