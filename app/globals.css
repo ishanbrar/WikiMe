@@ -23,7 +23,20 @@ body {
 
 /* Landing / forms */
 .landing {
+  position: relative;
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.landing-vanta {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.landing-content {
+  position: relative;
+  z-index: 1;
 }
 
 .form-input {

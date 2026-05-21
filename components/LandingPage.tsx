@@ -1,8 +1,15 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState } from "react";
 import { ModeSelector } from "@/components/ModeSelector";
+
+const VantaCloudsBackground = dynamic(
+  () =>
+    import("@/components/VantaCloudsBackground").then((m) => m.VantaCloudsBackground),
+  { ssr: false },
+);
 import { HomeExampleArticle } from "@/components/HomeExampleArticle";
 import { HomeExampleModeTabs } from "@/components/HomeExampleModeTabs";
 import { LandingHowItWorks } from "@/components/LandingHowItWorks";
@@ -16,7 +23,9 @@ export function LandingPage() {
   const [exampleMode, setExampleMode] = useState<ArticleMode>("realism");
 
   return (
-    <div className="landing min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50">
+    <div className="landing min-h-screen">
+      <VantaCloudsBackground />
+      <div className="landing-content">
       <section className="landing-hero">
         <h1 className="landing-title">Your life, as a Wikipedia article</h1>
         <p className="landing-lead">
@@ -54,6 +63,7 @@ export function LandingPage() {
           </Link>
         </div>
       </section>
+      </div>
     </div>
   );
 }
