@@ -69,7 +69,6 @@ export function CreateArticleForm({
 
   const [activeSection, setActiveSection] =
     useState<CreateFormSectionId>("basics");
-  const scrollRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Partial<Record<CreateFormSectionId, HTMLElement>>>(
     {},
   );
@@ -83,9 +82,6 @@ export function CreateArticleForm({
   }, []);
 
   useEffect(() => {
-    const root = scrollRef.current;
-    if (!root) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries
@@ -97,7 +93,11 @@ export function CreateArticleForm({
           setActiveSection(id);
         }
       },
-      { root, rootMargin: "-20% 0px -55% 0px", threshold: [0, 0.25, 0.5] },
+      {
+        root: null,
+        rootMargin: "-35% 0px -45% 0px",
+        threshold: [0, 0.15, 0.35],
+      },
     );
 
     for (const s of CREATE_FORM_SECTIONS) {
@@ -173,7 +173,7 @@ export function CreateArticleForm({
         </nav>
       </header>
 
-      <div ref={scrollRef} className="create-flow-scroll">
+      <div className="create-flow-scroll">
         <section
           id={sectionDomId("basics")}
           ref={registerSection("basics")}

@@ -2172,21 +2172,16 @@ body:has(.landing) .site-footer-heading {
 }
 
 /* ——— Create article flow (Tesla-style scroll + sticky bar) ——— */
-.create-page {
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  background: #fff;
+body:has(.create-page) {
+  --site-header-offset: 3.25rem;
+  --create-progress-height: 3.75rem;
+  --create-scroll-anchor: calc(
+    var(--site-header-offset) + var(--create-progress-height)
+  );
 }
 
-.create-page-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  max-width: 42rem;
-  margin: 0 auto;
-  width: 100%;
+.create-page {
+  background: #fff;
 }
 
 .create-page-saved {
@@ -2195,22 +2190,27 @@ body:has(.landing) .site-footer-heading {
   border-top: 1px solid #e5e7eb;
 }
 
+.create-page-main {
+  max-width: 42rem;
+  margin: 0 auto;
+  width: 100%;
+  padding-bottom: 5.5rem;
+}
+
 .create-flow {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
   width: 100%;
 }
 
 .create-flow-header {
-  flex-shrink: 0;
   position: sticky;
-  top: 0;
-  z-index: 30;
-  background: #fff;
-  border-bottom: 1px solid #e5e7eb;
+  top: var(--site-header-offset, 3.25rem);
+  z-index: 35;
+  margin: 0 -1.25rem;
   padding: 0.75rem 1.25rem 0.65rem;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 0 rgba(17, 24, 39, 0.04);
 }
 
 .create-progress {
@@ -2306,14 +2306,11 @@ body:has(.landing) .site-footer-heading {
 }
 
 .create-flow-scroll {
-  flex: 1;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 0 1.25rem 6.5rem;
+  padding: 0 1.25rem 1rem;
 }
 
 .create-flow-section {
-  scroll-margin-top: 5.5rem;
+  scroll-margin-top: var(--create-scroll-anchor, 7rem);
   padding: 2rem 0 2.5rem;
   border-bottom: 1px solid #f3f4f6;
 }
@@ -2364,13 +2361,15 @@ body:has(.landing) .site-footer-heading {
 }
 
 .create-flow-bar {
-  flex-shrink: 0;
-  position: sticky;
+  position: fixed;
+  left: 0;
+  right: 0;
   bottom: 0;
   z-index: 40;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(10px);
   border-top: 1px solid #e5e7eb;
-  box-shadow: 0 -4px 24px rgba(17, 24, 39, 0.06);
+  box-shadow: 0 -4px 24px rgba(17, 24, 39, 0.08);
   padding: 0.75rem 1.25rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
 }
 
