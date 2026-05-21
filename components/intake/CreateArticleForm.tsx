@@ -53,27 +53,47 @@ export function CreateArticleForm({
   const canGenerate =
     Boolean(intake.fullName.trim()) && Boolean(intake.articleTitle.trim());
 
-  return (
-    <div
-      className={`create-article-form${creativeActive ? " intake-form--creative" : ""}`}
+  const tabNav = (position: "top" | "bottom") => (
+    <nav
+      className={`create-form-tabs create-form-tabs--${position}`}
+      aria-label={
+        position === "top" ? "Create article sections" : "Create article sections (bottom)"
+      }
     >
-      <nav className="create-form-tabs" aria-label="Create article sections">
-        {CREATE_FORM_TABS.map((t) => (
+      {CREATE_FORM_TABS.map((t) => {
+        const isGenerate = t.id === "generate";
+        return (
           <button
-            key={t.id}
+            key={`${position}-${t.id}`}
             type="button"
             role="tab"
             aria-selected={tab === t.id}
             aria-controls={`create-panel-${t.id}`}
-            id={`create-tab-${t.id}`}
-            className={`create-form-tab${tab === t.id ? " create-form-tab--active" : ""}`}
+            id={position === "top" ? `create-tab-${t.id}` : undefined}
+            className={[
+              "create-form-tab",
+              tab === t.id && "create-form-tab--active",
+              isGenerate && "create-form-tab--generate",
+              isGenerate && creativeActive && "create-form-tab--generate-creative",
+              isGenerate && !creativeActive && "create-form-tab--generate-realism",
+            ]
+              .filter(Boolean)
+              .join(" ")}
             onClick={() => setTab(t.id)}
             disabled={busy}
           >
             {t.label}
           </button>
-        ))}
-      </nav>
+        );
+      })}
+    </nav>
+  );
+
+  return (
+    <div
+      className={`create-article-form${creativeActive ? " intake-form--creative" : ""}`}
+    >
+      {tabNav("top")}
 
       <div className="create-form-panels">
         {tab === "basics" && (
@@ -99,6 +119,7 @@ export function CreateArticleForm({
                 onChange={onIntakeChange}
               />
             </fieldset>
+            {tabNav("bottom")}
           </section>
         )}
 
@@ -149,6 +170,7 @@ export function CreateArticleForm({
                 </LoadingButton>
               )}
             </fieldset>
+            {tabNav("bottom")}
           </section>
         )}
 
@@ -170,6 +192,7 @@ export function CreateArticleForm({
                 onChange={onIntakeChange}
               />
             </fieldset>
+            {tabNav("bottom")}
           </section>
         )}
 
@@ -193,6 +216,7 @@ export function CreateArticleForm({
                 columns={1}
               />
             </fieldset>
+            {tabNav("bottom")}
           </section>
         )}
 
@@ -205,8 +229,8 @@ export function CreateArticleForm({
           >
             <h1 className="create-form-panel-title">Generate</h1>
             <p className="create-form-panel-sub">
-              Set tone and length, then create your article. You can switch tabs above to edit
-              anything first.
+              Set tone and length, then create your article. Use the tabs above or below to
+              edit anything first.
             </p>
             <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0 space-y-6">
               <dl className="create-form-summary">
@@ -309,6 +333,7 @@ export function CreateArticleForm({
                 </div>
               )}
             </fieldset>
+            {tabNav("bottom")}
           </section>
         )}
       </div>

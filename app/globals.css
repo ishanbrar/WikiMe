@@ -1845,9 +1845,18 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+}
+
+.create-form-tabs--top {
   margin-bottom: 1.25rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.create-form-tabs--bottom {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e2e8f0;
 }
 
 .create-form-tab {
@@ -1880,6 +1889,56 @@ body {
 .create-form-tab:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Generate tab — bold glow (realism: black, creative: blue) */
+.create-form-tab--generate {
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.create-form-tab--generate-realism {
+  color: #0f172a;
+  text-shadow:
+    0 0 8px rgba(15, 23, 42, 0.45),
+    0 0 16px rgba(15, 23, 42, 0.25);
+}
+
+.create-form-tab--generate-realism:hover:not(:disabled) {
+  color: #020617;
+  text-shadow:
+    0 0 10px rgba(15, 23, 42, 0.55),
+    0 0 22px rgba(15, 23, 42, 0.3);
+}
+
+.create-form-tab--generate-realism.create-form-tab--active {
+  color: #020617;
+  border-color: #94a3b8;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.08),
+    0 0 14px rgba(15, 23, 42, 0.2);
+}
+
+.create-form-tab--generate-creative {
+  color: #0ea5e9;
+  text-shadow:
+    0 0 8px rgba(14, 165, 233, 0.55),
+    0 0 18px rgba(56, 189, 248, 0.35);
+}
+
+.create-form-tab--generate-creative:hover:not(:disabled) {
+  color: #0284c7;
+  text-shadow:
+    0 0 10px rgba(14, 165, 233, 0.65),
+    0 0 24px rgba(56, 189, 248, 0.45);
+}
+
+.create-form-tab--generate-creative.create-form-tab--active {
+  color: #0284c7;
+  border-color: rgba(14, 165, 233, 0.45);
+  box-shadow:
+    0 1px 2px rgba(14, 165, 233, 0.12),
+    0 0 14px rgba(14, 165, 233, 0.28);
 }
 
 .create-form-panel {
