@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { getCachedWikiSegments } from "@/lib/wikiLinkCache";
-import { wikiUrl } from "@/lib/wikipediaLinks";
+import { isCustomLinkUrl, resolveLinkHref } from "@/lib/wikipediaLinks";
 
 export function WikiLinkedText({
   text,
@@ -32,11 +32,15 @@ export function WikiLinkedText({
         part.type === "link" ? (
           <a
             key={i}
-            href={wikiUrl(part.title)}
+            href={resolveLinkHref(part.title)}
             target="_blank"
             rel="noopener noreferrer"
             className="wiki-link"
-            title={`Wikipedia: ${part.title}`}
+            title={
+              isCustomLinkUrl(part.title)
+                ? part.title
+                : `Wikipedia: ${part.title}`
+            }
           >
             {part.value}
           </a>

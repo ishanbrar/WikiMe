@@ -612,7 +612,7 @@ function GenerateFlow() {
     headshot.length > 0 || screenshots.length > 0 || extraPhotos.length > 0;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="create-page">
       {genRun && (
         <GenerationProgress
           detail={genDetail}
@@ -628,7 +628,7 @@ function GenerateFlow() {
         />
       )}
 
-      <main className={`max-w-3xl mx-auto px-4 sm:px-6 pt-6 pb-16 safe-top ${busy ? "ui-busy" : ""}`}>
+      <main className={`create-page-main safe-top ${busy ? "ui-busy" : ""}`}>
         <CreateArticleForm
           intake={intake}
           onIntakeChange={setIntake}
@@ -646,7 +646,7 @@ function GenerateFlow() {
         />
 
         {saved.length > 0 && (
-          <section className="mt-12 border-t pt-8">
+          <section className="create-page-saved">
             <h2 className="font-semibold text-slate-900 mb-3">Saved locally</h2>
             <ul className="space-y-2">
               {saved.map((a) => (

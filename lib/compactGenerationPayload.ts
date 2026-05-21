@@ -24,7 +24,7 @@ export function compactIntakeForPrompt(intake: IntakeData): Record<string, strin
   if (controversies) out.controv = controversies;
   if (intake.extraNotes) out.notes = intake.extraNotes;
   const pasted = intake.pastedProfileText?.trim();
-  if (pasted) out.paste = pasted.slice(0, 2000);
+  if (pasted) out.paste = pasted.slice(0, 3000);
   return out;
 }
 
@@ -44,7 +44,7 @@ export function compactFactsForPrompt(
   if (facts.links.length) out.links = facts.links;
   if (facts.notableClaims.length) out.claims = facts.notableClaims;
   if (facts.rawUsefulText.length) {
-    out.raw = facts.rawUsefulText.map((t) => t.slice(0, 400)).slice(0, 8);
+    out.raw = facts.rawUsefulText;
   }
   return out;
 }

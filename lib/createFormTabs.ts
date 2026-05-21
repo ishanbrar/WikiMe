@@ -1,15 +1,22 @@
+import type { IntakeData } from "@/types/article";
 import type { IntakeFieldDef } from "@/lib/intakeFields";
 import { INTAKE_PLACEHOLDERS } from "@/lib/intakeFields";
+import type { ExtraPhotoUpload } from "@/lib/extraPhotoUpload";
 
-export const CREATE_FORM_TABS = [
+export const CREATE_FORM_SECTIONS = [
   { id: "basics", label: "Basics" },
   { id: "uploads", label: "Uploads" },
   { id: "bio", label: "Bio" },
   { id: "more", label: "More" },
-  { id: "generate", label: "Generate" },
+  { id: "style", label: "Style" },
 ] as const;
 
-export type CreateFormTabId = (typeof CREATE_FORM_TABS)[number]["id"];
+export type CreateFormSectionId = (typeof CREATE_FORM_SECTIONS)[number]["id"];
+
+/** @deprecated Use CREATE_FORM_SECTIONS */
+export const CREATE_FORM_TABS = CREATE_FORM_SECTIONS;
+
+export type CreateFormTabId = CreateFormSectionId;
 
 export const BASICS_FIELDS: IntakeFieldDef[] = [
   {
@@ -122,3 +129,53 @@ export const MORE_FIELDS: IntakeFieldDef[] = [
     autocomplete: "off",
   },
 ];
+
+function fieldHasValue(intake: IntakeData, key: keyof IntakeData): boolean {
+  const v = intake[key];
+  return typeof v === "string" && v.trim().length > 0;
+}
+
+export function isCreateSectionComplete(
+  sectionId: CreateFormSectionId,
+  intake: IntakeData,
+  uploads: {
+    headshot: string;
+    screenshots: string[];
+    extraPhotos: ExtraPhotoUpload[];
+  },
+): boolean {
+  switch (sectionId) {
+    case "basics":
+      return fieldHasValue(intake, "fullName") || fieldHasValue(intake, "articleTitle");
+    case "uploads":
+      return (
+        Boolean(uploads.headshot.trim()) ||
+        uploads.screenshots.length > 0 ||
+        uploads.extraPhotos.length > 0
+      );
+    case "bio":
+      return BIO_FIELDS.some((f) => fieldHasValue(intake, f.key));
+    case "more":
+      return MORE_FIELDS.some((f) => fieldHasValue(intake, f.key));
+    case "style":
+      return intake.tone !== "neutral" || intake.articleLength !== "standard";
+    default:
+      return false;
+  }
+}
+
+export function createSectionProgress(
+  intake: IntakeData,
+  uploads: {
+    headshot: string;
+    screenshots: string[];
+    extraPhotos: ExtraPhotoUpload[];
+  },
+): Record<CreateFormSectionId, boolean> {
+  return Object.fromEntries(
+    CREATE_FORM_SECTIONS.map((s) => [
+      s.id,
+      isCreateSectionComplete(s.id, intake, uploads),
+    ]),
+  ) as Record<CreateFormSectionId, boolean>;
+}

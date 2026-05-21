@@ -48,6 +48,25 @@ export function wikiUrl(title: string): string {
   return `https://en.wikipedia.org/wiki/${toWikiSlug(title)}`;
 }
 
+/** True when destination is a site path or URL, not a Wikipedia article title. */
+export function isCustomLinkUrl(destination: string): boolean {
+  const d = destination.trim();
+  if (!d) return false;
+  if (/^https?:\/\//i.test(d) || /^\/\//.test(d)) return true;
+  if (d.includes("/") && /^[\w.-]+\.[a-z]{2,}/i.test(d)) return true;
+  return false;
+}
+
+/** Wikipedia article URL or external URL from editor destination. */
+export function resolveLinkHref(destination: string): string {
+  const d = destination.trim();
+  if (!d) return "";
+  if (/^https?:\/\//i.test(d)) return d;
+  if (/^\/\//.test(d)) return `https:${d}`;
+  if (isCustomLinkUrl(d)) return `https://${d.replace(/^\/+/, "")}`;
+  return wikiUrl(resolveWikiTitle(d));
+}
+
 /** Remove broken [[WIKI:...]] markers (legacy / double-linked text). */
 export function stripWikiMarkers(text: string): string {
   let out = text;
@@ -101,10 +120,10 @@ interface MatchSpan {
 
 const WIKI_MARKUP_RE = /\[\[([^[\]]+?)(?:\|([^[\]]+?))?\]\]/g;
 
-function titleForTerm(
+function linkTitleOverride(
   display: string,
   linkTitles?: Record<string, string>,
-): string {
+): string | undefined {
   const key = display.trim();
   const override =
     linkTitles?.[key] ??
@@ -112,7 +131,24 @@ function titleForTerm(
     Object.entries(linkTitles ?? {}).find(
       ([k]) => k.toLowerCase() === key.toLowerCase(),
     )?.[1];
-  return override?.trim() ? resolveWikiTitle(override) : resolveWikiTitle(key);
+  return override?.trim() || undefined;
+}
+
+function titleForTerm(
+  display: string,
+  linkTitles?: Record<string, string>,
+): string {
+  const key = display.trim();
+  const override = linkTitleOverride(display, linkTitles);
+  if (override) {
+    return isCustomLinkUrl(override) ? override : resolveWikiTitle(override);
+  }
+  return resolveWikiTitle(key);
+}
+
+function titleForWikiMarkup(rawTitle: string): string {
+  const t = rawTitle.trim();
+  return isCustomLinkUrl(t) ? t : resolveWikiTitle(t);
 }
 
 function segmentAutoWikiLinks(
@@ -220,7 +256,7 @@ export function segmentWikiLinks(
       parts.push({
         type: "link",
         value: display,
-        title: resolveWikiTitle(titleRaw),
+        title: titleForWikiMarkup(titleRaw),
       });
       last = m.index + m[0].length;
     }

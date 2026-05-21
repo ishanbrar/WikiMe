@@ -1,14 +1,17 @@
 import type { ArticleJson } from "@/types/article";
 import {
   collectInlineWikiLinks,
+  isCustomLinkUrl,
   removeWikiMarkupFromText,
-  wikiUrl,
+  resolveLinkHref,
 } from "@/lib/wikipediaLinks";
 
 export type ArticleLinkEntry = {
   id: string;
+  /** Visible text in the article (always the phrase / label). */
   term: string;
-  title: string;
+  /** Where the link goes: Wikipedia title or custom URL. */
+  destination: string;
   source: "auto" | "inline";
 };
 
@@ -26,7 +29,7 @@ export function listArticleLinks(article: ArticleJson): ArticleLinkEntry[] {
     entries.push({
       id: `auto:${linkKey(t)}`,
       term: t,
-      title: titles[t] ?? titles[linkKey(t)] ?? t,
+      destination: titles[t] ?? titles[linkKey(t)] ?? t,
       source: "auto",
     });
   }
@@ -35,7 +38,7 @@ export function listArticleLinks(article: ArticleJson): ArticleLinkEntry[] {
     entries.push({
       id: `inline:${linkKey(inline.title)}:${linkKey(inline.label)}`,
       term: inline.label,
-      title: inline.title,
+      destination: inline.title,
       source: "inline",
     });
   }
@@ -43,13 +46,28 @@ export function listArticleLinks(article: ArticleJson): ArticleLinkEntry[] {
   return entries;
 }
 
-export function upsertAutoLink(
+function setLinkDestination(
+  linkTitles: Record<string, string>,
+  term: string,
+  destination: string,
+): Record<string, string> {
+  const t = term.trim();
+  const dest = destination.trim() || t;
+  const next = { ...linkTitles };
+  if (dest !== t || isCustomLinkUrl(dest)) {
+    next[t] = dest;
+  } else {
+    delete next[t];
+  }
+  return next;
+}
+
+export function upsertArticleLink(
   article: ArticleJson,
   term: string,
-  title: string,
+  destination: string,
 ): ArticleJson {
   const t = term.trim();
-  const wikiTitle = title.trim() || t;
   if (!t) return article;
 
   const properNouns = article.properNouns.some(
@@ -58,15 +76,16 @@ export function upsertAutoLink(
     ? article.properNouns
     : [...article.properNouns, t];
 
-  const linkTitles = { ...(article.linkTitles ?? {}) };
-  if (wikiTitle !== t) {
-    linkTitles[t] = wikiTitle;
-  } else {
-    delete linkTitles[t];
-  }
-
-  return { ...article, properNouns, linkTitles };
+  const linkTitles = setLinkDestination(article.linkTitles ?? {}, t, destination);
+  return {
+    ...article,
+    properNouns,
+    linkTitles: Object.keys(linkTitles).length ? linkTitles : undefined,
+  };
 }
+
+/** @deprecated Use upsertArticleLink */
+export const upsertAutoLink = upsertArticleLink;
 
 export function removeArticleLink(
   article: ArticleJson,
@@ -88,7 +107,7 @@ export function removeArticleLink(
   }
 
   const strip = (text: string) =>
-    removeWikiMarkupFromText(text, entry.title, entry.term);
+    removeWikiMarkupFromText(text, entry.destination, entry.term);
 
   return {
     ...article,
@@ -105,23 +124,92 @@ export function removeArticleLink(
   };
 }
 
-export function updateAutoLinkTitle(
+export function updateAutoLinkDestination(
   article: ArticleJson,
   term: string,
-  title: string,
+  destination: string,
 ): ArticleJson {
   const t = term.trim();
-  const wikiTitle = title.trim();
-  const linkTitles = { ...(article.linkTitles ?? {}) };
-  if (wikiTitle && wikiTitle !== t) {
-    linkTitles[t] = wikiTitle;
-  } else {
-    delete linkTitles[t];
-  }
+  if (!t) return article;
+  const linkTitles = setLinkDestination(article.linkTitles ?? {}, t, destination);
   return {
     ...article,
     linkTitles: Object.keys(linkTitles).length ? linkTitles : undefined,
   };
 }
 
-export { wikiUrl };
+function replaceInlineWikiMarkup(
+  text: string,
+  oldTitle: string,
+  label: string,
+  newTitle: string,
+): string {
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const display = label.trim();
+  const old = oldTitle.trim();
+  const next = newTitle.trim();
+  if (!next) return text;
+
+  const withLabel = new RegExp(
+    `\\[\\[${esc(old)}\\|${esc(display)}\\]\\]`,
+    "gi",
+  );
+  if (withLabel.test(text)) {
+    return text.replace(withLabel, `[[${next}|${display}]]`);
+  }
+  if (display.toLowerCase() === old.toLowerCase()) {
+    const simple = new RegExp(`\\[\\[${esc(old)}\\]\\]`, "gi");
+    return text.replace(simple, `[[${next}]]`);
+  }
+  return text;
+}
+
+function mapArticleText(
+  article: ArticleJson,
+  fn: (text: string) => string,
+): ArticleJson {
+  return {
+    ...article,
+    summaryLead: article.summaryLead.map(fn),
+    seeAlso: article.seeAlso.map(fn),
+    sections: article.sections.map((s) => ({
+      ...s,
+      paragraphs: s.paragraphs.map(fn),
+      subsections: s.subsections?.map((sub) => ({
+        ...sub,
+        paragraphs: sub.paragraphs.map(fn),
+      })),
+    })),
+  };
+}
+
+export function updateInlineLinkDestination(
+  article: ArticleJson,
+  label: string,
+  oldDestination: string,
+  destination: string,
+): ArticleJson {
+  const next = destination.trim();
+  if (!next || next === oldDestination.trim()) return article;
+  return mapArticleText(article, (text) =>
+    replaceInlineWikiMarkup(text, oldDestination, label, next),
+  );
+}
+
+export function updateLinkDestination(
+  article: ArticleJson,
+  entry: ArticleLinkEntry,
+  destination: string,
+): ArticleJson {
+  if (entry.source === "inline") {
+    return updateInlineLinkDestination(
+      article,
+      entry.term,
+      entry.destination,
+      destination,
+    );
+  }
+  return updateAutoLinkDestination(article, entry.term, destination);
+}
+
+export { resolveLinkHref };

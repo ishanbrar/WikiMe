@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ArticleLength, IntakeData, TonePreference } from "@/types/article";
 import { ModeSelector } from "@/components/ModeSelector";
 import { HeadshotUploader } from "@/components/HeadshotUploader";
@@ -12,12 +12,17 @@ import { IntakeFieldsGrid } from "@/components/intake/IntakeFieldsGrid";
 import {
   BASICS_FIELDS,
   BIO_FIELDS,
-  CREATE_FORM_TABS,
+  CREATE_FORM_SECTIONS,
   MORE_FIELDS,
-  type CreateFormTabId,
+  createSectionProgress,
+  type CreateFormSectionId,
 } from "@/lib/createFormTabs";
 import { TONE_OPTIONS, LENGTH_OPTIONS } from "@/lib/intakeFields";
 import type { ExtraPhotoUpload } from "@/lib/extraPhotoUpload";
+
+function sectionDomId(id: CreateFormSectionId): string {
+  return `create-section-${id}`;
+}
 
 export function CreateArticleForm({
   intake,
@@ -48,295 +53,345 @@ export function CreateArticleForm({
   generateError?: string;
   onClearGenerateError?: () => void;
 }) {
-  const [tab, setTab] = useState<CreateFormTabId>("basics");
   const creativeActive = intake.mode === "creative";
   const canGenerate =
     Boolean(intake.fullName.trim()) && Boolean(intake.articleTitle.trim());
 
-  const tabNav = (position: "top" | "bottom") => (
-    <nav
-      className={`create-form-tabs create-form-tabs--${position}`}
-      aria-label={
-        position === "top" ? "Create article sections" : "Create article sections (bottom)"
-      }
-    >
-      {CREATE_FORM_TABS.map((t) => {
-        const isGenerate = t.id === "generate";
-        return (
-          <button
-            key={`${position}-${t.id}`}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.id}
-            aria-controls={`create-panel-${t.id}`}
-            id={position === "top" ? `create-tab-${t.id}` : undefined}
-            className={[
-              "create-form-tab",
-              tab === t.id && "create-form-tab--active",
-              isGenerate && "create-form-tab--generate",
-              isGenerate && creativeActive && "create-form-tab--generate-creative",
-              isGenerate && !creativeActive && "create-form-tab--generate-realism",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            onClick={() => setTab(t.id)}
-            disabled={busy}
-          >
-            {t.label}
-          </button>
-        );
-      })}
-    </nav>
+  const progress = useMemo(
+    () =>
+      createSectionProgress(intake, {
+        headshot,
+        screenshots,
+        extraPhotos,
+      }),
+    [intake, headshot, screenshots, extraPhotos],
   );
+
+  const [activeSection, setActiveSection] =
+    useState<CreateFormSectionId>("basics");
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<Partial<Record<CreateFormSectionId, HTMLElement>>>(
+    {},
+  );
+
+  const scrollToSection = useCallback((id: CreateFormSectionId) => {
+    const el = sectionRefs.current[id];
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    setActiveSection(id);
+  }, []);
+
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (!visible.length) return;
+        const id = visible[0].target.id.replace("create-section-", "") as CreateFormSectionId;
+        if (CREATE_FORM_SECTIONS.some((s) => s.id === id)) {
+          setActiveSection(id);
+        }
+      },
+      { root, rootMargin: "-20% 0px -55% 0px", threshold: [0, 0.25, 0.5] },
+    );
+
+    for (const s of CREATE_FORM_SECTIONS) {
+      const el = sectionRefs.current[s.id];
+      if (el) observer.observe(el);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  const registerSection = useCallback(
+    (id: CreateFormSectionId) => (el: HTMLElement | null) => {
+      if (el) sectionRefs.current[id] = el;
+    },
+    [],
+  );
+
+  const summaryTitle =
+    intake.articleTitle.trim() || intake.fullName.trim() || "Your article";
+  const summaryMode = intake.mode === "creative" ? "Creative" : "Realism";
 
   return (
     <div
-      className={`create-article-form${creativeActive ? " intake-form--creative" : ""}`}
+      className={`create-flow${creativeActive ? " create-flow--creative" : ""}`}
     >
-      {tabNav("top")}
+      <header className="create-flow-header">
+        <nav
+          className="create-progress"
+          aria-label="Create article progress"
+        >
+          {CREATE_FORM_SECTIONS.map((section, index) => {
+            const done = progress[section.id];
+            const active = activeSection === section.id;
+            return (
+              <button
+                key={section.id}
+                type="button"
+                className={[
+                  "create-progress-step",
+                  done && "create-progress-step--done",
+                  active && "create-progress-step--active",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                aria-current={active ? "step" : undefined}
+                aria-label={`${section.label}${done ? ", completed" : ""}`}
+                disabled={busy}
+                onClick={() => scrollToSection(section.id)}
+              >
+                <span className="create-progress-marker" aria-hidden>
+                  {done ? (
+                    <svg
+                      className="create-progress-check"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                    >
+                      <path
+                        d="M3.5 8.5L6.5 11.5L12.5 4.5"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  ) : (
+                    <span className="create-progress-index">{index + 1}</span>
+                  )}
+                </span>
+                <span className="create-progress-label">{section.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </header>
 
-      <div className="create-form-panels">
-        {tab === "basics" && (
-          <section
-            id="create-panel-basics"
-            role="tabpanel"
-            aria-labelledby="create-tab-basics"
-            className="create-form-panel"
-          >
-            <h1 className="create-form-panel-title">Basics</h1>
-            <p className="create-form-panel-sub">
-              Choose realism or creative mode, then enter the name on your Wikipedia page.
-            </p>
-            <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0 space-y-6">
-              <ModeSelector
-                value={intake.mode}
-                onChange={(m) => onIntakeChange({ ...intake, mode: m })}
-              />
-              <IntakeRequiredNote />
-              <IntakeFieldsGrid
-                fields={BASICS_FIELDS}
-                value={intake}
-                onChange={onIntakeChange}
-              />
-            </fieldset>
-            {tabNav("bottom")}
-          </section>
-        )}
+      <div ref={scrollRef} className="create-flow-scroll">
+        <section
+          id={sectionDomId("basics")}
+          ref={registerSection("basics")}
+          className="create-flow-section"
+        >
+          <h2 className="create-flow-section-title">Basics</h2>
+          <p className="create-flow-section-sub">
+            Choose realism or creative mode, then enter the name on your
+            Wikipedia page.
+          </p>
+          <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0 space-y-6">
+            <ModeSelector
+              value={intake.mode}
+              onChange={(m) => onIntakeChange({ ...intake, mode: m })}
+            />
+            <IntakeRequiredNote />
+            <IntakeFieldsGrid
+              fields={BASICS_FIELDS}
+              value={intake}
+              onChange={onIntakeChange}
+            />
+          </fieldset>
+        </section>
 
-        {tab === "uploads" && (
-          <section
-            id="create-panel-uploads"
-            role="tabpanel"
-            aria-labelledby="create-tab-uploads"
-            className="create-form-panel"
-          >
-            <h1 className="create-form-panel-title">Uploads</h1>
-            <p className="create-form-panel-sub">
-              Headshot for the infobox, optional profile screenshots, and up to two extra
-              article photos.
-            </p>
-            <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0">
-              <HeadshotUploader
-                label="Headshot (for infobox)"
-                image={headshot}
-                subjectName={intake.fullName || intake.articleTitle}
-                onChange={onHeadshotChange}
+        <section
+          id={sectionDomId("uploads")}
+          ref={registerSection("uploads")}
+          className="create-flow-section"
+        >
+          <h2 className="create-flow-section-title">Uploads</h2>
+          <p className="create-flow-section-sub">
+            Headshot for the infobox, optional profile screenshots, and up to
+            two extra article photos.
+          </p>
+          <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0">
+            <HeadshotUploader
+              label="Headshot (for infobox)"
+              image={headshot}
+              subjectName={intake.fullName || intake.articleTitle}
+              onChange={onHeadshotChange}
+              disabled={busy}
+            />
+            <div className="mt-8">
+              <ScreenshotUploader
+                label="Social profile screenshots"
+                multiple
+                images={screenshots}
+                onChange={onScreenshotsChange}
+              />
+            </div>
+            <div className="mt-8">
+              <ExtraPhotosUploader
+                photos={extraPhotos}
+                onChange={onExtraPhotosChange}
                 disabled={busy}
               />
-              <div className="mt-8">
-                <ScreenshotUploader
-                  label="Social profile screenshots"
-                  multiple
-                  images={screenshots}
-                  onChange={onScreenshotsChange}
-                />
-              </div>
-              <div className="mt-8">
-                <ExtraPhotosUploader
-                  photos={extraPhotos}
-                  onChange={onExtraPhotosChange}
-                  disabled={busy}
-                />
-              </div>
-              {screenshots.length > 0 && onExtractScreenshots && (
-                <LoadingButton
-                  className="btn-secondary mt-4"
-                  loading={busy}
-                  loadingLabel="Extracting…"
-                  onClick={() => void onExtractScreenshots()}
-                  disabled={busy}
-                >
-                  Preview extract from screenshots
-                </LoadingButton>
-              )}
-            </fieldset>
-            {tabNav("bottom")}
-          </section>
-        )}
-
-        {tab === "bio" && (
-          <section
-            id="create-panel-bio"
-            role="tabpanel"
-            aria-labelledby="create-tab-bio"
-            className="create-form-panel"
-          >
-            <h1 className="create-form-panel-title">Bio</h1>
-            <p className="create-form-panel-sub">
-              Location, education, work, and life events — all optional but improve the article.
-            </p>
-            <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0">
-              <IntakeFieldsGrid
-                fields={BIO_FIELDS}
-                value={intake}
-                onChange={onIntakeChange}
-              />
-            </fieldset>
-            {tabNav("bottom")}
-          </section>
-        )}
-
-        {tab === "more" && (
-          <section
-            id="create-panel-more"
-            role="tabpanel"
-            aria-labelledby="create-tab-more"
-            className="create-form-panel"
-          >
-            <h1 className="create-form-panel-title">More</h1>
-            <p className="create-form-panel-sub">
-              Achievements, controversies, pasted profile text, and anything else the AI should
-              know.
-            </p>
-            <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0">
-              <IntakeFieldsGrid
-                fields={MORE_FIELDS}
-                value={intake}
-                onChange={onIntakeChange}
-                columns={1}
-              />
-            </fieldset>
-            {tabNav("bottom")}
-          </section>
-        )}
-
-        {tab === "generate" && (
-          <section
-            id="create-panel-generate"
-            role="tabpanel"
-            aria-labelledby="create-tab-generate"
-            className="create-form-panel"
-          >
-            <h1 className="create-form-panel-title">Generate</h1>
-            <p className="create-form-panel-sub">
-              Set tone and length, then create your article. Use the tabs above or below to
-              edit anything first.
-            </p>
-            <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0 space-y-6">
-              <dl className="create-form-summary">
-                <div>
-                  <dt>Mode</dt>
-                  <dd>{intake.mode === "creative" ? "Creative" : "Realism"}</dd>
-                </div>
-                <div>
-                  <dt>Name</dt>
-                  <dd>{intake.fullName.trim() || "—"}</dd>
-                </div>
-                <div>
-                  <dt>Uploads</dt>
-                  <dd>
-                    {headshot ? "Headshot" : "No headshot"}
-                    {screenshots.length > 0
-                      ? ` · ${screenshots.length} screenshot(s)`
-                      : ""}
-                    {extraPhotos.length > 0
-                      ? ` · ${extraPhotos.length} extra photo(s)`
-                      : ""}
-                  </dd>
-                </div>
-              </dl>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <span className="text-sm font-medium text-slate-700">Tone</span>
-                  <select
-                    className="form-input mt-1 w-full"
-                    name="tone"
-                    value={intake.tone}
-                    onChange={(e) =>
-                      onIntakeChange({
-                        ...intake,
-                        tone: e.target.value as TonePreference,
-                      })
-                    }
-                  >
-                    {TONE_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-sm font-medium text-slate-700">Article length</span>
-                  <select
-                    className="form-input mt-1 w-full"
-                    name="article-length"
-                    value={intake.articleLength}
-                    onChange={(e) =>
-                      onIntakeChange({
-                        ...intake,
-                        articleLength: e.target.value as ArticleLength,
-                      })
-                    }
-                  >
-                    {LENGTH_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              {!canGenerate && (
-                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  Add your full name and article title on the Basics tab before generating.
-                </p>
-              )}
-
+            </div>
+            {screenshots.length > 0 && onExtractScreenshots && (
               <LoadingButton
+                className="btn-secondary mt-4"
                 loading={busy}
-                loadingLabel="Generating…"
-                onClick={() => {
-                  onClearGenerateError?.();
-                  onGenerate();
-                }}
-                disabled={busy || !canGenerate}
+                loadingLabel="Extracting…"
+                onClick={() => void onExtractScreenshots()}
+                disabled={busy}
               >
-                Generate article
+                Preview extract from screenshots
               </LoadingButton>
+            )}
+          </fieldset>
+        </section>
 
-              {generateError && !busy && (
-                <div className="generate-error-banner" role="alert">
-                  <p className="generate-error-text whitespace-pre-wrap">{generateError}</p>
-                  <button
-                    type="button"
-                    className="btn-primary mt-3"
-                    onClick={() => {
-                      onClearGenerateError?.();
-                      onGenerate();
-                    }}
-                  >
-                    Retry generation
-                  </button>
-                </div>
-              )}
-            </fieldset>
-            {tabNav("bottom")}
-          </section>
+        <section
+          id={sectionDomId("bio")}
+          ref={registerSection("bio")}
+          className="create-flow-section"
+        >
+          <h2 className="create-flow-section-title">Bio</h2>
+          <p className="create-flow-section-sub">
+            Location, education, work, and life events — all optional but improve
+            the article.
+          </p>
+          <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0">
+            <IntakeFieldsGrid
+              fields={BIO_FIELDS}
+              value={intake}
+              onChange={onIntakeChange}
+            />
+          </fieldset>
+        </section>
+
+        <section
+          id={sectionDomId("more")}
+          ref={registerSection("more")}
+          className="create-flow-section"
+        >
+          <h2 className="create-flow-section-title">More</h2>
+          <p className="create-flow-section-sub">
+            Achievements, controversies, pasted profile text, and anything else
+            the AI should know.
+          </p>
+          <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0">
+            <IntakeFieldsGrid
+              fields={MORE_FIELDS}
+              value={intake}
+              onChange={onIntakeChange}
+              columns={1}
+            />
+          </fieldset>
+        </section>
+
+        <section
+          id={sectionDomId("style")}
+          ref={registerSection("style")}
+          className="create-flow-section create-flow-section--last"
+        >
+          <h2 className="create-flow-section-title">Style</h2>
+          <p className="create-flow-section-sub">
+            Tone and length for both Realism and Creative versions of your
+            article.
+          </p>
+          <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0">
+            <div className="create-style-grid">
+              <label className="block">
+                <span className="create-style-label">Tone</span>
+                <select
+                  className="form-input mt-1 w-full"
+                  name="tone"
+                  value={intake.tone}
+                  onChange={(e) =>
+                    onIntakeChange({
+                      ...intake,
+                      tone: e.target.value as TonePreference,
+                    })
+                  }
+                >
+                  {TONE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="create-style-label">Article length</span>
+                <select
+                  className="form-input mt-1 w-full"
+                  name="article-length"
+                  value={intake.articleLength}
+                  onChange={(e) =>
+                    onIntakeChange({
+                      ...intake,
+                      articleLength: e.target.value as ArticleLength,
+                    })
+                  }
+                >
+                  {LENGTH_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </fieldset>
+        </section>
+
+        {generateError && !busy && (
+          <div className="create-flow-error" role="alert">
+            <p className="generate-error-text whitespace-pre-wrap">
+              {generateError}
+            </p>
+            <button
+              type="button"
+              className="btn-secondary mt-3"
+              onClick={() => {
+                onClearGenerateError?.();
+                onGenerate();
+              }}
+            >
+              Retry generation
+            </button>
+          </div>
         )}
       </div>
+
+      <footer className="create-flow-bar">
+        <div className="create-flow-bar-inner">
+          <div className="create-flow-bar-summary">
+            <p className="create-flow-bar-title">{summaryTitle}</p>
+            <p className="create-flow-bar-meta">
+              {summaryMode}
+              {!canGenerate && (
+                <span className="create-flow-bar-hint">
+                  {" "}
+                  · Add name &amp; title in Basics
+                </span>
+              )}
+            </p>
+          </div>
+          <LoadingButton
+            className={[
+              "create-flow-generate-btn",
+              creativeActive
+                ? "create-flow-generate-btn--creative"
+                : "create-flow-generate-btn--realism",
+            ].join(" ")}
+            loading={busy}
+            loadingLabel="Generating…"
+            onClick={() => {
+              onClearGenerateError?.();
+              onGenerate();
+            }}
+            disabled={busy || !canGenerate}
+          >
+            Generate
+          </LoadingButton>
+        </div>
+      </footer>
     </div>
   );
 }
