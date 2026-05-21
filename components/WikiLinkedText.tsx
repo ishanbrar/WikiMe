@@ -9,18 +9,21 @@ export function WikiLinkedText({
   properNouns,
   subjectName,
   maxLinksPerTerm,
+  linkTitles,
 }: {
   text: string;
   properNouns: string[];
   subjectName: string;
   maxLinksPerTerm?: number;
+  linkTitles?: Record<string, string>;
 }) {
   const parts = useMemo(
     () =>
       getCachedWikiSegments(text, properNouns, subjectName, {
         maxPerTerm: maxLinksPerTerm,
+        linkTitles,
       }),
-    [text, properNouns, subjectName, maxLinksPerTerm],
+    [text, properNouns, subjectName, maxLinksPerTerm, linkTitles],
   );
 
   return (

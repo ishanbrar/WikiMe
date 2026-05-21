@@ -1,19 +1,23 @@
-declare module "vanta/dist/vanta.clouds.min" {
-  import type * as THREE from "three";
+declare module "vanta/dist/vanta.topology.min" {
+  import type p5 from "p5";
 
-  type VantaCloudsInstance = { destroy: () => void };
+  type VantaTopologyInstance = { destroy: () => void };
 
-  type VantaCloudsOptions = {
+  type VantaTopologyOptions = {
     el: HTMLElement | string;
-    THREE: typeof THREE;
+    p5: typeof p5;
     mouseControls?: boolean;
     touchControls?: boolean;
     gyroControls?: boolean;
     minHeight?: number;
     minWidth?: number;
+    scale?: number;
+    scaleMobile?: number;
+    color?: number;
+    backgroundColor?: number;
   };
 
-  function CLOUDS(options: VantaCloudsOptions): VantaCloudsInstance;
+  function TOPOLOGY(options: VantaTopologyOptions): VantaTopologyInstance;
 
-  export default CLOUDS;
+  export default TOPOLOGY;
 }

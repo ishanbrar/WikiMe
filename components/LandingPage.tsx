@@ -4,12 +4,6 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState } from "react";
 import { ModeSelector } from "@/components/ModeSelector";
-
-const VantaCloudsBackground = dynamic(
-  () =>
-    import("@/components/VantaCloudsBackground").then((m) => m.VantaCloudsBackground),
-  { ssr: false },
-);
 import { HomeExampleArticle } from "@/components/HomeExampleArticle";
 import { HomeExampleModeTabs } from "@/components/HomeExampleModeTabs";
 import { LandingHowItWorks } from "@/components/LandingHowItWorks";
@@ -19,12 +13,20 @@ import {
 } from "@/lib/exampleArticle";
 import type { ArticleMode } from "@/types/article";
 
+const VantaTopologyBackground = dynamic(
+  () =>
+    import("@/components/VantaTopologyBackground").then(
+      (m) => m.VantaTopologyBackground,
+    ),
+  { ssr: false },
+);
+
 export function LandingPage() {
   const [exampleMode, setExampleMode] = useState<ArticleMode>("realism");
 
   return (
     <div className="landing min-h-screen">
-      <VantaCloudsBackground />
+      <VantaTopologyBackground />
       <div className="landing-content">
       <section className="landing-hero">
         <h1 className="landing-title">Your life, as a Wikipedia article</h1>

@@ -11,17 +11,30 @@ function cacheKey(
   properNouns: string[],
   subjectName: string,
   maxPerTerm?: number,
+  linkTitles?: Record<string, string>,
 ): string {
-  return `${text}\x00${properNouns.join("\x1e")}\x00${subjectName}\x00${maxPerTerm ?? ""}`;
+  const lt = linkTitles
+    ? Object.entries(linkTitles)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => `${k}=${v}`)
+        .join("\x1f")
+    : "";
+  return `${text}\x00${properNouns.join("\x1e")}\x00${subjectName}\x00${maxPerTerm ?? ""}\x00${lt}`;
 }
 
 export function getCachedWikiSegments(
   text: string,
   properNouns: string[],
   subjectName: string,
-  options?: { maxPerTerm?: number },
+  options?: { maxPerTerm?: number; linkTitles?: Record<string, string> },
 ): WikiTextSegment[] {
-  const key = cacheKey(text, properNouns, subjectName, options?.maxPerTerm);
+  const key = cacheKey(
+    text,
+    properNouns,
+    subjectName,
+    options?.maxPerTerm,
+    options?.linkTitles,
+  );
   const hit = cache.get(key);
   if (hit) return hit;
 

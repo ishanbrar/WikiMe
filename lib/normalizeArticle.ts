@@ -105,6 +105,16 @@ export function normalizeArticleJson(
           .filter((l) => l.label && l.url)
       : [],
     properNouns: strArr(o.properNouns),
+    linkTitles: (() => {
+      if (!o.linkTitles || typeof o.linkTitles !== "object" || Array.isArray(o.linkTitles)) {
+        return undefined;
+      }
+      const map: Record<string, string> = {};
+      for (const [k, v] of Object.entries(o.linkTitles as Record<string, unknown>)) {
+        if (typeof v === "string" && v.trim()) map[k] = v.trim();
+      }
+      return Object.keys(map).length ? map : undefined;
+    })(),
   };
 
   if (headshotUrl) article.infobox.imageUrl = headshotUrl;

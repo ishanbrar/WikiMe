@@ -158,4 +158,5 @@ export const articleJsonSchema = z.object({
     z.object({ label: z.string(), url: z.string() }),
   ),
   properNouns: z.array(z.string()),
+  linkTitles: z.record(z.string(), z.string()).optional(),
 });

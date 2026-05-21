@@ -1,37 +1,6 @@
 import type { ExtractedProfileFacts, IntakeData } from "@/types/article";
-import { resolveControversiesText } from "@/lib/intakeControversies";
+import { formatCompactIntakeLines } from "@/lib/compactGenerationPayload";
 import { generateText, TEXT_MODEL_REALISM } from "@/lib/gemini";
-
-function formatIntakeForEditor(intake: IntakeData, facts: ExtractedProfileFacts): string {
-  const lines: string[] = [
-    `Full name: ${intake.fullName}`,
-    `Article title: ${intake.articleTitle}`,
-  ];
-  if (intake.birthplace) lines.push(`Birthplace: ${intake.birthplace}`);
-  if (intake.birthday) lines.push(`Birthday: ${intake.birthday}`);
-  if (intake.deathDate) lines.push(`Death date: ${intake.deathDate}`);
-  if (intake.currentLocation) lines.push(`Current location: ${intake.currentLocation}`);
-  if (intake.education) lines.push(`Education: ${intake.education}`);
-  if (intake.occupation) lines.push(`Occupation / roles: ${intake.occupation}`);
-  if (intake.achievements) lines.push(`Achievements & skills: ${intake.achievements}`);
-  if (intake.lifeEvents) lines.push(`Life events / family: ${intake.lifeEvents}`);
-  if (intake.extraNotes) lines.push(`Extra notes: ${intake.extraNotes}`);
-  const controversies = resolveControversiesText(intake);
-  if (controversies) lines.push(`Controversies (must appear in article): ${controversies}`);
-  if (intake.pastedProfileText?.trim()) {
-    lines.push(`Pasted profile:\n${intake.pastedProfileText.slice(0, 3000)}`);
-  }
-  if (facts.detectedName || facts.headline || facts.bio) {
-    lines.push(
-      `Extracted from screenshots: name=${facts.detectedName ?? ""}; headline=${facts.headline ?? ""}; bio=${facts.bio ?? ""}`,
-    );
-  }
-  if (facts.work?.length) lines.push(`Work history (extracted): ${facts.work.join("; ")}`);
-  if (facts.education?.length) {
-    lines.push(`Education (extracted): ${facts.education.join("; ")}`);
-  }
-  return lines.join("\n");
-}
 
 /** Pass 1: interpret messy intake into a normalized fact sheet (not article prose). */
 export async function synthesizeRealismBrief(
@@ -53,7 +22,7 @@ Rules:
 - Do NOT copy user sentences verbatim — rewrite each idea as a short neutral note
 - Add a brief "Narrative thread" bullet list (2–4 items) under Identity: suggested chronological arc for the biographer (e.g. upbringing → education → career → athletics)`;
 
-  const user = `Subject: ${intake.fullName}\nArticle length target: ${intake.articleLength}\n\n${formatIntakeForEditor(intake, facts)}`;
+  const user = `Subject: ${intake.fullName}\nLength: ${intake.articleLength}\n\n${formatCompactIntakeLines(intake, facts)}`;
 
   return generateText(system, user, {
     model: TEXT_MODEL_REALISM,

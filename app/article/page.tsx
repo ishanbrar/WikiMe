@@ -23,6 +23,8 @@ function ArticleView() {
     savedId?: string;
     slug?: string;
     shortLink?: boolean;
+    alternateSlug?: string;
+    mode?: import("@/types/article").ArticleMode;
   } | null>(null);
 
   useEffect(() => {
@@ -47,6 +49,8 @@ function ArticleView() {
                 savedId: data.article.id,
                 slug: data.article.slug,
                 shortLink: data.article.shortLink ?? false,
+                alternateSlug: data.article.alternateSlug,
+                mode: data.article.mode,
               });
             }
             return;
@@ -129,6 +133,8 @@ function ArticleView() {
       savedId={payload.savedId}
       slug={payload.slug}
       shortLink={payload.shortLink}
+      alternateSlug={payload.alternateSlug}
+      articleMode={payload.mode}
     />
   );
 }

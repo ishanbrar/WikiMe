@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ExportControls } from "@/components/ExportControls";
+import { LoadingButton } from "@/components/LoadingButton";
 import type { ArticleJson, IntakeData, SavedArticle } from "@/types/article";
 
 export function ArticleToolbar({
@@ -19,6 +20,9 @@ export function ArticleToolbar({
   article,
   saved,
   onSaveToServer,
+  onSaveArticle,
+  canSaveToServer,
+  saveMessage,
 }: {
   editing: boolean;
   onToggleEdit: () => void;
@@ -34,6 +38,9 @@ export function ArticleToolbar({
   article: ArticleJson;
   saved: SavedArticle;
   onSaveToServer: () => Promise<string | null>;
+  onSaveArticle: () => Promise<void>;
+  canSaveToServer: boolean;
+  saveMessage?: string;
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const optionsRef = useRef<HTMLDivElement>(null);
@@ -140,6 +147,21 @@ export function ArticleToolbar({
           )}
         </div>
 
+        <LoadingButton
+          className="btn-primary text-sm"
+          loading={busy}
+          loadingLabel="Saving…"
+          disabled={busy || !canSaveToServer}
+          onClick={() => void onSaveArticle()}
+          title={
+            canSaveToServer
+              ? "Save article text, headshot, and links"
+              : "Create a share link first (Share menu)"
+          }
+        >
+          Save
+        </LoadingButton>
+
         <ExportControls
           article={article}
           saved={saved}
@@ -149,6 +171,11 @@ export function ArticleToolbar({
           inline
         />
       </div>
+      {saveMessage && (
+        <p className="article-toolbar-save-msg px-4 pb-2 text-xs text-slate-600" role="status">
+          {saveMessage}
+        </p>
+      )}
     </div>
   );
 }

@@ -122,6 +122,8 @@ export interface ArticleJson {
   references: ArticleReference[];
   externalLinks: { label: string; url: string }[];
   properNouns: string[];
+  /** Optional Wikipedia article title per linked phrase (key = phrase as stored in properNouns). */
+  linkTitles?: Record<string, string>;
 }
 
 export interface SavedArticle {
@@ -139,6 +141,8 @@ export interface SavedArticle {
   isPublic?: boolean;
   /** When true, public URL is /{slug} (set by admin custom link). */
   shortLink?: boolean;
+  /** Slug of the paired Realism ↔ Creative article, when both were generated. */
+  alternateSlug?: string;
   createdAt: string;
   updatedAt: string;
 }

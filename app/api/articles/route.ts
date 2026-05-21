@@ -23,6 +23,7 @@ const postSchema = z.object({
   headshotDataUrl: z.string().optional(),
   slug: z.string().optional(),
   id: z.string().optional(),
+  alternateSlug: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -78,6 +79,7 @@ export async function POST(req: Request) {
         : (existing?.creatorEmail ?? user?.email ?? undefined),
       isPublic: true,
       shortLink: existing?.shortLink ?? false,
+      alternateSlug: parsed.data.alternateSlug ?? existing?.alternateSlug,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     });

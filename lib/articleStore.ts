@@ -30,6 +30,7 @@ type ArticleRow = {
   creator_email: string | null;
   is_public: boolean;
   short_link: boolean;
+  alternate_slug: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -47,6 +48,7 @@ function rowToSaved(row: ArticleRow): SavedArticle {
     creatorEmail: row.creator_email ?? undefined,
     isPublic: row.is_public,
     shortLink: row.short_link ?? false,
+    alternateSlug: row.alternate_slug ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -65,6 +67,7 @@ function savedToRow(article: SavedArticle): ArticleRow {
     creator_email: article.creatorEmail ?? null,
     is_public: article.isPublic ?? true,
     short_link: article.shortLink ?? false,
+    alternate_slug: article.alternateSlug ?? null,
     created_at: article.createdAt,
     updated_at: article.updatedAt,
   };

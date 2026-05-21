@@ -99,14 +99,28 @@ interface MatchSpan {
   title: string;
 }
 
-/**
- * Split text into plain text and Wikipedia links (non-overlapping, longest match first).
- */
-export function segmentWikiLinks(
+const WIKI_MARKUP_RE = /\[\[([^[\]]+?)(?:\|([^[\]]+?))?\]\]/g;
+
+function titleForTerm(
+  display: string,
+  linkTitles?: Record<string, string>,
+): string {
+  const key = display.trim();
+  const override =
+    linkTitles?.[key] ??
+    linkTitles?.[key.toLowerCase()] ??
+    Object.entries(linkTitles ?? {}).find(
+      ([k]) => k.toLowerCase() === key.toLowerCase(),
+    )?.[1];
+  return override?.trim() ? resolveWikiTitle(override) : resolveWikiTitle(key);
+}
+
+function segmentAutoWikiLinks(
   text: string,
   properNouns: string[],
   subjectName: string,
   options?: { maxPerTerm?: number },
+  linkTitles?: Record<string, string>,
 ): WikiTextSegment[] {
   const clean = stripWikiMarkers(text);
   if (!clean) return [{ type: "text", value: "" }];
@@ -136,7 +150,7 @@ export function segmentWikiLinks(
         start,
         end,
         display,
-        title: resolveWikiTitle(display),
+        title: titleForTerm(display, linkTitles),
       });
     }
   }
@@ -158,6 +172,130 @@ export function segmentWikiLinks(
     parts.push({ type: "text", value: clean.slice(cursor) });
   }
   return parts;
+}
+
+function mergeSegmentParts(parts: WikiTextSegment[]): WikiTextSegment[] {
+  const merged: WikiTextSegment[] = [];
+  for (const p of parts) {
+    const prev = merged[merged.length - 1];
+    if (prev?.type === "text" && p.type === "text") {
+      prev.value += p.value;
+    } else {
+      merged.push({ ...p });
+    }
+  }
+  return merged;
+}
+
+/**
+ * Split text into plain text and Wikipedia links ([[markup]] first, then auto-link terms).
+ */
+export function segmentWikiLinks(
+  text: string,
+  properNouns: string[],
+  subjectName: string,
+  options?: { maxPerTerm?: number; linkTitles?: Record<string, string> },
+): WikiTextSegment[] {
+  if (!text) return [{ type: "text", value: "" }];
+  if (WIKI_MARKUP_RE.test(text)) {
+    WIKI_MARKUP_RE.lastIndex = 0;
+    const parts: WikiTextSegment[] = [];
+    let last = 0;
+    let m: RegExpExecArray | null;
+    const re = new RegExp(WIKI_MARKUP_RE.source, "g");
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) {
+        parts.push(
+          ...segmentAutoWikiLinks(
+            text.slice(last, m.index),
+            properNouns,
+            subjectName,
+            options,
+            options?.linkTitles,
+          ),
+        );
+      }
+      const titleRaw = m[1].trim();
+      const display = (m[2] ?? m[1]).trim();
+      parts.push({
+        type: "link",
+        value: display,
+        title: resolveWikiTitle(titleRaw),
+      });
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) {
+      parts.push(
+        ...segmentAutoWikiLinks(
+          text.slice(last),
+          properNouns,
+          subjectName,
+          options,
+          options?.linkTitles,
+        ),
+      );
+    }
+    return mergeSegmentParts(parts);
+  }
+
+  return segmentAutoWikiLinks(
+    text,
+    properNouns,
+    subjectName,
+    options,
+    options?.linkTitles,
+  );
+}
+
+/** Collect [[title|label]] links from all article text fields. */
+export function collectInlineWikiLinks(article: {
+  summaryLead: string[];
+  sections: { paragraphs: string[]; subsections?: { paragraphs: string[] }[] }[];
+  seeAlso: string[];
+}): { title: string; label: string }[] {
+  const found: { title: string; label: string }[] = [];
+  const seen = new Set<string>();
+  const scan = (t: string) => {
+    const re = new RegExp(WIKI_MARKUP_RE.source, "g");
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(t)) !== null) {
+      const title = m[1].trim();
+      const label = (m[2] ?? m[1]).trim();
+      const key = `${title}\0${label}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        found.push({ title, label });
+      }
+    }
+  };
+  for (const p of article.summaryLead) scan(p);
+  for (const s of article.sections) {
+    for (const p of s.paragraphs) scan(p);
+    for (const sub of s.subsections ?? []) {
+      for (const p of sub.paragraphs) scan(p);
+    }
+  }
+  for (const item of article.seeAlso) scan(item);
+  return found;
+}
+
+/** Remove one [[title|label]] occurrence from text (first match). */
+export function removeWikiMarkupFromText(
+  text: string,
+  title: string,
+  label?: string,
+): string {
+  const esc = escapeRegex(title.trim());
+  const display = label?.trim() ?? title.trim();
+  const withLabel = new RegExp(
+    `\\[\\[${esc}\\|${escapeRegex(display)}\\]\\]`,
+    "i",
+  );
+  if (withLabel.test(text)) {
+    return text.replace(withLabel, display);
+  }
+  const simple = new RegExp(`\\[\\[${esc}\\]\\]`, "i");
+  return text.replace(simple, display);
 }
 
 /** @deprecated Use segmentWikiLinks */

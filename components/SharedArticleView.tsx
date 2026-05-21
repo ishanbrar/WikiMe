@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { AppearanceSettings, SavedArticle } from "@/types/article";
-import { ExampleModeSwitchBanner } from "@/components/ExampleModeSwitchBanner";
+import { ArticleModeSwitchBanner } from "@/components/ExampleModeSwitchBanner";
 import { WikiArticlePage } from "@/components/WikiArticlePage";
 import {
   getAlternateMayaChenExampleSlug,
@@ -58,10 +58,12 @@ export function SharedArticleView({
         )}
       </div>
 
-      {alternateExampleSlug && (
-        <ExampleModeSwitchBanner
+      {(alternateExampleSlug || saved.alternateSlug) && (
+        <ArticleModeSwitchBanner
           currentMode={saved.mode}
-          alternateSlug={alternateExampleSlug}
+          alternateSlug={alternateExampleSlug ?? saved.alternateSlug!}
+          subjectName={saved.intake.fullName || saved.articleJson.title}
+          isExample={Boolean(alternateExampleSlug)}
         />
       )}
 

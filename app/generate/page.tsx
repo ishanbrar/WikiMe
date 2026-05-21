@@ -14,7 +14,12 @@ import {
 } from "@/lib/articleImages";
 import { enrichFactsWithIntake } from "@/lib/enrichFactsWithIntake";
 import { prepareArticleForDb } from "@/lib/prepareArticleForDb";
-import type { ExtractedProfileFacts, IntakeData } from "@/types/article";
+import type {
+  ArticleJson,
+  ArticleMode,
+  ExtractedProfileFacts,
+  IntakeData,
+} from "@/types/article";
 import {
   cacheExtractedFacts,
   getCachedExtractedFacts,
@@ -313,14 +318,14 @@ function GenerateFlow() {
         );
       }
 
-      const postGenerate = (images: typeof prepared) =>
+      const postGenerate = (images: typeof prepared, mode: ArticleMode) =>
         fetchWithTimeout(
           "/api/generate-article",
           {
             method: "POST",
             headers: adminTestHeaders(isAdmin),
             body: JSON.stringify({
-              intake: intakeFinal,
+              intake: { ...intakeFinal, mode },
               facts: extracted,
               headshotDataUrl: images.headshot,
               extraPhotos: images.extraPhotos.map((p) => ({
@@ -368,90 +373,126 @@ function GenerateFlow() {
         return data;
       };
 
-      const callGenerateApi = async (images: typeof prepared) => {
-        const res = await postGenerate(images);
-        if (res.status === 413) return { ok: false as const, res };
+      const callGenerateApi = async (images: typeof prepared, mode: ArticleMode) => {
+        const res = await postGenerate(images, mode);
+        if (res.status === 413) return { ok: false as const, res, mode };
         const data = await parseGenerateResponse(res);
-        return { ok: true as const, data, res };
+        return { ok: true as const, data, res, mode };
+      };
+
+      const generateBothModes = async (images: typeof prepared) => {
+        setGenDetail("Writing Realism and Creative articles (AI)…");
+        let outcomes = await Promise.all([
+          callGenerateApi(images, "realism"),
+          callGenerateApi(images, "creative"),
+        ]);
+        if (outcomes.some((o) => !o.ok)) {
+          setGenDetail("Images still large — compressing further…");
+          images = await runStep(
+            "prepare-images",
+            "Images still large — compressing further…",
+            () =>
+              prepareUploadImages(
+                {
+                  headshot: images.headshot,
+                  screenshots: images.screenshots,
+                  extraPhotos: images.extraPhotos,
+                },
+                true,
+              ),
+          );
+          if (images.headshot) setHeadshot([images.headshot]);
+          setScreenshots(images.screenshots);
+          setExtraPhotos(images.extraPhotos);
+          setGenDetail("Retrying Realism and Creative generation…");
+          outcomes = await Promise.all([
+            callGenerateApi(images, "realism"),
+            callGenerateApi(images, "creative"),
+          ]);
+          if (outcomes.some((o) => !o.ok)) {
+            throw new Error(
+              "Upload too large even after compression. Try fewer or smaller images.",
+            );
+          }
+        }
+        return { images, outcomes };
       };
 
       setGenRun((r) =>
         r
-          ? startGenerationStep(r, "generate", "Writing your Wikipedia article (AI)…")
+          ? startGenerationStep(
+              r,
+              "generate",
+              "Writing Realism and Creative articles (AI)…",
+            )
           : r,
       );
 
-      let genOutcome = await callGenerateApi(prepared);
-      if (!genOutcome.ok) {
-        setGenDetail("Images still large — compressing further…");
-        prepared = await runStep(
-          "prepare-images",
-          "Images still large — compressing further…",
-          () =>
-            prepareUploadImages(
-              {
-                headshot: prepared.headshot,
-                screenshots: prepared.screenshots,
-                extraPhotos: prepared.extraPhotos,
-              },
-              true,
-            ),
-        );
-        if (prepared.headshot) setHeadshot([prepared.headshot]);
-        setScreenshots(prepared.screenshots);
-        setExtraPhotos(prepared.extraPhotos);
-        setGenRun((r) =>
-          r
-            ? startGenerationStep(
-                r,
-                "generate",
-                "Retrying article generation after compression…",
-              )
-            : r,
-        );
-        genOutcome = await callGenerateApi(prepared);
-        if (!genOutcome.ok) {
-          throw new Error(
-            "Upload too large even after compression. Try fewer or smaller images.",
-          );
-        }
-      }
+      const { images: imagesFinal, outcomes } = await generateBothModes(prepared);
+      prepared = imagesFinal;
 
       setGenRun((r) =>
-        r ? completeGenerationStep(r, "generate", "Article JSON received") : r,
+        r ? completeGenerationStep(r, "generate", "Both article versions received") : r,
       );
 
-      const data = genOutcome.data;
-      let article = data.article!;
-      article = ensureArticleImages(
-        article,
-        prepared.headshot,
-        prepared.extraPhotos,
-        intakeFinal.fullName || intakeFinal.articleTitle,
-      );
+      const subjectLabel = intakeFinal.fullName || intakeFinal.articleTitle;
+      const finishArticle = (raw: ArticleJson, mode: ArticleMode) => {
+        let article = ensureArticleImages(
+          raw,
+          prepared.headshot,
+          prepared.extraPhotos,
+          subjectLabel,
+        );
+        const intakeForMode: IntakeData = { ...intakeFinal, mode };
+        return { article, intakeForMode };
+      };
+
+      const realismOutcome = outcomes.find((o) => o.ok && o.mode === "realism");
+      const creativeOutcome = outcomes.find((o) => o.ok && o.mode === "creative");
+      if (!realismOutcome?.ok || !creativeOutcome?.ok) {
+        throw new Error("One or both article generations failed.");
+      }
+
+      const realismPack = finishArticle(realismOutcome.data.article!, "realism");
+      const creativePack = finishArticle(creativeOutcome.data.article!, "creative");
+
+      const realismSlug = nanoid(10);
+      const creativeSlug = nanoid(10);
+      const realismId = nanoid();
+      const creativeId = nanoid();
+      const primaryMode = intakeFinal.mode;
+      const primarySlug =
+        primaryMode === "creative" ? creativeSlug : realismSlug;
+      const primaryPack =
+        primaryMode === "creative" ? creativePack : realismPack;
 
       const imageReport = formatArticleImageMetrics(
-        articleImageMetrics(article, prepared.headshot),
+        articleImageMetrics(primaryPack.article, prepared.headshot),
       );
       if (isAdmin) {
         setGenRun((r) =>
           r
-            ? appendGenerationLog(r, "info", `Post-process images: ${imageReport}`, "generate")
+            ? appendGenerationLog(
+                r,
+                "info",
+                `Post-process images: ${imageReport}; slugs=${realismSlug}, ${creativeSlug}`,
+                "generate",
+              )
             : r,
         );
       }
 
-      const articleId = nanoid();
-      const articleSlug = nanoid(10);
       const sessionPayload = {
-        article,
-        intake: intakeFinal,
+        article: primaryPack.article,
+        intake: primaryPack.intakeForMode,
         headshotDataUrl: prepared.headshot ?? "",
         extraPhotoUrls: prepared.extraPhotos.map((p) => p.dataUrl),
         facts: extracted,
-        mock: data.mock,
-        savedId: articleId,
-        slug: articleSlug,
+        mock: realismOutcome.data.mock,
+        savedId: primaryMode === "creative" ? creativeId : realismId,
+        slug: primarySlug,
+        alternateSlug: primaryMode === "creative" ? realismSlug : creativeSlug,
+        mode: primaryMode,
       };
 
       try {
@@ -466,37 +507,50 @@ function GenerateFlow() {
         );
       }
 
-      const toSave = await prepareArticleForDb({
-        id: articleId,
-        slug: articleSlug,
-        articleJson: article,
-        mode: intakeFinal.mode,
-        intake: intakeFinal,
+      const now = new Date().toISOString();
+      const realismSave = await prepareArticleForDb({
+        id: realismId,
+        slug: realismSlug,
+        articleJson: realismPack.article,
+        mode: "realism",
+        intake: realismPack.intakeForMode,
         headshotDataUrl: prepared.headshot,
         extraPhotoUrls: prepared.extraPhotos.map((p) => p.dataUrl),
         extractedFacts: extracted,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        alternateSlug: creativeSlug,
+        createdAt: now,
+        updatedAt: now,
       });
 
-      if (isAdmin) {
-        setGenRun((r) =>
-          r
-            ? appendGenerationLog(
-                r,
-                "info",
-                `Save payload: headshot=${toSave.headshotDataUrl ? `${Math.round((toSave.headshotDataUrl.length ?? 0) / 1024)}KB` : "none"}, figures=${formatArticleImageMetrics(articleImageMetrics(toSave.articleJson, toSave.headshotDataUrl))}`,
-                "save",
-              )
-            : r,
-        );
-      }
-
-      const saved = await runStep("save", "Saving article to server…", async () => {
-        const result = await saveArticleToServer(toSave, { isAdmin });
-        if (!result.ok) throw new Error(result.error);
-        return result;
+      const creativeSave = await prepareArticleForDb({
+        id: creativeId,
+        slug: creativeSlug,
+        articleJson: creativePack.article,
+        mode: "creative",
+        intake: creativePack.intakeForMode,
+        headshotDataUrl: prepared.headshot,
+        extraPhotoUrls: prepared.extraPhotos.map((p) => p.dataUrl),
+        extractedFacts: extracted,
+        alternateSlug: realismSlug,
+        createdAt: now,
+        updatedAt: now,
       });
+
+      const saved = await runStep(
+        "save",
+        "Saving Realism and Creative articles…",
+        async () => {
+          const realismResult = await saveArticleToServer(realismSave, {
+            isAdmin,
+          });
+          if (!realismResult.ok) throw new Error(realismResult.error);
+          const creativeResult = await saveArticleToServer(creativeSave, {
+            isAdmin,
+          });
+          if (!creativeResult.ok) throw new Error(creativeResult.error);
+          return primaryMode === "creative" ? creativeResult : realismResult;
+        },
+      );
 
       if (signal.aborted) return;
 

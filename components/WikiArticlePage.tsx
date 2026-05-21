@@ -119,6 +119,7 @@ export function WikiArticlePage({
               text={boldSplit.after}
               properNouns={linkTerms}
               subjectName={subjectName}
+              linkTitles={article.linkTitles}
             />
           </>
         ) : (
@@ -126,6 +127,7 @@ export function WikiArticlePage({
             text={p}
             properNouns={linkTerms}
             subjectName={subjectName}
+            linkTitles={article.linkTitles}
           />
         )}
       </p>
@@ -236,8 +238,9 @@ export function WikiArticlePage({
                       <WikiLinkedText
                         text={quote.text}
                         properNouns={linkTerms}
-                        subjectName={subjectName}
-                      />
+              subjectName={subjectName}
+              linkTitles={article.linkTitles}
+            />
                     </p>
                     <footer>— {quote.attribution}</footer>
                   </blockquote>
@@ -259,8 +262,9 @@ export function WikiArticlePage({
                       <WikiLinkedText
                         text={para}
                         properNouns={linkTerms}
-                        subjectName={subjectName}
-                      />
+              subjectName={subjectName}
+              linkTitles={article.linkTitles}
+            />
                     )}
                   </p>
                   {pi === 0 &&
@@ -274,8 +278,9 @@ export function WikiArticlePage({
                           <WikiLinkedText
                             text={quote.text}
                             properNouns={linkTerms}
-                            subjectName={subjectName}
-                          />
+              subjectName={subjectName}
+              linkTitles={article.linkTitles}
+            />
                         </p>
                         <footer>— {quote.attribution}</footer>
                       </blockquote>
@@ -309,8 +314,9 @@ export function WikiArticlePage({
                       <WikiLinkedText
                         text={para}
                         properNouns={linkTerms}
-                        subjectName={subjectName}
-                      />
+              subjectName={subjectName}
+              linkTitles={article.linkTitles}
+            />
                     </p>
                   ))}
                 </div>
@@ -327,8 +333,9 @@ export function WikiArticlePage({
                     <WikiLinkedText
                       text={item}
                       properNouns={linkTerms}
-                      subjectName={subjectName}
-                    />
+              subjectName={subjectName}
+              linkTitles={article.linkTitles}
+            />
                   </li>
                 ))}
               </ul>

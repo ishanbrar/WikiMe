@@ -24,6 +24,7 @@ export async function saveArticleToServer(
           mode: article.mode,
           intake: article.intake,
           headshotDataUrl: article.headshotDataUrl,
+          alternateSlug: article.alternateSlug,
         }),
       },
       45_000,

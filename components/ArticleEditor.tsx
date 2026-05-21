@@ -32,6 +32,9 @@ import { prepareArticleForDb } from "@/lib/prepareArticleForDb";
 import { prepareUploadImages } from "@/lib/prepareUploadImages";
 import type { ExtraPhotoUpload } from "@/lib/extraPhotoUpload";
 import { emptyExtractedFacts } from "@/lib/extractProfileFacts";
+import { ArticleModeSwitchBanner } from "@/components/ExampleModeSwitchBanner";
+import { ArticleWikiLinksEditor } from "@/components/ArticleWikiLinksEditor";
+import type { ArticleMode } from "@/types/article";
 
 export function ArticleEditor({
   initialArticle,
@@ -42,6 +45,8 @@ export function ArticleEditor({
   savedId,
   slug,
   shortLink: initialShortLink = false,
+  alternateSlug,
+  articleMode,
 }: {
   initialArticle: ArticleJson;
   intake: IntakeData;
@@ -51,6 +56,8 @@ export function ArticleEditor({
   savedId?: string;
   slug?: string;
   shortLink?: boolean;
+  alternateSlug?: string;
+  articleMode?: ArticleMode;
 }) {
   const [article, setArticle] = useState(() =>
     applyHeadshotToArticle(initialArticle, headshotDataUrl),
@@ -74,6 +81,8 @@ export function ArticleEditor({
   const [shareUrl, setShareUrl] = useState(() =>
     slug ? buildShareUrl(slug, initialShortLink) : "",
   );
+  const [saveMessage, setSaveMessage] = useState("");
+  const canSaveToServer = Boolean(shareSlug || slug);
 
   const supplementalFromUrls = (): ExtraPhotoUpload[] =>
     (extraPhotoUrls ?? []).map((dataUrl) => ({ dataUrl, description: "" }));
@@ -92,6 +101,7 @@ export function ArticleEditor({
     headshotDataUrl: headshot || undefined,
     extractedFacts,
     shortLink: shareShortLink,
+    alternateSlug,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -108,21 +118,56 @@ export function ArticleEditor({
   };
 
   const saveToServer = async (): Promise<string | null> => {
+    setSaveMessage("");
     const local = persistLocal();
     const withHeadshot = await prepareArticleForDb({
       ...local,
       articleJson: applyHeadshotToArticle(article, headshot),
       headshotDataUrl: headshot || undefined,
+      alternateSlug,
     });
     const result = await saveArticleToServer(withHeadshot);
     if (result.ok) {
       setShareSlug(result.slug);
       setShareShortLink(result.shortLink);
       setShareUrl(result.url);
+      setSaveMessage("Saved to your share link.");
       return result.slug;
     }
-    console.error(result.error);
+    const msg = result.error || "Save failed";
+    setSaveMessage(msg);
+    console.error(msg);
     return null;
+  };
+
+  const saveHeadshot = async () => {
+    if (!canSaveToServer) {
+      setSaveMessage("Use Share → Copy share link once to create a saved article first.");
+      return;
+    }
+    setBusy(true);
+    setLoadingMessage("Saving headshot…");
+    try {
+      await saveToServer();
+    } finally {
+      setBusy(false);
+      setLoadingMessage("");
+    }
+  };
+
+  const saveArticle = async () => {
+    if (!canSaveToServer) {
+      setSaveMessage("Use Share → Copy share link once to create a saved article first.");
+      return;
+    }
+    setBusy(true);
+    setLoadingMessage("Saving article…");
+    try {
+      await saveToServer();
+    } finally {
+      setBusy(false);
+      setLoadingMessage("");
+    }
   };
 
   const regenerateAll = async () => {
@@ -239,8 +284,18 @@ export function ArticleEditor({
     }
   };
 
+  const displayMode = articleMode ?? intakeState.mode;
+
   return (
     <div className="relative">
+      {alternateSlug && (
+        <ArticleModeSwitchBanner
+          currentMode={displayMode}
+          alternateSlug={alternateSlug}
+          subjectName={intakeState.fullName || intakeState.articleTitle}
+        />
+      )}
+
       {busy && (
         <LoadingOverlay
           message={loadingMessage}
@@ -263,6 +318,9 @@ export function ArticleEditor({
         article={article}
         saved={saved}
         onSaveToServer={saveToServer}
+        onSaveArticle={saveArticle}
+        canSaveToServer={canSaveToServer}
+        saveMessage={saveMessage}
       />
 
       {(showHeadshot || editing) && (
@@ -276,10 +334,44 @@ export function ArticleEditor({
             onChange={onHeadshotChange}
             disabled={busy}
           />
-          <p className="text-xs text-slate-500 mt-3">
-            Changes appear in the infobox immediately. Use Share / save to keep them on your link.
-          </p>
+          <div className="flex flex-wrap items-center gap-3 mt-4">
+            <LoadingButton
+              className="btn-primary"
+              loading={busy}
+              loadingLabel="Saving…"
+              disabled={busy || !canSaveToServer}
+              onClick={() => void saveHeadshot()}
+            >
+              Save headshot
+            </LoadingButton>
+            {!canSaveToServer && (
+              <span className="text-xs text-amber-700">
+                Share once to create a link, then you can save headshot changes.
+              </span>
+            )}
+          </div>
         </div>
+      )}
+
+      {editing && (
+        <div
+          className={`no-print max-w-3xl mx-auto p-6 bg-white border-b ${busy ? "ui-busy" : ""}`}
+        >
+          <ArticleWikiLinksEditor
+            article={article}
+            onArticleChange={setArticle}
+            disabled={busy}
+          />
+        </div>
+      )}
+
+      {saveMessage && (
+        <p
+          className={`no-print max-w-3xl mx-auto px-4 py-2 text-sm ${saveMessage.includes("failed") || saveMessage.includes("Share") ? "text-amber-800 bg-amber-50" : "text-green-800 bg-green-50"}`}
+          role="status"
+        >
+          {saveMessage}
+        </p>
       )}
 
       {showIntake && (

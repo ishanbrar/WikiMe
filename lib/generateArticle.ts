@@ -36,6 +36,7 @@ import {
   REALISM_PROSE_RULES,
   REALISM_REGURGITATION_RETRY_NOTE,
 } from "@/lib/realismProse";
+import { buildCompactGenerationPayload } from "@/lib/compactGenerationPayload";
 
 const REALISM_SECTIONS_REQUIRED_NOTE = `Your previous JSON was missing a valid "sections" array or section bodies were empty. Return complete JSON with sections: [{id, title, paragraphs: string[]}, ...] using ids early-life, education, career, personal-life as needed. Each section needs at least 2 original encyclopedic sentences — not templates.`;
 
@@ -55,28 +56,7 @@ function buildPrompt(
   facts: ExtractedProfileFacts,
   headshotUrl: string,
 ): string {
-  const compact = {
-    intake: {
-      fullName: intake.fullName,
-      articleTitle: intake.articleTitle,
-      birthplace: intake.birthplace,
-      birthday: intake.birthday,
-      deathDate: intake.deathDate,
-      currentLocation: intake.currentLocation,
-      education: intake.education,
-      occupation: intake.occupation,
-      achievements: intake.achievements,
-      lifeEvents: intake.lifeEvents,
-      controversies: resolveControversiesText(intake),
-      tone: intake.tone,
-      extraNotes: intake.extraNotes,
-      pastedProfileText: intake.pastedProfileText?.slice(0, 3000),
-    },
-    extractedFacts: facts,
-    headshotUrl: headshotUrl || "",
-    articleLength: intake.articleLength,
-  };
-  return JSON.stringify(compact);
+  return buildCompactGenerationPayload(intake, facts, headshotUrl);
 }
 
 const NO_QUESTIONS_RULE = `PROSE STYLE (required): Write declarative encyclopedic sentences only. Never use rhetorical questions, direct questions to the reader, or sentences ending with "?". Do not write "The question is…", "It remains unclear whether…", or "Is X or Y?" lists. State facts and attributed debates in statements (e.g. "Commentators disagree on whether…" not "Did he…?"). Subsection titles must not contain "?".`;
@@ -380,7 +360,7 @@ export async function regenerateSection(
       ? `${modeRules} ${CREATIVE_QUOTES_RULE} Seed: ${brief!.seed}.`
       : modeRules
   } ${WIKI_SECTION_STRUCTURE_RULES}`;
-  const user = `Section id: ${sectionId}. Keep the generic Wikipedia section title for this id (do not use a narrative title). Existing: ${existing?.title ?? sectionId}. Article context: ${JSON.stringify({ title: currentArticle.title, intake: intake.fullName, facts, brief })}. Headshot: ${headshotUrl}`;
+  const user = `Section id: ${sectionId}. Keep the generic Wikipedia section title for this id (do not use a narrative title). Existing: ${existing?.title ?? sectionId}. Subject: ${intake.fullName}. Payload: ${buildCompactGenerationPayload(intake, facts, headshotUrl)}${brief ? `. Brief seed: ${brief.seed}` : ""}`;
 
   const maxTokens = isCreative ? 2800 : 1800;
   const raw = await generateText(system, user, {
