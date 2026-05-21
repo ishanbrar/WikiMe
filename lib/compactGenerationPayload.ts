@@ -4,9 +4,25 @@ import { resolveControversiesText } from "@/lib/intakeControversies";
 const join = (items: string[], sep = " | ") =>
   items.map((s) => s.trim()).filter(Boolean).join(sep);
 
+/** Per-field cap for compact JSON (full text still available in structured brief pass). */
+const COMPACT_FIELD_MAX = 8000;
+
+function compactFieldValue(text: string): string | string[] {
+  const t = text.trim();
+  if (!t) return "";
+  if (t.length <= COMPACT_FIELD_MAX) return t;
+  const parts: string[] = [];
+  for (let i = 0; i < t.length; i += COMPACT_FIELD_MAX) {
+    parts.push(t.slice(i, i + COMPACT_FIELD_MAX));
+  }
+  return parts;
+}
+
 /** Compact intake for model prompts (fewer JSON tokens). */
-export function compactIntakeForPrompt(intake: IntakeData): Record<string, string> {
-  const out: Record<string, string> = {
+export function compactIntakeForPrompt(
+  intake: IntakeData,
+): Record<string, string | string[]> {
+  const out: Record<string, string | string[]> = {
     name: intake.fullName,
     title: intake.articleTitle,
     tone: intake.tone,
@@ -18,13 +34,33 @@ export function compactIntakeForPrompt(intake: IntakeData): Record<string, strin
   if (intake.currentLocation) out.loc = intake.currentLocation;
   if (intake.education) out.edu = intake.education;
   if (intake.occupation) out.job = intake.occupation;
-  if (intake.achievements) out.ach = intake.achievements;
-  if (intake.lifeEvents) out.life = intake.lifeEvents;
+  if (intake.achievements) {
+    const ach = compactFieldValue(intake.achievements);
+    if (typeof ach === "string") out.ach = ach;
+    else out.ach_parts = ach;
+  }
+  if (intake.lifeEvents) {
+    const life = compactFieldValue(intake.lifeEvents);
+    if (typeof life === "string") out.life = life;
+    else out.life_parts = life;
+  }
   const controversies = resolveControversiesText(intake);
-  if (controversies) out.controv = controversies;
-  if (intake.extraNotes) out.notes = intake.extraNotes;
+  if (controversies) {
+    const c = compactFieldValue(controversies);
+    if (typeof c === "string") out.controv = c;
+    else out.controv_parts = c;
+  }
+  if (intake.extraNotes) {
+    const notes = compactFieldValue(intake.extraNotes);
+    if (typeof notes === "string") out.notes = notes;
+    else out.notes_parts = notes;
+  }
   const pasted = intake.pastedProfileText?.trim();
-  if (pasted) out.paste = pasted.slice(0, 3000);
+  if (pasted) {
+    const p = compactFieldValue(pasted);
+    if (typeof p === "string") out.paste = p;
+    else out.paste_parts = p;
+  }
   return out;
 }
 
@@ -70,7 +106,11 @@ export function formatCompactIntakeLines(
   const lines: string[] = [];
   const i = compactIntakeForPrompt(intake);
   for (const [k, v] of Object.entries(i)) {
-    lines.push(`${k}: ${v}`);
+    if (Array.isArray(v)) {
+      v.forEach((part, idx) => lines.push(`${k}[${idx + 1}]: ${part}`));
+    } else {
+      lines.push(`${k}: ${v}`);
+    }
   }
   const f = compactFactsForPrompt(facts);
   if (f.work) lines.push(`work: ${join(f.work as string[])}`);

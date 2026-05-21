@@ -63,6 +63,11 @@ export function GenerationProgress({
   const showSlowHint = !failed && elapsed >= 90;
   const showPhotoTimeHint = hasUploads && !failed && elapsed < 90;
 
+  const activeStepDetail = steps?.find((s) => s.status === "active")?.detail?.trim();
+  const showDetail =
+    Boolean(detail?.trim()) &&
+    detail!.trim() !== activeStepDetail;
+
   const primaryHint = hasUploads
     ? "Articles with photos or screenshots can take up to 2 minutes. Please keep this tab open until your article appears."
     : "This usually takes about 60 seconds. Please keep this tab open until generation finishes.";
@@ -122,7 +127,7 @@ export function GenerationProgress({
           </>
         )}
 
-        {detail && <p className="generation-progress-detail">{detail}</p>}
+        {showDetail && <p className="generation-progress-detail">{detail}</p>}
 
         <p className="generation-progress-hint">{primaryHint}</p>
 

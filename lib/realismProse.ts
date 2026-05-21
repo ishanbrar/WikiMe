@@ -61,6 +61,11 @@ function hasLongVerbatimWordRun(
   return false;
 }
 
+/** Long LinkedIn/resume dumps — allow shared phrases; only flag near-full paste. */
+const LONG_INTAKE_FIELD_CHARS = 700;
+const LONG_FIELD_MIN_VERBATIM_WORDS = 22;
+const SHORT_FIELD_MIN_VERBATIM_WORDS = 12;
+
 /** True if intake was pasted wholesale (not merely the same facts rephrased). */
 function overlapsIntakeVerbatim(blob: string, intake: IntakeData): boolean {
   const fields = [
@@ -75,11 +80,24 @@ function overlapsIntakeVerbatim(blob: string, intake: IntakeData): boolean {
   for (const field of fields) {
     const normalized = normalizeForOverlap(field);
     if (normalized.length < 50) continue;
+
+    const isLongDump = field.trim().length >= LONG_INTAKE_FIELD_CHARS;
+    const minWords = isLongDump
+      ? LONG_FIELD_MIN_VERBATIM_WORDS
+      : SHORT_FIELD_MIN_VERBATIM_WORDS;
+
+    if (isLongDump) {
+      if (normalized.length >= 200 && blob.includes(normalized)) return true;
+      if (hasLongVerbatimWordRun(blob, field, minWords)) return true;
+      continue;
+    }
+
     if (blob.includes(normalized)) return true;
-    if (hasLongVerbatimWordRun(blob, field, 12)) return true;
+    if (hasLongVerbatimWordRun(blob, field, minWords)) return true;
   }
 
   for (const field of fields) {
+    if (field.trim().length >= LONG_INTAKE_FIELD_CHARS) continue;
     const normalized = normalizeForOverlap(field);
     const clauses = normalized
       .split(/[.!?;]+/)

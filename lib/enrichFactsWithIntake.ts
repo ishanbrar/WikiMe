@@ -20,37 +20,43 @@ export function enrichFactsWithIntake(
   if (!out.location?.trim() && intake.currentLocation?.trim()) {
     out.location = intake.currentLocation.trim();
   }
-  if (!out.bio?.trim() && intake.extraNotes?.trim()) {
-    out.bio = intake.extraNotes.trim().slice(0, 2000);
-  }
-
   const pushUnique = (arr: string[], value: string | undefined) => {
     const v = value?.trim();
     if (!v) return;
     if (!arr.some((x) => x.toLowerCase() === v.toLowerCase())) arr.push(v);
   };
 
+  const pushRawChunks = (text: string | undefined, label: string) => {
+    const t = text?.trim();
+    if (!t) return;
+    const chunkSize = 3500;
+    if (t.length <= chunkSize) {
+      pushUnique(out.rawUsefulText, t);
+      return;
+    }
+    for (let i = 0; i < t.length; i += chunkSize) {
+      pushUnique(out.rawUsefulText, `${label}:\n${t.slice(i, i + chunkSize)}`);
+    }
+  };
+
+  if (!out.bio?.trim()) {
+    const bioSource =
+      intake.extraNotes?.trim() ||
+      intake.pastedProfileText?.trim()?.slice(0, 2000) ||
+      "";
+    if (bioSource) out.bio = bioSource.slice(0, 2000);
+  }
+
   pushUnique(out.education, intake.education);
   pushUnique(out.work, intake.occupation);
   pushUnique(out.notableClaims, intake.achievements);
   pushUnique(out.notableClaims, intake.lifeEvents);
 
-  if (intake.pastedProfileText?.trim()) {
-    pushUnique(out.rawUsefulText, intake.pastedProfileText.trim().slice(0, 4000));
-  }
-
-  const intakeBlob = [
-    intake.achievements,
-    intake.lifeEvents,
-    intake.occupation,
-    intake.education,
-    intake.extraNotes,
-  ]
-    .filter(Boolean)
-    .join("\n");
-  if (intakeBlob.trim()) {
-    pushUnique(out.rawUsefulText, intakeBlob.slice(0, 4000));
-  }
+  pushRawChunks(intake.pastedProfileText, "profile_paste");
+  pushRawChunks(intake.extraNotes, "additional_info");
+  pushRawChunks(intake.achievements, "achievements");
+  pushRawChunks(intake.lifeEvents, "life_events");
+  pushRawChunks(intake.controversies, "controversies");
 
   return out;
 }

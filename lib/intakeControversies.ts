@@ -3,6 +3,11 @@ import type { IntakeData } from "@/types/article";
 const CONTROVERSY_MARKERS = [
   /controversies\s*section\s*:/i,
   /controversies\s*:/i,
+  /controver(?:sy|sies)\s*:/i,
+  /contr[o0]?versies\s*:/i,
+  /conroversies\s*:/i,
+  /contrversies\s*:/i,
+  /contrver?sies\s*:/i,
   /^\s*##\s*controversies/i,
 ];
 

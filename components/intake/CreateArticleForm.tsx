@@ -271,8 +271,9 @@ export function CreateArticleForm({
         >
           <h2 className="create-flow-section-title">More</h2>
           <p className="create-flow-section-sub">
-            Achievements, controversies, pasted profile text, and anything else
-            the AI should know.
+            Put everything in <strong>Additional info</strong> if you like — the
+            AI will sort it into the right sections. Or use the optional fields
+            below for labeled details.
           </p>
           <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0">
             <IntakeFieldsGrid

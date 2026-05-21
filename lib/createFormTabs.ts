@@ -97,8 +97,16 @@ export const BIO_FIELDS: IntakeFieldDef[] = [
 
 export const MORE_FIELDS: IntakeFieldDef[] = [
   {
+    key: "extraNotes",
+    label: "Additional info (paste anything)",
+    placeholder: INTAKE_PLACEHOLDERS.extraNotes,
+    optional: true,
+    textarea: true,
+    autocomplete: "off",
+  },
+  {
     key: "achievements",
-    label: "Achievements & skills",
+    label: "Achievements & skills (optional)",
     placeholder: INTAKE_PLACEHOLDERS.achievements,
     optional: true,
     textarea: true,
@@ -106,7 +114,7 @@ export const MORE_FIELDS: IntakeFieldDef[] = [
   },
   {
     key: "controversies",
-    label: "Controversies",
+    label: "Controversies (optional)",
     placeholder: INTAKE_PLACEHOLDERS.controversies,
     optional: true,
     textarea: true,
@@ -114,16 +122,8 @@ export const MORE_FIELDS: IntakeFieldDef[] = [
   },
   {
     key: "pastedProfileText",
-    label: "Pasted profile (LinkedIn, resume, etc.)",
+    label: "Profile paste (optional)",
     placeholder: INTAKE_PLACEHOLDERS.pastedProfileText,
-    optional: true,
-    textarea: true,
-    autocomplete: "off",
-  },
-  {
-    key: "extraNotes",
-    label: "Extra notes",
-    placeholder: INTAKE_PLACEHOLDERS.extraNotes,
     optional: true,
     textarea: true,
     autocomplete: "off",

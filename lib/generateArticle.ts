@@ -37,6 +37,10 @@ import {
   REALISM_REGURGITATION_RETRY_NOTE,
 } from "@/lib/realismProse";
 import { buildCompactGenerationPayload } from "@/lib/compactGenerationPayload";
+import {
+  REALISM_MIN_WORDS,
+  realismArticleMaxTokens,
+} from "@/lib/structuredIntakeForPrompt";
 
 const REALISM_SECTIONS_REQUIRED_NOTE = `Your previous JSON was missing a valid "sections" array or section bodies were empty. Return complete JSON with sections: [{id, title, paragraphs: string[]}, ...] using ids early-life, education, career, personal-life as needed. Each section needs at least 2 original encyclopedic sentences — not templates.`;
 
@@ -46,9 +50,14 @@ Write as a Wikipedia biographer for ${fullName}: cohesive paragraphs with transi
 }
 
 function realismLengthHint(len: IntakeData["articleLength"]): string {
-  if (len === "short") return "Keep total under ~600 words. Fewer sections.";
-  if (len === "long") return "Up to ~1500 words. Richer sections.";
-  return "Moderate length ~900 words. Mostly plain paragraphs; subsections only where topics clearly split.";
+  const min = REALISM_MIN_WORDS[len];
+  if (len === "short") {
+    return `Target at least ${min} words total. Use fewer sections but complete sentences.`;
+  }
+  if (len === "long") {
+    return `Target at least ${min} words total. Rich sections: early-life, education, career, personal-life, controversies if applicable.`;
+  }
+  return `Target at least ${min} words total across multiple sections (early-life, education, career, personal-life). Mostly plain paragraphs; subsections only where topics clearly split.`;
 }
 
 function buildPrompt(
@@ -237,7 +246,8 @@ export async function generateArticle(
   const system = `You are an experienced Wikipedia biographer. Output biography JSON only. ${realismRules()} ${controversyRule} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos)} ${realismLengthHint(intake.articleLength)} ${ARTICLE_SCHEMA}
 
 CRITICAL OUTPUT RULES:
-- The JSON MUST include a non-empty "sections" array. Each section has "id", "title", and "paragraphs" (array of strings).
+- The JSON MUST include a non-empty "sections" array with at least early-life, education, career, and personal-life when facts support them (plus controversies if user supplied any).
+- Users may paste their entire biography into one free-form field — use the fact sheet and raw data to sort facts into the correct sections; do not ignore content because it was not in a labeled form field.
 - NEVER use template phrases like "has worked in roles including", "holds BS", or paste occupation/education fields verbatim into body text.
 - Body prose must be rewritten from facts — infobox fields are summaries only.
 - Paragraphs must read like Wikipedia: objective, connected, and chronological where possible — not a series of standalone sentences for each questionnaire field.`;
@@ -252,7 +262,7 @@ ${factSheet}
 RAW SOURCE DATA (for accuracy only — do not paste into paragraphs):
 ${sourceFacts}`;
 
-  const maxTokens = intake.articleLength === "long" ? 7000 : 5500;
+  const maxTokens = realismArticleMaxTokens(intake.articleLength);
   const normalizeOpts = {
     creative: false as const,
     supplementalPhotos,
@@ -280,8 +290,7 @@ ${sourceFacts}`;
     return normalizeArticleJson(parsed, intake, headshotUrl, normalizeOpts);
   }
 
-  const minWords =
-    intake.articleLength === "long" ? 380 : intake.articleLength === "short" ? 180 : 260;
+  const minWords = REALISM_MIN_WORDS[intake.articleLength];
 
   function needsRealismRetry(article: ArticleJson): string | null {
     if (!article.sections.length) return REALISM_SECTIONS_REQUIRED_NOTE;

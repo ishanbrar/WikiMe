@@ -40,9 +40,10 @@ export const INTAKE_PLACEHOLDERS: Record<IntakeFieldKey, string> = {
   lifeEvents: "Moved to NYC in 2018, founded company in 2020…",
   controversies:
     "Optional: disputes, allegations, denials — appears as a Controversies section…",
-  extraNotes: "Anything else the article should mention…",
+  extraNotes:
+    "Paste your whole story here — LinkedIn, resume, family, jobs, awards, controversies. WikiMe sorts it into the article even if you skip the fields below…",
   pastedProfileText:
-    "Paste your LinkedIn About section, resume summary, or bio…",
+    "Or paste a profile here instead (optional if you used Additional info above)…",
 };
 
 export interface IntakeFieldDef {
