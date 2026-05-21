@@ -43,7 +43,17 @@ export function visionModelFallbackChain(preferred: string): string[] {
 }
 
 function isRetryableStatus(status: number): boolean {
-  return status === 429 || status === 502 || status === 503 || status === 529;
+  return (
+    status === 408 ||
+    status === 425 ||
+    status === 429 ||
+    status === 500 ||
+    status === 502 ||
+    status === 503 ||
+    status === 504 ||
+    status === 524 ||
+    status === 529
+  );
 }
 
 function parseRateLimitMessage(status: number, body: string): string {
@@ -101,8 +111,18 @@ export async function openRouterChatCompletion(
           choices?: { message?: { content?: string } }[];
         };
         const text = data.choices?.[0]?.message?.content ?? "";
-        if (!text && options.label) {
-          console.warn(`[WikiMe] OpenRouter empty content (${model}, ${options.label})`);
+        if (!text.trim()) {
+          lastError = "OpenRouter returned empty model output";
+          if (options.label) {
+            console.warn(
+              `[WikiMe] OpenRouter empty content (${model}, ${options.label}) — will retry`,
+            );
+          }
+          if (attempt < MAX_RETRIES_PER_MODEL - 1) {
+            await sleep(INITIAL_RETRY_MS * 2 ** attempt);
+            continue;
+          }
+          break;
         }
         if (models[0] !== model) {
           console.info(`[WikiMe] OpenRouter used fallback model: ${model}`);

@@ -1,6 +1,7 @@
 import type { ExtractedProfileFacts } from "@/types/article";
 import { generateVision, hasAiKey, parseJsonFromModel } from "@/lib/gemini";
 import { extractedFactsSchema } from "@/lib/validation";
+import { withTransientRetry } from "@/lib/transientRetry";
 
 const EXTRACTION_PROMPT = `Extract profile facts from these social media / website screenshots.
 Return ONLY valid JSON matching this schema (no markdown):
@@ -96,7 +97,10 @@ export async function extractProfileFactsFromScreenshots(
   if (!imageDataUrls.length) return emptyExtractedFacts();
   if (!hasAiKey()) return mockExtractFromImages(imageDataUrls.length);
 
-  const raw = await generateVision(EXTRACTION_PROMPT, imageDataUrls);
+  const raw = await withTransientRetry(
+    () => generateVision(EXTRACTION_PROMPT, imageDataUrls),
+    { maxAttempts: 3, baseDelayMs: 700, label: "visionExtract" },
+  );
   const parsed = parseJsonFromModel<ExtractedProfileFacts>(raw);
   const result = extractedFactsSchema.safeParse(parsed);
   if (result.success) return result.data;

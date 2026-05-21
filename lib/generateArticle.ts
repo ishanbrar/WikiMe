@@ -241,6 +241,17 @@ export async function generateArticle(
         supplementalPhotos,
       );
     }
+    if (articleWordCount(article) < minWords) {
+      const retryBrief = buildCreativeBrief(intake);
+      article = await callCreativeGenerator(
+        intake,
+        facts,
+        headshotUrl,
+        retryBrief,
+        3,
+        supplementalPhotos,
+      );
+    }
     return finalize(article);
   }
 
@@ -320,7 +331,7 @@ ${sourceFacts}`;
   }
 
   let article = await runRealismPass();
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 5; attempt++) {
     const note = needsRealismRetry(article);
     if (!note) break;
     article = await runRealismPass(note);
@@ -335,16 +346,29 @@ ${sourceFacts}`;
       !article.sections.length ||
       wordCount < 200;
     if (hardBlock) {
-      throw new Error(
-        `AI returned templated or copied text instead of an original article (${realismQualityIssueMessage(finalIssue)}). Please try generating again.`,
+      article = await runRealismPass(
+        "FINAL REMEDIATION: Prior output was structurally invalid, templated, or far too short. Return complete JSON with non-empty sections and original encyclopedic paragraphs grounded in the fact sheet — no placeholders, no pasted field lists.",
+      );
+      const issueAfter = realismQualityIssue(article, intake);
+      const wcAfter = articleWordCount(article);
+      const stillHard =
+        issueAfter === "mock_template" ||
+        issueAfter === "forbidden_phrase" ||
+        !article.sections.length ||
+        wcAfter < 200;
+      if (stillHard) {
+        throw new Error(
+          `AI returned templated or copied text instead of an original article (${realismQualityIssueMessage(issueAfter ?? finalIssue)}). Please try generating again.`,
+        );
+      }
+    } else {
+      console.warn(
+        "[WikiMe] Accepting realism article after retries with minor quality flag:",
+        finalIssue,
+        "words=",
+        wordCount,
       );
     }
-    console.warn(
-      "[WikiMe] Accepting realism article after retries with minor quality flag:",
-      finalIssue,
-      "words=",
-      wordCount,
-    );
   }
 
   return finalize(article);

@@ -3,6 +3,7 @@ import { adminTestHeaders, apiErrorMessage, type ApiErrorBody } from "@/lib/admi
 import { formatUnknownError } from "@/lib/formatError";
 import { fetchWithTimeout } from "@/lib/fetchTimeout";
 import { buildArticleUrl } from "@/lib/articlePaths";
+import { isTransientHttpStatus, withTransientRetry } from "@/lib/transientRetry";
 import type { SavedArticle } from "@/types/article";
 
 export type SaveArticleResult =
@@ -14,37 +15,46 @@ export async function saveArticleToServer(
   options?: { isAdmin?: boolean },
 ): Promise<SaveArticleResult> {
   try {
-    const res = await fetchWithTimeout(
-      "/api/articles",
-      {
-        method: "POST",
-        headers: adminTestHeaders(Boolean(options?.isAdmin)),
-        body: JSON.stringify({
-          id: article.id,
-          slug: article.slug,
-          articleJson: article.articleJson,
-          mode: article.mode,
-          intake: article.intake,
-          headshotDataUrl: article.headshotDataUrl,
-          alternateSlug: article.alternateSlug,
-        }),
+    return await withTransientRetry(
+      async () => {
+        const res = await fetchWithTimeout(
+          "/api/articles",
+          {
+            method: "POST",
+            headers: adminTestHeaders(Boolean(options?.isAdmin)),
+            body: JSON.stringify({
+              id: article.id,
+              slug: article.slug,
+              articleJson: article.articleJson,
+              mode: article.mode,
+              intake: article.intake,
+              headshotDataUrl: article.headshotDataUrl,
+              alternateSlug: article.alternateSlug,
+            }),
+          },
+          45_000,
+        );
+        if (isTransientHttpStatus(res.status)) {
+          await res.text().catch(() => "");
+          throw new Error(`Save article API returned HTTP ${res.status} (transient).`);
+        }
+        const data = await parseJsonResponse<
+          ApiErrorBody & {
+            slug?: string;
+            url?: string;
+            shortLink?: boolean;
+          }
+        >(res);
+        if (!res.ok) {
+          return { ok: false, error: apiErrorMessage(data, res) };
+        }
+        const slug = data.slug!;
+        const shortLink = data.shortLink ?? false;
+        const url = data.url ?? buildArticleUrl(slug, shortLink);
+        return { ok: true, slug, url, shortLink };
       },
-      45_000,
+      { maxAttempts: 4, baseDelayMs: 800, label: "saveArticle" },
     );
-    const data = await parseJsonResponse<
-      ApiErrorBody & {
-        slug?: string;
-        url?: string;
-        shortLink?: boolean;
-      }
-    >(res);
-    if (!res.ok) {
-      return { ok: false, error: apiErrorMessage(data, res) };
-    }
-    const slug = data.slug!;
-    const shortLink = data.shortLink ?? false;
-    const url = data.url ?? buildArticleUrl(slug, shortLink);
-    return { ok: true, slug, url, shortLink };
   } catch (e) {
     return { ok: false, error: formatUnknownError(e) };
   }

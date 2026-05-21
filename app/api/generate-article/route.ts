@@ -15,6 +15,7 @@ import { formatUnknownError } from "@/lib/formatError";
 import { hasAiKey } from "@/lib/gemini";
 import { intakeSchema, factsInputSchema } from "@/lib/validation";
 import { emptyExtractedFacts } from "@/lib/extractProfileFacts";
+import { withTransientRetry } from "@/lib/transientRetry";
 
 const bodySchema = z.object({
   intake: intakeSchema,
@@ -80,25 +81,29 @@ export async function POST(req: Request) {
     );
 
     const t0 = Date.now();
-    const article = await Promise.race([
-      generateArticle(
-        intake,
-        factsEnriched,
-        headshotDataUrl ?? "",
-        supplementalPhotos,
-      ),
-      new Promise<never>((_, reject) => {
-        setTimeout(
-          () =>
-            reject(
-              new Error(
-                "Article generation timed out on the server. Try a shorter article length or fewer images.",
-              ),
-            ),
-          285_000,
-        );
-      }),
-    ]);
+    const article = await withTransientRetry(
+      () =>
+        Promise.race([
+          generateArticle(
+            intake,
+            factsEnriched,
+            headshotDataUrl ?? "",
+            supplementalPhotos,
+          ),
+          new Promise<never>((_, reject) => {
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    "Article generation timed out on the server. Try a shorter article length or fewer images.",
+                  ),
+                ),
+              285_000,
+            );
+          }),
+        ]),
+      { maxAttempts: 2, baseDelayMs: 2000, label: "generateArticleRoute" },
+    );
     log.push(`generateArticle() finished in ${Date.now() - t0}ms`);
     log.push(`articleWordCount=${articleWordCount(article)}`);
     log.push(`summaryLeadParagraphs=${article.summaryLead.length}`);

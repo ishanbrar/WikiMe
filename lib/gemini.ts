@@ -141,23 +141,30 @@ export async function generateText(
   try {
     if (useOpenRouter()) {
       try {
-        return await openRouterChatCompletion(
-          getOpenRouterKey()!,
-          {
-            messages: [
-              { role: "system", content: system },
-              { role: "user", content: user },
-            ],
-            temperature: options?.temperature ?? 0.7,
-            top_p: options?.topP,
-            max_tokens: options?.maxTokens ?? 4096,
-            response_format: { type: "json_object" },
-          },
-          {
-            models: textModelFallbackChain(preferred),
-            signal: AbortSignal.timeout(requestTimeoutMs),
-            label: "generateText",
-          },
+        for (let pass = 0; pass < 3; pass++) {
+          const out = await openRouterChatCompletion(
+            getOpenRouterKey()!,
+            {
+              messages: [
+                { role: "system", content: system },
+                { role: "user", content: user },
+              ],
+              temperature: options?.temperature ?? 0.7,
+              top_p: options?.topP,
+              max_tokens: options?.maxTokens ?? 4096,
+              response_format: { type: "json_object" },
+            },
+            {
+              models: textModelFallbackChain(preferred),
+              signal: AbortSignal.timeout(requestTimeoutMs),
+              label: "generateText",
+            },
+          );
+          if (out.trim()) return out;
+          console.warn(`[WikiMe] generateText empty body from OpenRouter (pass ${pass + 1}/3)`);
+        }
+        throw new Error(
+          "AI returned an empty response after retries. Please tap Generate again in a few seconds.",
         );
       } catch (e) {
         if (isRateLimitError(e) && getDirectGeminiKey()) {
@@ -207,19 +214,26 @@ export async function generateVision(
         })),
       ];
       try {
-        return await openRouterChatCompletion(
-          getOpenRouterKey()!,
-          {
-            messages: [{ role: "user", content }],
-            temperature: 0.2,
-            max_tokens: 2048,
-            response_format: { type: "json_object" },
-          },
-          {
-            models: visionModelFallbackChain(VISION_MODEL),
-            signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
-            label: "generateVision",
-          },
+        for (let pass = 0; pass < 3; pass++) {
+          const out = await openRouterChatCompletion(
+            getOpenRouterKey()!,
+            {
+              messages: [{ role: "user", content }],
+              temperature: 0.2,
+              max_tokens: 2048,
+              response_format: { type: "json_object" },
+            },
+            {
+              models: visionModelFallbackChain(VISION_MODEL),
+              signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
+              label: "generateVision",
+            },
+          );
+          if (out.trim()) return out;
+          console.warn(`[WikiMe] generateVision empty body (pass ${pass + 1}/3)`);
+        }
+        throw new Error(
+          "Vision model returned empty JSON after retries. Please try Generate again.",
         );
       } catch (e) {
         if (isRateLimitError(e) && getDirectGeminiKey()) {

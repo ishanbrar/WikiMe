@@ -58,6 +58,7 @@ import {
 } from "@/lib/generationRun";
 import { runGenerationStep } from "@/lib/generationRunClient";
 import { fetchWithTimeout } from "@/lib/fetchTimeout";
+import { isTransientHttpStatus, withTransientRetry } from "@/lib/transientRetry";
 
 const EXTRACT_CONCURRENCY = 3;
 const EXTRACT_FETCH_TIMEOUT_MS = 90_000;
@@ -134,26 +135,35 @@ function GenerateFlow() {
     shot: string,
     signal?: AbortSignal,
   ): Promise<ExtractedProfileFacts> => {
-    const res = await fetchWithTimeout(
-      "/api/extract-profile",
-      {
-        method: "POST",
-        headers: adminTestHeaders(isAdmin),
-        body: JSON.stringify({ screenshots: [shot] }),
-        signal,
+    return withTransientRetry(
+      async () => {
+        const res = await fetchWithTimeout(
+          "/api/extract-profile",
+          {
+            method: "POST",
+            headers: adminTestHeaders(isAdmin),
+            body: JSON.stringify({ screenshots: [shot] }),
+            signal,
+          },
+          EXTRACT_FETCH_TIMEOUT_MS,
+        );
+        if (isTransientHttpStatus(res.status)) {
+          await res.text().catch(() => "");
+          throw new Error(`Extract API HTTP ${res.status} (transient).`);
+        }
+        const data = await parseJsonResponse<ApiErrorBody & { facts?: unknown }>(res);
+        if (!res.ok) {
+          throw new Error(apiErrorMessage(data, res));
+        }
+        if (isAdmin && data.adminLog?.length) {
+          setGenRun((r) =>
+            r ? mergeServerAdminLog(r, data.adminLog, "extract") : r,
+          );
+        }
+        return normalizeExtractedFacts(data.facts);
       },
-      EXTRACT_FETCH_TIMEOUT_MS,
+      { maxAttempts: 4, baseDelayMs: 700, label: "extract-profile" },
     );
-    const data = await parseJsonResponse<ApiErrorBody & { facts?: unknown }>(res);
-    if (!res.ok) {
-      throw new Error(apiErrorMessage(data, res));
-    }
-    if (isAdmin && data.adminLog?.length) {
-      setGenRun((r) =>
-        r ? mergeServerAdminLog(r, data.adminLog, "extract") : r,
-      );
-    }
-    return normalizeExtractedFacts(data.facts);
   };
 
   const extractOne = async (
@@ -374,15 +384,24 @@ function GenerateFlow() {
       };
 
       const callGenerateApi = async (images: typeof prepared, mode: ArticleMode) => {
-        try {
-          const res = await postGenerate(images, mode);
-          if (res.status === 413) return { ok: false as const, res, mode };
-          const data = await parseGenerateResponse(res);
-          return { ok: true as const, data, res, mode };
-        } catch (e) {
-          const phase = mode === "realism" ? "Realism article" : "Creative article";
-          throw new Error(`${phase}: ${formatGenerationError(e)}`);
-        }
+        return withTransientRetry(
+          async () => {
+            try {
+              const res = await postGenerate(images, mode);
+              if (res.status === 413) return { ok: false as const, res, mode };
+              if (isTransientHttpStatus(res.status)) {
+                await res.text().catch(() => "");
+                throw new Error(`Article API returned HTTP ${res.status} (transient).`);
+              }
+              const data = await parseGenerateResponse(res);
+              return { ok: true as const, data, res, mode };
+            } catch (e) {
+              const phase = mode === "realism" ? "Realism article" : "Creative article";
+              throw new Error(`${phase}: ${formatGenerationError(e)}`);
+            }
+          },
+          { maxAttempts: 4, baseDelayMs: 900, label: `generate-${mode}` },
+        );
       };
 
       const generateBothModes = async (images: typeof prepared) => {
