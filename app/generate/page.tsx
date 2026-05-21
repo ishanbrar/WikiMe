@@ -40,10 +40,7 @@ import { saveArticleToServer } from "@/lib/saveArticleClient";
 import { mapWithConcurrency } from "@/lib/parallelMap";
 import { nanoid } from "nanoid";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import {
-  GenerationProgress,
-  type GenerationPhase,
-} from "@/components/GenerationProgress";
+import { GenerationProgress } from "@/components/GenerationProgress";
 import {
   appendGenerationLog,
   completeGenerationStep,
@@ -75,7 +72,9 @@ function GenerateFlow() {
   const [extraPhotos, setExtraPhotos] = useState<ExtraPhotoUpload[]>([]);
   const [facts, setFacts] = useState<ExtractedProfileFacts>(emptyExtractedFacts());
   const [busy, setBusy] = useState(false);
-  const [genPhase, setGenPhase] = useState<GenerationPhase | null>(null);
+  const [genPhase, setGenPhase] = useState<"extract" | "generate" | "save" | null>(
+    null,
+  );
   const [genDetail, setGenDetail] = useState("");
   const [genStartedAt, setGenStartedAt] = useState(0);
   const [error, setError] = useState("");
@@ -230,14 +229,11 @@ function GenerateFlow() {
     setBusy(true);
     setGenStartedAt(Date.now());
     setError("");
-    setGenRun(isAdmin ? createGenerationRun(shotCount) : null);
-    setGenPhase(shotCount > 0 ? "extract" : "generate");
+    setGenRun(createGenerationRun(shotCount));
     setGenDetail(
-      isAdmin
-        ? "Starting generation pipeline…"
-        : shotCount > 0
-          ? "Reading your screenshots…"
-          : "Writing your Wikipedia article…",
+      shotCount > 0
+        ? "Starting — optimizing images and reading screenshots…"
+        : "Starting — preparing your article…",
     );
 
     let adminFailed = false;
@@ -248,12 +244,8 @@ function GenerateFlow() {
         label: string,
         fn: () => Promise<T>,
       ): Promise<T> => {
-        if (isAdmin) {
-          setGenDetail(label);
-          return runGenerationStep(setGenRun, stepId, fn, label);
-        }
         setGenDetail(label);
-        return fn();
+        return runGenerationStep(setGenRun, stepId, fn, label);
       };
 
       let prepared = await runStep(
@@ -272,28 +264,23 @@ function GenerateFlow() {
 
       let extracted = facts;
       if (prepared.screenshots.length > 0) {
-        if (!isAdmin) {
-          setGenPhase("extract");
-        }
         const hashes = await Promise.all(prepared.screenshots.map(hashDataUrl));
         const cached = getCachedExtractedFacts(hashes);
         if (cached) {
-          if (isAdmin) {
-            setGenRun((r) => {
-              if (!r) return r;
-              let next = appendGenerationLog(r, "info", "Using cached screenshot extract");
-              for (let i = 0; i < prepared.screenshots.length; i++) {
-                next = skipGenerationStep(
-                  next,
-                  `extract-${i}`,
-                  "Cached from earlier extract",
-                );
-              }
-              return next;
-            });
-          }
+          setGenRun((r) => {
+            if (!r) return r;
+            let next = appendGenerationLog(r, "info", "Using cached screenshot extract");
+            for (let i = 0; i < prepared.screenshots.length; i++) {
+              next = skipGenerationStep(
+                next,
+                `extract-${i}`,
+                "Cached from earlier extract",
+              );
+            }
+            return next;
+          });
           extracted = normalizeExtractedFacts(cached);
-        } else if (isAdmin) {
+        } else {
           let merged = emptyExtractedFacts();
           for (let i = 0; i < prepared.screenshots.length; i++) {
             const part = await runStep(
@@ -305,14 +292,8 @@ function GenerateFlow() {
           }
           cacheExtractedFacts(hashes, merged);
           extracted = merged;
-        } else {
-          extracted = await extractScreenshots(true, signal, prepared.screenshots);
         }
         if (signal.aborted) return;
-        if (!isAdmin) {
-          setGenPhase("generate");
-          setGenDetail("Writing your Wikipedia article…");
-        }
       }
       extracted = enrichFactsWithIntake(
         normalizeExtractedFacts(extracted),
@@ -394,16 +375,11 @@ function GenerateFlow() {
         return { ok: true as const, data, res };
       };
 
-      if (isAdmin) {
-        setGenRun((r) =>
-          r
-            ? startGenerationStep(r, "generate", "Writing your Wikipedia article (AI)…")
-            : r,
-        );
-      } else {
-        setGenPhase("generate");
-        setGenDetail("Writing your Wikipedia article…");
-      }
+      setGenRun((r) =>
+        r
+          ? startGenerationStep(r, "generate", "Writing your Wikipedia article (AI)…")
+          : r,
+      );
 
       let genOutcome = await callGenerateApi(prepared);
       if (!genOutcome.ok) {
@@ -424,17 +400,15 @@ function GenerateFlow() {
         if (prepared.headshot) setHeadshot([prepared.headshot]);
         setScreenshots(prepared.screenshots);
         setExtraPhotos(prepared.extraPhotos);
-        if (isAdmin) {
-          setGenRun((r) =>
-            r
-              ? startGenerationStep(
-                  r,
-                  "generate",
-                  "Retrying article generation after compression…",
-                )
-              : r,
-          );
-        }
+        setGenRun((r) =>
+          r
+            ? startGenerationStep(
+                r,
+                "generate",
+                "Retrying article generation after compression…",
+              )
+            : r,
+        );
         genOutcome = await callGenerateApi(prepared);
         if (!genOutcome.ok) {
           throw new Error(
@@ -443,11 +417,9 @@ function GenerateFlow() {
         }
       }
 
-      if (isAdmin) {
-        setGenRun((r) =>
-          r ? completeGenerationStep(r, "generate", "Article JSON received") : r,
-        );
-      }
+      setGenRun((r) =>
+        r ? completeGenerationStep(r, "generate", "Article JSON received") : r,
+      );
 
       const data = genOutcome.data;
       let article = data.article!;
@@ -492,11 +464,6 @@ function GenerateFlow() {
             extraPhotoUrls: [],
           }),
         );
-      }
-
-      if (!isAdmin) {
-        setGenPhase("save");
-        setGenDetail("Saving your share link…");
       }
 
       const toSave = await prepareArticleForDb({
@@ -558,25 +525,23 @@ function GenerateFlow() {
       adminFailed = true;
       const msg = formatGenerationError(e);
       setError(msg);
-      if (isAdmin) {
-        setGenRun((r) => {
-          const failed = r ? { ...r, failed: true, errorMessage: msg } : r;
-          if (failed) {
-            void fetch("/api/admin/generation-runs", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                mode: intake.mode,
-                success: false,
-                errorMessage: msg,
-                logs: failed.logs,
-                steps: failed.steps,
-              }),
-            });
-          }
-          return failed;
-        });
-      }
+      setGenRun((r) => {
+        const failed = r ? { ...r, failed: true, errorMessage: msg } : r;
+        if (isAdmin && failed) {
+          void fetch("/api/admin/generation-runs", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mode: intake.mode,
+              success: false,
+              errorMessage: msg,
+              logs: failed.logs,
+              steps: failed.steps,
+            }),
+          });
+        }
+        return failed;
+      });
     } finally {
       abortRef.current = null;
       setBusy(false);
@@ -589,26 +554,23 @@ function GenerateFlow() {
   };
 
   const saved = getSavedArticles();
+  const hasUploads =
+    headshot.length > 0 || screenshots.length > 0 || extraPhotos.length > 0;
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {(busy || genRun?.failed || (!isAdmin && error && genPhase)) &&
-        (isAdmin ? genRun : genPhase) && (
+      {genRun && (
         <GenerationProgress
-          phase={isAdmin ? undefined : genPhase ?? undefined}
           detail={genDetail}
           startedAt={genStartedAt}
-          onCancel={genRun?.failed || error ? undefined : cancelGeneration}
-          canCancel={busy && !genRun?.failed && !error}
-          adminSteps={isAdmin ? genRun?.steps : undefined}
-          adminLogs={isAdmin ? genRun?.logs : undefined}
-          adminError={isAdmin ? genRun?.errorMessage ?? error : undefined}
-          clientError={!isAdmin ? error || undefined : undefined}
-          onDismiss={
-            genRun?.failed || (!isAdmin && error && !busy)
-              ? dismissGeneration
-              : undefined
-          }
+          onCancel={genRun.failed || error ? undefined : cancelGeneration}
+          canCancel={busy && !genRun.failed && !error}
+          steps={genRun.steps}
+          logs={isAdmin ? genRun.logs : undefined}
+          showAdminBadge={isAdmin}
+          errorMessage={genRun.errorMessage ?? error ?? undefined}
+          hasUploads={hasUploads}
+          onDismiss={genRun.failed || (error && !busy) ? dismissGeneration : undefined}
         />
       )}
 
@@ -625,7 +587,7 @@ function GenerateFlow() {
           busy={busy}
           onGenerate={() => void generate()}
           onExtractScreenshots={() => void extractScreenshots()}
-          generateError={error && !genRun?.failed ? error : undefined}
+          generateError={error && !genRun ? error : undefined}
           onClearGenerateError={() => setError("")}
         />
 
