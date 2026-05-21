@@ -34,6 +34,12 @@ body {
   pointer-events: none;
 }
 
+/* CSS-only backdrop when Vanta WebGL is skipped (mobile / coarse pointer / reduced motion) */
+.landing-vanta--static {
+  background:
+    linear-gradient(165deg, #dbeafe 0%, #bfdbfe 32%, #e0f2fe 58%, #f8fafc 100%);
+}
+
 .landing-content {
   position: relative;
   z-index: 1;
