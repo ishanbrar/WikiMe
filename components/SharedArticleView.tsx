@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { AppearanceSettings, SavedArticle } from "@/types/article";
+import { ExampleModeSwitchBanner } from "@/components/ExampleModeSwitchBanner";
 import { WikiArticlePage } from "@/components/WikiArticlePage";
 import {
   getAlternateMayaChenExampleSlug,
@@ -35,14 +36,6 @@ export function SharedArticleView({
           {isMayaChenExampleSlug(saved.slug) ? "Example article" : "Shared article"} ·{" "}
           {saved.mode === "creative" ? "Creative" : "Realism"} mode
         </span>
-        {alternateExampleSlug && (
-          <Link
-            href={`/a/${alternateExampleSlug}`}
-            className="example-mode-switch btn-secondary text-sm"
-          >
-            View {saved.mode === "creative" ? "Realism" : "Creative"} version
-          </Link>
-        )}
         {readOnly && (
           <button
             type="button"
@@ -64,9 +57,18 @@ export function SharedArticleView({
           </button>
         )}
       </div>
+
+      {alternateExampleSlug && (
+        <ExampleModeSwitchBanner
+          currentMode={saved.mode}
+          alternateSlug={alternateExampleSlug}
+        />
+      )}
+
       <WikiArticlePage
         article={display.articleJson}
         subjectName={saved.intake.fullName}
+        intake={saved.intake}
         appearance={appearance}
         onAppearanceChange={setAppearance}
       />

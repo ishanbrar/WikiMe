@@ -382,6 +382,102 @@ body {
   box-sizing: border-box;
 }
 
+/* Maya Chen example — switch realism ↔ creative above article */
+.example-mode-banner {
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1.25rem 1.25rem 1.5rem;
+}
+
+.example-mode-banner-inner {
+  max-width: var(--wiki-content-max, 60em);
+  margin: 0 auto;
+  text-align: center;
+}
+
+.example-mode-banner-eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.example-mode-banner-text {
+  margin: 0 0 1rem;
+  font-size: 0.9375rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.example-mode-banner-text strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.example-mode-banner-btn {
+  display: inline-block;
+  padding: 0.75rem 1.75rem;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.example-mode-banner-btn:hover {
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+.example-mode-banner-btn--creative {
+  color: #0284c7;
+  background: #f0f9ff;
+  border-color: rgba(14, 165, 233, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.35),
+    0 0 16px rgba(14, 165, 233, 0.45),
+    0 0 32px rgba(14, 165, 233, 0.22);
+  text-shadow:
+    0 0 10px rgba(14, 165, 233, 0.4),
+    0 0 20px rgba(56, 189, 248, 0.25);
+}
+
+.example-mode-banner-btn--creative:hover {
+  background: #e0f2fe;
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.5),
+    0 0 22px rgba(14, 165, 233, 0.55),
+    0 0 40px rgba(14, 165, 233, 0.3);
+}
+
+.example-mode-banner-btn--realism {
+  color: #0f172a;
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.12),
+    0 0 16px rgba(15, 23, 42, 0.28),
+    0 0 28px rgba(15, 23, 42, 0.14);
+  text-shadow:
+    0 0 10px rgba(15, 23, 42, 0.35),
+    0 0 18px rgba(15, 23, 42, 0.18);
+}
+
+.example-mode-banner-btn--realism:hover {
+  background: #f1f5f9;
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.2),
+    0 0 22px rgba(15, 23, 42, 0.38),
+    0 0 36px rgba(15, 23, 42, 0.2);
+}
+
 .wiki-theme-dark {
   --wiki-bg: #202122;
   --wiki-text: #eaecf0;
