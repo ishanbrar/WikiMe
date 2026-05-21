@@ -736,6 +736,13 @@ body {
   margin: 0.5em 0;
 }
 
+.wiki-lead .wiki-paragraph strong,
+.wiki-lead-teaser .wiki-paragraph strong,
+.wiki-lead-rest .wiki-paragraph strong {
+  font-weight: 700;
+  color: inherit;
+}
+
 .wiki-lead p,
 .wiki-lead-teaser p,
 .wiki-lead-rest p {

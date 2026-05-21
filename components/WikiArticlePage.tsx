@@ -90,7 +90,12 @@ export function WikiArticlePage({
   const renderLeadParagraph = (p: string, i: number, isFirstOverall: boolean) => {
     const boldSplit =
       !editable && isFirstOverall && i === 0
-        ? splitSubjectNameBold(p, subjectName, article.title)
+        ? splitSubjectNameBold(
+            p,
+            subjectName,
+            article.title,
+            displayArticle.infobox.name,
+          )
         : null;
 
     return (
