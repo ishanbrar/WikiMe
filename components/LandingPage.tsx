@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ModeSelector } from "@/components/ModeSelector";
 import { HomeExampleArticle } from "@/components/HomeExampleArticle";
 import { HomeExampleModeTabs } from "@/components/HomeExampleModeTabs";
+import { LandingHowItWorks } from "@/components/LandingHowItWorks";
 import {
   EXAMPLE_REALISM_SLUG,
   getExampleArticleSlug,
@@ -35,29 +36,7 @@ export function LandingPage() {
 
       <HomeExampleArticle mode={exampleMode} />
 
-      <section className="landing-features">
-        <div className="landing-feature">
-          <h3>Upload & extract</h3>
-          <p>
-            Vision AI reads your LinkedIn, Instagram, or portfolio screenshots and
-            extracts compact facts — keeping token costs low.
-          </p>
-        </div>
-        <div className="landing-feature">
-          <h3>Wikipedia layout</h3>
-          <p>
-            Infobox, table of contents, references, and encyclopedic typography —
-            inspired by Wikipedia, not impersonating it.
-          </p>
-        </div>
-        <div className="landing-feature">
-          <h3>Save & share</h3>
-          <p>
-            Every article gets a unique link. Sign up to save articles to your account
-            and revisit them anytime.
-          </p>
-        </div>
-      </section>
+      <LandingHowItWorks />
 
       <section className="landing-modes">
         <h2>Choose your mode</h2>
