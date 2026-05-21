@@ -13,7 +13,7 @@ import { isAdminUser } from "@/lib/admin";
 import { validateArticleSlug } from "@/lib/articleSlug";
 import { prepareArticleForDb } from "@/lib/prepareArticleForDb";
 import { getAuthUser } from "@/lib/supabase/server";
-import { articleJsonSchema, intakeSchema } from "@/lib/validation";
+import { articleJsonSchema, formatZodError, intakeSchema } from "@/lib/validation";
 import type { SavedArticle } from "@/types/article";
 
 const postSchema = z.object({
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     const parsed = postSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid request", details: parsed.error.flatten() },
+        { error: formatZodError(parsed.error), details: parsed.error.flatten() },
         { status: 400 },
       );
     }
@@ -53,7 +53,13 @@ export async function POST(req: Request) {
     }
 
     if (existing && !canEditArticle(user, existing)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json(
+        {
+          error:
+            "Sign in with the account that created this article to save changes (or use Share → copy link while logged in).",
+        },
+        { status: 403 },
+      );
     }
 
     const adminEditingOther =

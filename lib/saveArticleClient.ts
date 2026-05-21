@@ -1,4 +1,6 @@
+import { parseJsonResponse } from "@/lib/apiClient";
 import { adminTestHeaders, apiErrorMessage, type ApiErrorBody } from "@/lib/adminFetch";
+import { formatUnknownError } from "@/lib/formatError";
 import { fetchWithTimeout } from "@/lib/fetchTimeout";
 import { buildArticleUrl } from "@/lib/articlePaths";
 import type { SavedArticle } from "@/types/article";
@@ -29,11 +31,13 @@ export async function saveArticleToServer(
       },
       45_000,
     );
-    const data = (await res.json()) as ApiErrorBody & {
-      slug?: string;
-      url?: string;
-      shortLink?: boolean;
-    };
+    const data = await parseJsonResponse<
+      ApiErrorBody & {
+        slug?: string;
+        url?: string;
+        shortLink?: boolean;
+      }
+    >(res);
     if (!res.ok) {
       return { ok: false, error: apiErrorMessage(data, res) };
     }
@@ -41,7 +45,7 @@ export async function saveArticleToServer(
     const shortLink = data.shortLink ?? false;
     const url = data.url ?? buildArticleUrl(slug, shortLink);
     return { ok: true, slug, url, shortLink };
-  } catch {
-    return { ok: false, error: "Network error while saving" };
+  } catch (e) {
+    return { ok: false, error: formatUnknownError(e) };
   }
 }

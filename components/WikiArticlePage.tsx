@@ -151,11 +151,18 @@ export function WikiArticlePage({
 
   const updateSection = (id: string, paragraphs: string[]) => {
     if (!onArticleChange) return;
+    const base = displayArticle.sections.find((s) => s.id === id) ?? {
+      id,
+      title: id,
+      paragraphs: [],
+    };
     onArticleChange({
       ...article,
-      sections: article.sections.map((s) =>
-        s.id === id ? { ...s, paragraphs } : s,
-      ),
+      sections: article.sections.some((s) => s.id === id)
+        ? article.sections.map((s) =>
+            s.id === id ? { ...s, ...base, paragraphs } : s,
+          )
+        : [...article.sections, { ...base, paragraphs }],
     });
   };
 

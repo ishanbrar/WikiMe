@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   ArticleJson,
   AppearanceSettings,
@@ -35,6 +35,7 @@ import { emptyExtractedFacts } from "@/lib/extractProfileFacts";
 import { ArticleModeSwitchBanner } from "@/components/ExampleModeSwitchBanner";
 import { ArticleWikiLinksEditor } from "@/components/ArticleWikiLinksEditor";
 import type { ArticleMode } from "@/types/article";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 export function ArticleEditor({
   initialArticle,
@@ -76,13 +77,32 @@ export function ArticleEditor({
     width: "standard",
     color: "auto",
   });
+  const isAdmin = useIsAdmin();
+  const stableSlugRef = useRef(slug?.trim() || "");
   const [shareSlug, setShareSlug] = useState(slug ?? "");
   const [shareShortLink, setShareShortLink] = useState(initialShortLink);
   const [shareUrl, setShareUrl] = useState(() =>
     slug ? buildShareUrl(slug, initialShortLink) : "",
   );
   const [saveMessage, setSaveMessage] = useState("");
-  const canSaveToServer = Boolean(shareSlug || slug);
+
+  useEffect(() => {
+    if (slug?.trim()) {
+      stableSlugRef.current = slug.trim();
+      setShareSlug((prev) => prev || slug);
+    }
+  }, [slug]);
+
+  const slugForSave = () => {
+    const known = shareSlug.trim() || slug?.trim() || stableSlugRef.current;
+    if (known) return known;
+    const created = nanoid(10);
+    stableSlugRef.current = created;
+    return created;
+  };
+
+  /** Save always available on the editor; first save assigns a stable slug if needed. */
+  const canSaveToServer = true;
 
   const supplementalFromUrls = (): ExtraPhotoUpload[] =>
     (extraPhotoUrls ?? []).map((dataUrl) => ({ dataUrl, description: "" }));
@@ -92,9 +112,9 @@ export function ArticleEditor({
     setArticle((prev) => updateArticleHeadshot(prev, dataUrl));
   };
 
-  const saved: SavedArticle = {
+  const buildSavedSnapshot = (): SavedArticle => ({
     id: savedId ?? nanoid(),
-    slug: shareSlug || slug || nanoid(10),
+    slug: slugForSave(),
     articleJson: article,
     mode: intakeState.mode,
     intake: intakeState,
@@ -104,13 +124,11 @@ export function ArticleEditor({
     alternateSlug,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  };
+  });
 
   const persistLocal = () => {
     const s = {
-      ...saved,
-      articleJson: article,
-      intake: intakeState,
+      ...buildSavedSnapshot(),
       updatedAt: new Date().toISOString(),
     };
     saveArticleLocal(s);
@@ -120,13 +138,21 @@ export function ArticleEditor({
   const saveToServer = async (): Promise<string | null> => {
     setSaveMessage("");
     const local = persistLocal();
-    const withHeadshot = await prepareArticleForDb({
-      ...local,
-      articleJson: applyHeadshotToArticle(article, headshot),
-      headshotDataUrl: headshot || undefined,
-      alternateSlug,
-    });
-    const result = await saveArticleToServer(withHeadshot);
+    let withHeadshot: SavedArticle;
+    try {
+      withHeadshot = await prepareArticleForDb({
+        ...local,
+        articleJson: applyHeadshotToArticle(article, headshot),
+        headshotDataUrl: headshot || undefined,
+        alternateSlug,
+      });
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message : "Could not prepare article for upload";
+      setSaveMessage(msg);
+      return null;
+    }
+    const result = await saveArticleToServer(withHeadshot, { isAdmin });
     if (result.ok) {
       setShareSlug(result.slug);
       setShareShortLink(result.shortLink);
@@ -156,10 +182,6 @@ export function ArticleEditor({
   };
 
   const saveArticle = async () => {
-    if (!canSaveToServer) {
-      setSaveMessage("Use Share → Copy share link once to create a saved article first.");
-      return;
-    }
     setBusy(true);
     setLoadingMessage("Saving article…");
     try {
@@ -316,7 +338,7 @@ export function ArticleEditor({
         onModeChange={(mode) => setIntakeState({ ...intakeState, mode })}
         onSaveLocal={persistLocal}
         article={article}
-        saved={saved}
+        saved={buildSavedSnapshot()}
         onSaveToServer={saveToServer}
         onSaveArticle={saveArticle}
         canSaveToServer={canSaveToServer}

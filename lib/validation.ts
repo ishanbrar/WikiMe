@@ -160,3 +160,16 @@ export const articleJsonSchema = z.object({
   properNouns: z.array(z.string()),
   linkTitles: z.record(z.string(), z.string()).optional(),
 });
+
+/** Human-readable message when article/intake JSON fails API validation. */
+export function formatZodError(error: z.ZodError): string {
+  const field = error.flatten().fieldErrors;
+  const parts: string[] = [];
+  for (const [key, msgs] of Object.entries(field)) {
+    if (Array.isArray(msgs) && msgs.length) {
+      parts.push(`${key}: ${msgs.join(", ")}`);
+    }
+  }
+  if (parts.length) return `Invalid article data — ${parts.join("; ")}`;
+  return error.message || "Invalid article data";
+}

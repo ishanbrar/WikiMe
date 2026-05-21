@@ -153,11 +153,7 @@ export function ArticleToolbar({
           loadingLabel="Saving…"
           disabled={busy || !canSaveToServer}
           onClick={() => void onSaveArticle()}
-          title={
-            canSaveToServer
-              ? "Save article text, headshot, and links"
-              : "Create a share link first (Share menu)"
-          }
+          title="Save article text, headshot, and links to your share link"
         >
           Save
         </LoadingButton>

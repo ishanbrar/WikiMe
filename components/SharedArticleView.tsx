@@ -48,6 +48,11 @@ export function SharedArticleView({
                   intake: saved.intake,
                   headshotDataUrl: display.headshotDataUrl,
                   facts: saved.extractedFacts,
+                  savedId: saved.id,
+                  slug: saved.slug,
+                  shortLink: saved.shortLink,
+                  alternateSlug: saved.alternateSlug,
+                  mode: saved.mode,
                 }),
               );
               window.location.href = "/article";
