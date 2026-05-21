@@ -4,6 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import type { AppearanceSettings, SavedArticle } from "@/types/article";
 import { WikiArticlePage } from "@/components/WikiArticlePage";
+import {
+  getAlternateMayaChenExampleSlug,
+  isMayaChenExampleSlug,
+} from "@/lib/exampleArticle";
 import { withHeadshotOnSaved } from "@/lib/headshotForArticle";
 
 export function SharedArticleView({
@@ -14,6 +18,7 @@ export function SharedArticleView({
   readOnly?: boolean;
 }) {
   const display = withHeadshotOnSaved(saved);
+  const alternateExampleSlug = getAlternateMayaChenExampleSlug(saved.slug);
   const [appearance, setAppearance] = useState<AppearanceSettings>({
     textSize: "standard",
     width: "standard",
@@ -27,8 +32,17 @@ export function SharedArticleView({
           WikiMe
         </Link>
         <span className="text-slate-600">
-          Shared article · {saved.mode === "creative" ? "Creative" : "Realism"} mode
+          {isMayaChenExampleSlug(saved.slug) ? "Example article" : "Shared article"} ·{" "}
+          {saved.mode === "creative" ? "Creative" : "Realism"} mode
         </span>
+        {alternateExampleSlug && (
+          <Link
+            href={`/a/${alternateExampleSlug}`}
+            className="example-mode-switch btn-secondary text-sm"
+          >
+            View {saved.mode === "creative" ? "Realism" : "Creative"} version
+          </Link>
+        )}
         {readOnly && (
           <button
             type="button"

@@ -278,6 +278,23 @@ export function getExampleArticleSlug(mode: ArticleMode): string {
   return mode === "creative" ? EXAMPLE_CREATIVE_SLUG : EXAMPLE_REALISM_SLUG;
 }
 
+export function isMayaChenExampleSlug(slug: string): boolean {
+  return (
+    slug === EXAMPLE_REALISM_SLUG ||
+    slug === EXAMPLE_CREATIVE_SLUG ||
+    slug === EXAMPLE_ARTICLE_SLUG
+  );
+}
+
+/** Other Maya Chen demo slug (realism ↔ creative). */
+export function getAlternateMayaChenExampleSlug(slug: string): string | null {
+  if (slug === EXAMPLE_CREATIVE_SLUG) return EXAMPLE_REALISM_SLUG;
+  if (slug === EXAMPLE_REALISM_SLUG || slug === EXAMPLE_ARTICLE_SLUG) {
+    return EXAMPLE_CREATIVE_SLUG;
+  }
+  return null;
+}
+
 export function getExampleArticleBySlug(slug: string): SavedArticle | null {
   if (slug === EXAMPLE_CREATIVE_SLUG) {
     return getExampleArticleCreative();

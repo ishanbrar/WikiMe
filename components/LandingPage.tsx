@@ -17,11 +17,10 @@ export function LandingPage() {
   return (
     <div className="landing min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50">
       <section className="landing-hero">
-        <p className="landing-eyebrow">No account required to try</p>
         <h1 className="landing-title">Your life, as a Wikipedia article</h1>
         <p className="landing-lead">
           Upload a headshot and social screenshots, answer a short questionnaire, and
-          generate a highly realistic Wikipedia-style biography — grounded or legendary.
+          generate a highly realistic (or unrealistic) Wikipedia-style biography.
         </p>
         <div className="landing-hero-actions">
           <Link href="/generate" className="landing-cta-primary">

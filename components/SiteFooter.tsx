@@ -11,7 +11,7 @@ export function SiteFooter() {
           <div className="site-footer-col site-footer-brand-col">
             <WikiMeLogo variant="footer" />
             <p className="site-footer-tagline">
-              Turn your profile into a Wikipedia-style biography — grounded or legendary.
+              Turn your profile into a Wikipedia-style biography.
             </p>
           </div>
 
@@ -52,7 +52,7 @@ export function SiteFooter() {
             <span className="site-footer-author">Ishan Brar</span>
           </p>
           <p className="site-footer-disclaimer">
-            Wikipedia-inspired layout only — not affiliated with the Wikimedia Foundation.
+            Not affiliated with the Wikimedia Foundation.
           </p>
         </div>
       </div>
