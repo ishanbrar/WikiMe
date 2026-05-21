@@ -55,9 +55,8 @@ export function GenerationProgress({
   }, [startedAt]);
 
   const errorText = errorMessage != null ? formatUnknownError(errorMessage) : "";
-  const failed = Boolean(
-    errorText || steps?.some((s) => s.status === "error"),
-  );
+  const stepFailed = steps?.some((s) => s.status === "error") ?? false;
+  const failed = stepFailed || Boolean(errorText);
   const progressPct = useMemo(
     () => (steps?.length ? stepProgressPercent(steps) : 0),
     [steps],

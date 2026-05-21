@@ -18,7 +18,9 @@ function friendlyNetworkMessage(msg: string): string | null {
 
 /** Turn any thrown value or API error payload into user-readable text. */
 export function formatUnknownError(err: unknown): string {
-  if (err == null) return "Unknown error (no message). If this keeps happening, try again with fewer or smaller images.";
+  if (err == null) {
+    return "Unknown error (no message). If this keeps happening, try again with fewer or smaller images.";
+  }
   if (err instanceof DOMException && err.name === "AbortError") {
     return "Cancelled";
   }
@@ -29,13 +31,24 @@ export function formatUnknownError(err: unknown): string {
   if (err instanceof Error) {
     const net = friendlyNetworkMessage(err.message);
     if (net) return net;
-    return err.message.trim() || "Unknown error (empty message). Try again or pick a shorter article length.";
+    const msg = err.message?.trim();
+    if (msg) return msg;
+    if (err.cause != null) {
+      const cause = formatUnknownError(err.cause);
+      if (!cause.startsWith("Unknown error") && cause !== "Generation failed unexpectedly. Try again.") {
+        return cause;
+      }
+    }
+    if (err.name && err.name !== "Error") {
+      return `Generation failed (${err.name}). Try again.`;
+    }
+    return "Generation failed unexpectedly. Try again.";
   }
   if (typeof err === "string") {
     const t = err.trim();
     const net = friendlyNetworkMessage(t);
     if (net) return net;
-    return t || "Unknown error (empty message). Try again.";
+    return t || "Generation failed unexpectedly. Try again.";
   }
 
   if (typeof err === "object") {

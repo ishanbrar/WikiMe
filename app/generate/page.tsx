@@ -48,12 +48,11 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { GenerationProgress } from "@/components/GenerationProgress";
 import {
   appendGenerationLog,
-  completeGenerationStep,
   createGenerationRun,
+  failGenerationStep,
   formatGenerationError,
   mergeServerAdminLog,
   skipGenerationStep,
-  startGenerationStep,
   type GenerationRunState,
 } from "@/lib/generationRun";
 import { runGenerationStep } from "@/lib/generationRunClient";
@@ -383,7 +382,23 @@ function GenerateFlow() {
         return data;
       };
 
-      const callGenerateApi = async (images: typeof prepared, mode: ArticleMode) => {
+      type GenerateOutcome =
+        | { ok: false; res: Response; mode: ArticleMode }
+        | {
+            ok: true;
+            data: {
+              article?: ArticleJson;
+              mock?: boolean;
+              adminLog?: string[];
+            };
+            res: Response;
+            mode: ArticleMode;
+          };
+
+      const callGenerateApi = async (
+        images: typeof prepared,
+        mode: ArticleMode,
+      ): Promise<GenerateOutcome> => {
         return withTransientRetry(
           async () => {
             try {
@@ -404,61 +419,63 @@ function GenerateFlow() {
         );
       };
 
-      const generateBothModes = async (images: typeof prepared) => {
-        const runSequential = async () => {
-          setGenDetail("Writing Realism article (AI)…");
-          const realism = await callGenerateApi(images, "realism");
-          setGenDetail("Writing Creative article (AI)…");
-          const creative = await callGenerateApi(images, "creative");
-          return [realism, creative] as const;
-        };
+      const compressFor413 = async (images: typeof prepared) => {
+        setGenDetail("Images still large — compressing further…");
+        const compressed = await runStep(
+          "prepare-images",
+          "Images still large — compressing further…",
+          () =>
+            prepareUploadImages(
+              {
+                headshot: images.headshot,
+                screenshots: images.screenshots,
+                extraPhotos: images.extraPhotos,
+              },
+              true,
+            ),
+        );
+        if (compressed.headshot) setHeadshot([compressed.headshot]);
+        setScreenshots(compressed.screenshots);
+        setExtraPhotos(compressed.extraPhotos);
+        return compressed;
+      };
 
-        let outcomes = [...(await runSequential())];
-        if (outcomes.some((o) => !o.ok)) {
-          setGenDetail("Images still large — compressing further…");
-          images = await runStep(
-            "prepare-images",
-            "Images still large — compressing further…",
-            () =>
-              prepareUploadImages(
-                {
-                  headshot: images.headshot,
-                  screenshots: images.screenshots,
-                  extraPhotos: images.extraPhotos,
-                },
-                true,
-              ),
-          );
-          if (images.headshot) setHeadshot([images.headshot]);
-          setScreenshots(images.screenshots);
-          setExtraPhotos(images.extraPhotos);
-          setGenDetail("Retrying Realism then Creative generation…");
-          outcomes = [...(await runSequential())];
-          if (outcomes.some((o) => !o.ok)) {
+      const generateBothModes = async (images: typeof prepared) => {
+        setGenDetail("Writing Realism article (AI)…");
+        let realism = await callGenerateApi(images, "realism");
+        if (!realism.ok) {
+          images = await compressFor413(images);
+          setGenDetail("Retrying Realism article (AI)…");
+          realism = await callGenerateApi(images, "realism");
+          if (!realism.ok) {
             throw new Error(
               "Upload too large even after compression. Try fewer or smaller images.",
             );
           }
         }
-        return { images, outcomes };
+
+        setGenDetail("Writing Creative article (AI)…");
+        let creative = await callGenerateApi(images, "creative");
+        if (!creative.ok) {
+          images = await compressFor413(images);
+          setGenDetail("Retrying Creative article (AI)…");
+          creative = await callGenerateApi(images, "creative");
+          if (!creative.ok) {
+            throw new Error(
+              "Upload too large even after compression. Try fewer or smaller images.",
+            );
+          }
+        }
+
+        return { images, outcomes: [realism, creative] as GenerateOutcome[] };
       };
 
-      setGenRun((r) =>
-        r
-          ? startGenerationStep(
-              r,
-              "generate",
-              "Writing Realism article, then Creative (AI)…",
-            )
-          : r,
+      const { images: imagesFinal, outcomes } = await runStep(
+        "generate",
+        "Writing Realism article, then Creative (AI)…",
+        () => generateBothModes(prepared),
       );
-
-      const { images: imagesFinal, outcomes } = await generateBothModes(prepared);
       prepared = imagesFinal;
-
-      setGenRun((r) =>
-        r ? completeGenerationStep(r, "generate", "Both article versions received") : r,
-      );
 
       const subjectLabel = intakeFinal.fullName || intakeFinal.articleTitle;
       const finishArticle = (raw: ArticleJson, mode: ArticleMode) => {
@@ -611,7 +628,11 @@ function GenerateFlow() {
       const msg = formatGenerationError(e);
       setError(msg);
       setGenRun((r) => {
-        const failed = r ? { ...r, failed: true, errorMessage: msg } : r;
+        if (!r) return r;
+        const active = r.steps.find((s) => s.status === "active");
+        const failed = active
+          ? failGenerationStep(r, active.id, e)
+          : { ...r, failed: true, errorMessage: msg };
         if (isAdmin && failed) {
           void fetch("/api/admin/generation-runs", {
             method: "POST",

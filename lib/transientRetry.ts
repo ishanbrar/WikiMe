@@ -39,6 +39,7 @@ export function isTransientNetworkError(e: unknown): boolean {
 /** True when the error is worth retrying once or more (same request body). */
 export function isTransientFailure(e: unknown): boolean {
   if (isTransientNetworkError(e)) return true;
+  if (e instanceof Error && !e.message.trim()) return true;
   if (!(e instanceof Error)) return false;
   const m = e.message;
   if (/Article API returned HTTP \d+ \(transient\)/.test(m)) return true;
