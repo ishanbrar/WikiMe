@@ -5,6 +5,8 @@ export type SupplementalPhoto = {
   dataUrl: string;
   /** User note about what the photo depicts — guides AI caption writing */
   description?: string;
+  /** Preferred article section for placement. */
+  targetSection?: string;
   /** Final Wikipedia-style caption (from model or fallback) */
   caption?: string;
 };
@@ -79,6 +81,17 @@ export function applySupplementalPhotos(
     sections[sectionIndex] = mergeFigureIntoSection(sec, figure, 0);
     return true;
   };
+
+  for (let i = 0; i < pending.length; i++) {
+    const photo = pending[i]!;
+    const preferred = photo.targetSection?.trim();
+    if (!preferred) continue;
+    const si = sections.findIndex((s) => s.id === preferred);
+    if (tryPlace(si, photo, i)) {
+      pending.splice(i, 1);
+      i--;
+    }
+  }
 
   for (const slot of PLACEMENTS) {
     if (photoIndex >= pending.length) break;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, Suspense } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createDefaultIntake } from "@/components/IntakeForm";
@@ -58,10 +58,22 @@ import {
 import { runGenerationStep } from "@/lib/generationRunClient";
 import { fetchWithTimeout } from "@/lib/fetchTimeout";
 import { isTransientHttpStatus, withTransientRetry } from "@/lib/transientRetry";
+import {
+  mergeSmartParseIntoIntake,
+  smartParseIntake,
+  type IntakeSmartParse,
+} from "@/lib/smartParseIntake";
+import { extractUrlsFromText } from "@/lib/sourceUrlScan";
+import type { LinkExtractionStatus } from "@/lib/linkExtraction";
 
 const EXTRACT_CONCURRENCY = 3;
 const EXTRACT_FETCH_TIMEOUT_MS = 90_000;
 const GENERATE_FETCH_TIMEOUT_MS = 300_000;
+
+type ClientLinkExtractionResult = {
+  facts: ExtractedProfileFacts;
+  statuses: LinkExtractionStatus[];
+};
 
 function GenerateFlow() {
   const router = useRouter();
@@ -84,6 +96,10 @@ function GenerateFlow() {
   const [genStartedAt, setGenStartedAt] = useState(0);
   const [error, setError] = useState("");
   const [genRun, setGenRun] = useState<GenerationRunState | null>(null);
+  const [generateCreativeVersion, setGenerateCreativeVersion] = useState(true);
+  const [linkFacts, setLinkFacts] = useState<ExtractedProfileFacts | null>(null);
+  const [linkStatuses, setLinkStatuses] = useState<LinkExtractionStatus[]>([]);
+  const [linkBusy, setLinkBusy] = useState(false);
   const isAdmin = useIsAdmin();
   const abortRef = useRef<AbortController | null>(null);
   const genRunRef = useRef<GenerationRunState | null>(null);
@@ -135,6 +151,138 @@ function GenerateFlow() {
   useEffect(() => {
     persistDraft();
   }, [persistDraft]);
+
+  const smartParsed: IntakeSmartParse = useMemo(
+    () => smartParseIntake(intake),
+    [intake],
+  );
+
+  const intakeTextForLinks = useCallback(
+    (value: IntakeData) =>
+      [
+        value.fullName,
+        value.articleTitle,
+        value.birthplace,
+        value.birthday,
+        value.currentLocation,
+        value.education,
+        value.occupation,
+        value.achievements,
+        value.lifeEvents,
+        value.controversies,
+        value.extraNotes,
+        value.pastedProfileText,
+      ].join("\n"),
+    [],
+  );
+
+  const extractLinkSources = useCallback(
+    async (
+      intakeValue = intake,
+      factsValue: ExtractedProfileFacts = facts,
+      managed = false,
+    ): Promise<ClientLinkExtractionResult> => {
+      const urls = extractUrlsFromText(
+        [
+          intakeTextForLinks(intakeValue),
+          factsValue.links.join("\n"),
+          factsValue.rawUsefulText.join("\n"),
+        ].join("\n"),
+      );
+      if (!urls.length) {
+        setLinkStatuses([]);
+        setLinkFacts(null);
+        return { facts: factsValue, statuses: [] };
+      }
+
+      const cacheKey = `wikime_link_extract:${urls.join("|")}`;
+      try {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached) as {
+            facts?: ExtractedProfileFacts;
+            statuses?: LinkExtractionStatus[];
+          };
+          const normalized = normalizeExtractedFacts(parsed.facts);
+          const statuses = parsed.statuses ?? [];
+          setLinkFacts(normalized);
+          setLinkStatuses(statuses);
+          return { facts: normalized, statuses };
+        }
+      } catch {
+        // Session cache is opportunistic.
+      }
+
+      if (!managed) setLinkBusy(true);
+      try {
+        const res = await fetchWithTimeout(
+          "/api/extract-links",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ intake: intakeValue, facts: factsValue }),
+          },
+          90_000,
+        );
+        const data = await parseJsonResponse<
+          ApiErrorBody & {
+            facts?: ExtractedProfileFacts;
+            statuses?: LinkExtractionStatus[];
+            logs?: string[];
+          }
+        >(res);
+        if (!res.ok) throw new Error(apiErrorMessage(data, res));
+        const normalized = normalizeExtractedFacts(data.facts);
+        const statuses = data.statuses ?? [];
+        setLinkFacts(normalized);
+        setLinkStatuses(statuses);
+        if (isAdmin && data.logs?.length) {
+          setGenerationRun((r) =>
+            r ? mergeServerAdminLog(r, data.logs!, "read-links") : r,
+          );
+        }
+        try {
+          sessionStorage.setItem(
+            cacheKey,
+            JSON.stringify({ facts: normalized, statuses }),
+          );
+        } catch {
+          // Large source summaries may exceed storage; generation can continue.
+        }
+        return { facts: normalized, statuses };
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Link extraction failed";
+        const statuses = urls.map((url) => ({
+          url,
+          status: "failed" as const,
+          detail: message,
+        }));
+        setLinkStatuses(statuses);
+        if (managed) {
+          setGenerationRun((r) =>
+            r
+              ? appendGenerationLog(
+                  r,
+                  "warn",
+                  `Linked sources were skipped: ${message}`,
+                  "read-links",
+                )
+              : r,
+          );
+        } else {
+          setError(message);
+        }
+        return { facts: factsValue, statuses };
+      } finally {
+        if (!managed) setLinkBusy(false);
+      }
+    },
+    [facts, intake, intakeTextForLinks, isAdmin, setGenerationRun],
+  );
+
+  const applySmartParsed = useCallback(() => {
+    setIntake((prev) => mergeSmartParseIntoIntake(prev, smartParseIntake(prev)));
+  }, []);
 
   const dismissGeneration = () => {
     setGenerationRun(null);
@@ -259,6 +407,7 @@ function GenerateFlow() {
     const controller = new AbortController();
     abortRef.current = controller;
     const { signal } = controller;
+    let generationLinkStatuses = linkStatuses;
 
     const shotCount = screenshots.length;
     setBusy(true);
@@ -333,6 +482,42 @@ function GenerateFlow() {
         if (signal.aborted) return;
       }
 
+      const urls = extractUrlsFromText(
+        [
+          intakeTextForLinks(intakeFinal),
+          extracted.links.join("\n"),
+          extracted.rawUsefulText.join("\n"),
+        ].join("\n"),
+      );
+      if (urls.length) {
+        extracted = await runStep(
+          "read-links",
+          `Reading linked sources — fetched 0/${urls.length}…`,
+          async () => {
+            const next = await extractLinkSources(intakeFinal, extracted, true);
+            generationLinkStatuses = next.statuses;
+            const fetched = next.statuses.filter((s) =>
+              s.status === "fetched" || s.status === "pdf"
+            ).length;
+            setGenerationRun((r) =>
+              r
+                ? appendGenerationLog(
+                    r,
+                    "info",
+                    `Link extraction complete: ${fetched}/${urls.length} readable`,
+                    "read-links",
+                  )
+                : r,
+            );
+            return next.facts;
+          },
+        );
+      } else {
+        setGenerationRun((r) =>
+          r ? skipGenerationStep(r, "read-links", "No pasted links found") : r,
+        );
+      }
+
       extracted = await runStep(
         "prepare-facts",
         "Preparing profile facts for the article…",
@@ -395,6 +580,8 @@ function GenerateFlow() {
               extraPhotos: images.extraPhotos.map((p) => ({
                 dataUrl: p.dataUrl,
                 description: p.description.trim() || undefined,
+                targetSection: p.targetSection?.trim() || undefined,
+                caption: p.caption?.trim() || undefined,
               })),
             }),
             signal,
@@ -500,7 +687,7 @@ function GenerateFlow() {
         return compressed;
       };
 
-      const generateBothModes = async (images: typeof prepared) => {
+      const generateRequestedModes = async (images: typeof prepared) => {
         setGenDetail("Writing Realism article (AI)…");
         let realism = await runStep(
           "generate-realism",
@@ -520,6 +707,19 @@ function GenerateFlow() {
               "Upload too large even after compression. Try fewer or smaller images.",
             );
           }
+        }
+
+        if (!generateCreativeVersion) {
+          setGenerationRun((r) =>
+            r
+              ? skipGenerationStep(
+                  r,
+                  "generate-creative",
+                  "Realism only selected",
+                )
+              : r,
+          );
+          return { images, outcomes: [realism] as GenerateOutcome[] };
         }
 
         setGenDetail("Writing Creative article (AI)…");
@@ -546,12 +746,12 @@ function GenerateFlow() {
         return { images, outcomes: [realism, creative] as GenerateOutcome[] };
       };
 
-      const { images: imagesFinal, outcomes } = await generateBothModes(prepared);
+      const { images: imagesFinal, outcomes } = await generateRequestedModes(prepared);
       prepared = imagesFinal;
 
       const realismOutcome = outcomes.find((o) => o.ok && o.mode === "realism");
       const creativeOutcome = outcomes.find((o) => o.ok && o.mode === "creative");
-      if (!realismOutcome?.ok || !creativeOutcome?.ok) {
+      if (!realismOutcome?.ok || (generateCreativeVersion && !creativeOutcome?.ok)) {
         const bad = outcomes.filter((o) => !o.ok);
         const detail = bad
           .map((o) => `${o.mode}: HTTP ${o.res.status}`)
@@ -562,10 +762,10 @@ function GenerateFlow() {
       }
 
       const realismSlug = nanoid(10);
-      const creativeSlug = nanoid(10);
+      const creativeSlug = generateCreativeVersion ? nanoid(10) : "";
       const realismId = nanoid();
-      const creativeId = nanoid();
-      const primaryMode = intakeFinal.mode;
+      const creativeId = generateCreativeVersion ? nanoid() : "";
+      const primaryMode: ArticleMode = generateCreativeVersion ? intakeFinal.mode : "realism";
       const {
         realismSave,
         creativeSave,
@@ -584,11 +784,14 @@ function GenerateFlow() {
         };
 
         const realismPack = finishArticle(realismOutcome.data.article!, "realism");
-        const creativePack = finishArticle(creativeOutcome.data.article!, "creative");
+        const creativePack =
+          generateCreativeVersion && creativeOutcome?.ok
+            ? finishArticle(creativeOutcome.data.article!, "creative")
+            : null;
         const primaryPack =
-          primaryMode === "creative" ? creativePack : realismPack;
+          primaryMode === "creative" && creativePack ? creativePack : realismPack;
         const primarySlug =
-          primaryMode === "creative" ? creativeSlug : realismSlug;
+          primaryMode === "creative" && creativeSlug ? creativeSlug : realismSlug;
 
         const imageReportNext = formatArticleImageMetrics(
           articleImageMetrics(primaryPack.article, prepared.headshot),
@@ -599,7 +802,7 @@ function GenerateFlow() {
               ? appendGenerationLog(
                   r,
                   "info",
-                  `Post-process images: ${imageReportNext}; slugs=${realismSlug}, ${creativeSlug}`,
+                  `Post-process images: ${imageReportNext}; slugs=${[realismSlug, creativeSlug].filter(Boolean).join(", ")}`,
                   "post-process",
                 )
               : r,
@@ -615,8 +818,13 @@ function GenerateFlow() {
           mock: realismOutcome.data.mock,
           savedId: primaryMode === "creative" ? creativeId : realismId,
           slug: primarySlug,
-          alternateSlug: primaryMode === "creative" ? realismSlug : creativeSlug,
+          alternateSlug: generateCreativeVersion
+            ? primaryMode === "creative"
+              ? realismSlug
+              : creativeSlug
+            : undefined,
           mode: primaryMode,
+          linkStatuses: generationLinkStatuses,
         };
 
         try {
@@ -643,23 +851,26 @@ function GenerateFlow() {
             headshotDataUrl: prepared.headshot,
             extraPhotoUrls: prepared.extraPhotos.map((p) => p.dataUrl),
             extractedFacts: extracted,
-            alternateSlug: creativeSlug,
+            alternateSlug: creativeSlug || undefined,
             createdAt: now,
             updatedAt: now,
           }),
-          creativeSave: await prepareArticleForDb({
-            id: creativeId,
-            slug: creativeSlug,
-            articleJson: creativePack.article,
-            mode: "creative",
-            intake: creativePack.intakeForMode,
-            headshotDataUrl: prepared.headshot,
-            extraPhotoUrls: prepared.extraPhotos.map((p) => p.dataUrl),
-            extractedFacts: extracted,
-            alternateSlug: realismSlug,
-            createdAt: now,
-            updatedAt: now,
-          }),
+          creativeSave:
+            generateCreativeVersion && creativePack
+              ? await prepareArticleForDb({
+                  id: creativeId,
+                  slug: creativeSlug,
+                  articleJson: creativePack.article,
+                  mode: "creative",
+                  intake: creativePack.intakeForMode,
+                  headshotDataUrl: prepared.headshot,
+                  extraPhotoUrls: prepared.extraPhotos.map((p) => p.dataUrl),
+                  extractedFacts: extracted,
+                  alternateSlug: realismSlug,
+                  createdAt: now,
+                  updatedAt: now,
+                })
+              : null,
         };
       });
 
@@ -672,16 +883,24 @@ function GenerateFlow() {
           return result;
         },
       );
-      const creativeResult = await runStep(
-        "save-creative",
-        "Saving Creative article…",
-        async () => {
-          const result = await saveArticleToServer(creativeSave, { isAdmin });
-          if (!result.ok) throw new Error(result.error);
-          return result;
-        },
-      );
-      const saved = primaryMode === "creative" ? creativeResult : realismResult;
+      let creativeResult: typeof realismResult | null = null;
+      if (creativeSave) {
+        creativeResult = await runStep(
+          "save-creative",
+          "Saving Creative article…",
+          async () => {
+            const result = await saveArticleToServer(creativeSave, { isAdmin });
+            if (!result.ok) throw new Error(result.error);
+            return result;
+          },
+        );
+      } else {
+        setGenerationRun((r) =>
+          r ? skipGenerationStep(r, "save-creative", "Realism only selected") : r,
+        );
+      }
+      const saved =
+        primaryMode === "creative" && creativeResult ? creativeResult : realismResult;
 
       if (signal.aborted) return;
 
@@ -774,6 +993,19 @@ function GenerateFlow() {
           onScreenshotsChange={setScreenshots}
           extraPhotos={extraPhotos}
           onExtraPhotosChange={setExtraPhotos}
+          facts={linkFacts ?? facts}
+          smartParsed={smartParsed}
+          linkStatuses={linkStatuses}
+          linkBusy={linkBusy}
+          generateCreativeVersion={generateCreativeVersion}
+          onGenerateCreativeVersionChange={(value) => {
+            setGenerateCreativeVersion(value);
+            if (!value && intake.mode === "creative") {
+              setIntake((prev) => ({ ...prev, mode: "realism" }));
+            }
+          }}
+          onAnalyzeSources={() => void extractLinkSources()}
+          onApplySmartParsed={applySmartParsed}
           busy={busy}
           onGenerate={() => void generate()}
           onExtractScreenshots={() => void extractScreenshots()}

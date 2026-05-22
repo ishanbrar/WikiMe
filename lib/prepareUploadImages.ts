@@ -62,6 +62,8 @@ export async function prepareUploadImages(
       (input.extraPhotos ?? []).map(async (photo) => ({
         dataUrl: await compressDataUrl(photo.dataUrl, limits.extra),
         description: photo.description ?? "",
+        targetSection: photo.targetSection,
+        caption: photo.caption,
       })),
     ),
   ]);

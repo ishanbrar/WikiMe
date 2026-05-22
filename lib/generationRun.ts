@@ -49,6 +49,7 @@ export function buildGenerationPlan(screenshotCount: number): GenerationRunStep[
     });
   }
   steps.push(
+    { id: "read-links", label: "Read linked sources", status: "pending" },
     { id: "prepare-facts", label: "Prepare profile facts", status: "pending" },
     { id: "generate-realism", label: "Write Realism article", status: "pending" },
     { id: "generate-creative", label: "Write Creative article", status: "pending" },

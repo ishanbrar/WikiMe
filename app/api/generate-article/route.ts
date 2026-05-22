@@ -28,6 +28,8 @@ const bodySchema = z.object({
       z.object({
         dataUrl: z.string().max(500_000),
         description: z.string().max(400).optional(),
+        targetSection: z.string().max(80).optional(),
+        caption: z.string().max(180).optional(),
       }),
     )
     .max(2)
@@ -62,6 +64,8 @@ export async function POST(req: Request) {
       extraPhotos?.map((p) => ({
         dataUrl: p.dataUrl,
         description: p.description?.trim() || undefined,
+        targetSection: p.targetSection?.trim() || undefined,
+        caption: p.caption?.trim() || undefined,
       })) ??
       (extraPhotoUrls ?? []).map((dataUrl) => ({ dataUrl }));
 

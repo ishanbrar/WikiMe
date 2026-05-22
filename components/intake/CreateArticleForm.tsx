@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ArticleLength, IntakeData, TonePreference } from "@/types/article";
+import type { ExtractedProfileFacts } from "@/types/article";
 import { ModeSelector } from "@/components/ModeSelector";
 import { HeadshotUploader } from "@/components/HeadshotUploader";
 import { ScreenshotUploader } from "@/components/ScreenshotUploader";
@@ -19,6 +20,9 @@ import {
 } from "@/lib/createFormTabs";
 import { TONE_OPTIONS, LENGTH_OPTIONS } from "@/lib/intakeFields";
 import type { ExtraPhotoUpload } from "@/lib/extraPhotoUpload";
+import type { IntakeSmartParse } from "@/lib/smartParseIntake";
+import type { LinkExtractionStatus } from "@/lib/linkExtraction";
+import { SourcePreview } from "@/components/intake/SourcePreview";
 
 function sectionDomId(id: CreateFormSectionId): string {
   return `create-section-${id}`;
@@ -33,6 +37,14 @@ export function CreateArticleForm({
   onScreenshotsChange,
   extraPhotos,
   onExtraPhotosChange,
+  facts,
+  smartParsed,
+  linkStatuses,
+  linkBusy,
+  generateCreativeVersion,
+  onGenerateCreativeVersionChange,
+  onAnalyzeSources,
+  onApplySmartParsed,
   busy,
   onGenerate,
   onExtractScreenshots,
@@ -47,6 +59,14 @@ export function CreateArticleForm({
   onScreenshotsChange: (urls: string[]) => void;
   extraPhotos: ExtraPhotoUpload[];
   onExtraPhotosChange: (photos: ExtraPhotoUpload[]) => void;
+  facts?: ExtractedProfileFacts | null;
+  smartParsed: IntakeSmartParse;
+  linkStatuses: LinkExtractionStatus[];
+  linkBusy: boolean;
+  generateCreativeVersion: boolean;
+  onGenerateCreativeVersionChange: (value: boolean) => void;
+  onAnalyzeSources: () => void;
+  onApplySmartParsed: () => void;
   busy?: boolean;
   onGenerate: () => void;
   onExtractScreenshots?: () => void;
@@ -283,6 +303,15 @@ export function CreateArticleForm({
               columns={1}
             />
           </fieldset>
+          <SourcePreview
+            intake={intake}
+            parsed={smartParsed}
+            facts={facts}
+            linkStatuses={linkStatuses}
+            linkBusy={linkBusy}
+            onAnalyzeSources={onAnalyzeSources}
+            onApplyParsed={onApplySmartParsed}
+          />
         </section>
 
         <section
@@ -296,6 +325,32 @@ export function CreateArticleForm({
             article.
           </p>
           <fieldset disabled={busy} className="border-0 p-0 m-0 min-w-0">
+            <div className="generate-scope" role="group" aria-label="Generation scope">
+              <button
+                type="button"
+                className={[
+                  "generate-scope-option",
+                  !generateCreativeVersion && "generate-scope-option--active",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={() => onGenerateCreativeVersionChange(false)}
+              >
+                Realism only
+              </button>
+              <button
+                type="button"
+                className={[
+                  "generate-scope-option",
+                  generateCreativeVersion && "generate-scope-option--active",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={() => onGenerateCreativeVersionChange(true)}
+              >
+                Realism + Creative
+              </button>
+            </div>
             <div className="create-style-grid">
               <label className="block">
                 <span className="create-style-label">Tone</span>
@@ -366,6 +421,7 @@ export function CreateArticleForm({
             <p className="create-flow-bar-title">{summaryTitle}</p>
             <p className="create-flow-bar-meta">
               {summaryMode}
+              {!generateCreativeVersion && " · Realism only"}
               {!canGenerate && (
                 <span className="create-flow-bar-hint">
                   {" "}

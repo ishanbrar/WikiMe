@@ -2,8 +2,8 @@ import { lookup } from "node:dns/promises";
 import net from "node:net";
 import type { ExtractedProfileFacts, IntakeData } from "@/types/article";
 import { fetchWithTimeout } from "@/lib/fetchTimeout";
+import { extractUrlsFromText } from "@/lib/sourceUrlScan";
 
-const MAX_LINKS = 8;
 const FETCH_TIMEOUT_MS = 12_000;
 const MAX_HTML_CHARS = 450_000;
 const MAX_SOURCE_NOTE_CHARS = 2_800;
@@ -11,6 +11,15 @@ const MAX_SOURCE_NOTE_CHARS = 2_800;
 type LinkExtractionResult = {
   facts: ExtractedProfileFacts;
   logs: string[];
+  statuses: LinkExtractionStatus[];
+};
+
+export type LinkExtractionStatus = {
+  url: string;
+  finalUrl?: string;
+  status: "fetched" | "blocked" | "pdf" | "login-required" | "timed-out" | "failed";
+  title?: string;
+  detail?: string;
 };
 
 type ExtractedLinkSource = {
@@ -23,6 +32,8 @@ type ExtractedLinkSource = {
 
 const USER_AGENT =
   "WikiMeBot/1.0 (+https://wikime.online; profile link extraction)";
+
+const sourceCache = new Map<string, ExtractedLinkSource>();
 
 function intakeTextForUrlScan(intake: IntakeData): string {
   return [
@@ -41,40 +52,7 @@ function intakeTextForUrlScan(intake: IntakeData): string {
   ].join("\n");
 }
 
-function normalizeUrl(raw: string): string | null {
-  const cleaned = raw
-    .trim()
-    .replace(/[),.;\]}>]+$/g, "")
-    .replace(/^["'(<{\[]+/g, "");
-  try {
-    const url = new URL(cleaned);
-    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-    if (
-      /(^|\.)google\.[a-z.]+$/i.test(url.hostname) &&
-      url.pathname === "/url" &&
-      url.searchParams.get("url")
-    ) {
-      return normalizeUrl(url.searchParams.get("url")!);
-    }
-    url.hash = "";
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
-
-export function extractUrlsFromText(text: string): string[] {
-  const seen = new Set<string>();
-  const urls: string[] = [];
-  for (const match of text.matchAll(/https?:\/\/[^\s"'<>]+/gi)) {
-    const url = normalizeUrl(match[0]);
-    if (!url || seen.has(url)) continue;
-    seen.add(url);
-    urls.push(url);
-    if (urls.length >= MAX_LINKS) break;
-  }
-  return urls;
-}
+export { extractUrlsFromText };
 
 function isPrivateIp(address: string): boolean {
   if (net.isIPv4(address)) {
@@ -228,6 +206,8 @@ function sourceNote(source: ExtractedLinkSource): string {
 }
 
 async function fetchLinkSource(url: string): Promise<ExtractedLinkSource> {
+  const cached = sourceCache.get(url);
+  if (cached) return cached;
   await assertPublicUrl(url);
   const res = await fetchWithTimeout(
     url,
@@ -241,10 +221,13 @@ async function fetchLinkSource(url: string): Promise<ExtractedLinkSource> {
     },
     FETCH_TIMEOUT_MS,
   );
+  if (res.status === 401 || res.status === 403) {
+    throw new Error(`login required (HTTP ${res.status})`);
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const contentType = res.headers.get("content-type") ?? "";
   if (/application\/pdf/i.test(contentType) || /\.pdf($|\?)/i.test(url)) {
-    return {
+    const source = {
       url,
       title: url.split("/").pop() ?? "PDF source",
       description:
@@ -252,9 +235,13 @@ async function fetchLinkSource(url: string): Promise<ExtractedLinkSource> {
       text: "",
       contentType,
     };
+    sourceCache.set(url, source);
+    return source;
   }
   const html = await res.text();
-  return parseHtmlSource(res.url || url, html, contentType);
+  const source = parseHtmlSource(res.url || url, html, contentType);
+  sourceCache.set(url, source);
+  return source;
 }
 
 function pushUnique(arr: string[], value: string): void {
@@ -275,7 +262,8 @@ export async function enrichFactsWithLinks(
     ].join("\n"),
   );
   const logs: string[] = [`linkExtraction: detected ${urls.length} URL(s)`];
-  if (!urls.length) return { facts, logs };
+  const statuses: LinkExtractionStatus[] = [];
+  if (!urls.length) return { facts, logs, statuses };
 
   const next: ExtractedProfileFacts = {
     ...facts,
@@ -290,12 +278,34 @@ export async function enrichFactsWithLinks(
       const source = await fetchLinkSource(url);
       pushUnique(next.rawUsefulText, sourceNote(source));
       if (source.title) pushUnique(next.notableClaims, `Linked source: ${source.title}`);
+      statuses.push({
+        url,
+        finalUrl: source.url,
+        status:
+          /application\/pdf/i.test(source.contentType) || /\.pdf($|\?)/i.test(url)
+            ? "pdf"
+            : "fetched",
+        title: source.title,
+        detail: source.description,
+      });
       logs.push(`linkExtraction: fetched ${url}`);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
+      const lower = message.toLowerCase();
+      statuses.push({
+        url,
+        status: lower.includes("blocked")
+          ? "blocked"
+          : lower.includes("login required")
+            ? "login-required"
+            : lower.includes("timed out")
+              ? "timed-out"
+              : "failed",
+        detail: message,
+      });
       logs.push(`linkExtraction: skipped ${url} (${message})`);
     }
   }
 
-  return { facts: next, logs };
+  return { facts: next, logs, statuses };
 }

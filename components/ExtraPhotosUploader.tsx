@@ -8,6 +8,16 @@ import {
 } from "@/lib/extraPhotoUpload";
 
 const MAX_PHOTOS = 2;
+const SECTION_OPTIONS = [
+  { value: "", label: "Auto-place" },
+  { value: "early-life", label: "Early life" },
+  { value: "education", label: "Education" },
+  { value: "career", label: "Career" },
+  { value: "projects", label: "Projects" },
+  { value: "controversies", label: "Controversies" },
+  { value: "personal-life", label: "Personal life" },
+  { value: "achievements", label: "Achievements" },
+];
 
 export function ExtraPhotosUploader({
   photos,
@@ -40,6 +50,10 @@ export function ExtraPhotosUploader({
     onChange(
       photos.map((p, i) => (i === index ? { ...p, description } : p)),
     );
+  };
+
+  const updatePhoto = (index: number, patch: Partial<ExtraPhotoUpload>) => {
+    onChange(photos.map((p, i) => (i === index ? { ...p, ...patch } : p)));
   };
 
   return (
@@ -93,6 +107,38 @@ export function ExtraPhotosUploader({
                   onChange={(e) => updateDescription(i, e.target.value)}
                 />
               </label>
+              <div className="extra-photos-options">
+                <label className="extra-photos-mini-label">
+                  Section
+                  <select
+                    className="extra-photos-select"
+                    value={photo.targetSection ?? ""}
+                    disabled={disabled}
+                    onChange={(e) =>
+                      updatePhoto(i, { targetSection: e.target.value || undefined })
+                    }
+                  >
+                    {SECTION_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="extra-photos-mini-label">
+                  Caption
+                  <input
+                    className="extra-photos-caption-input"
+                    maxLength={180}
+                    placeholder="Optional caption override"
+                    value={photo.caption ?? ""}
+                    disabled={disabled}
+                    onChange={(e) =>
+                      updatePhoto(i, { caption: e.target.value })
+                    }
+                  />
+                </label>
+              </div>
               <button
                 type="button"
                 className="extra-photos-remove text-xs text-red-600"

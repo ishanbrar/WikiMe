@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArticleEditor } from "@/components/ArticleEditor";
 import type { ArticleJson, ExtractedProfileFacts, IntakeData, SavedArticle } from "@/types/article";
+import type { LinkExtractionStatus } from "@/lib/linkExtraction";
 import { getArticleById } from "@/lib/storage";
 import { emptyExtractedFacts } from "@/lib/extractProfileFacts";
 import { applyHeadshotToArticle } from "@/lib/headshotForArticle";
@@ -25,6 +26,7 @@ function ArticleView() {
     shortLink?: boolean;
     alternateSlug?: string;
     mode?: import("@/types/article").ArticleMode;
+    linkStatuses?: LinkExtractionStatus[];
   } | null>(null);
 
   useEffect(() => {
@@ -88,6 +90,7 @@ function ArticleView() {
             facts?: ExtractedProfileFacts;
             savedId?: string;
             slug?: string;
+            linkStatuses?: LinkExtractionStatus[];
           };
           if (!cancelled) {
             setPayload({
@@ -135,6 +138,7 @@ function ArticleView() {
       shortLink={payload.shortLink}
       alternateSlug={payload.alternateSlug}
       articleMode={payload.mode}
+      linkStatuses={payload.linkStatuses}
     />
   );
 }

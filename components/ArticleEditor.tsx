@@ -36,6 +36,8 @@ import { ArticleModeSwitchBanner } from "@/components/ExampleModeSwitchBanner";
 import { ArticleWikiLinksEditor } from "@/components/ArticleWikiLinksEditor";
 import type { ArticleMode } from "@/types/article";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { articleCompletenessWarnings } from "@/lib/articleCompleteness";
+import type { LinkExtractionStatus } from "@/lib/linkExtraction";
 
 export function ArticleEditor({
   initialArticle,
@@ -48,6 +50,7 @@ export function ArticleEditor({
   shortLink: initialShortLink = false,
   alternateSlug,
   articleMode,
+  linkStatuses = [],
 }: {
   initialArticle: ArticleJson;
   intake: IntakeData;
@@ -59,6 +62,7 @@ export function ArticleEditor({
   shortLink?: boolean;
   alternateSlug?: string;
   articleMode?: ArticleMode;
+  linkStatuses?: LinkExtractionStatus[];
 }) {
   const [article, setArticle] = useState(() =>
     applyHeadshotToArticle(initialArticle, headshotDataUrl),
@@ -106,6 +110,14 @@ export function ArticleEditor({
 
   const supplementalFromUrls = (): ExtraPhotoUpload[] =>
     (extraPhotoUrls ?? []).map((dataUrl) => ({ dataUrl, description: "" }));
+  const completenessWarnings = articleCompletenessWarnings({
+    article,
+    intake: intakeState,
+    expectedExtraPhotos: extraPhotoUrls?.length ?? 0,
+    linkStatuses,
+  });
+  const hasSection = (id: string, pattern?: RegExp) =>
+    article.sections.some((s) => s.id === id || (pattern && pattern.test(`${s.id} ${s.title}`)));
 
   const onHeadshotChange = (dataUrl: string) => {
     setHeadshot(dataUrl);
@@ -216,6 +228,8 @@ export function ArticleEditor({
           extraPhotos: prepared.extraPhotos.map((p) => ({
             dataUrl: p.dataUrl,
             description: p.description.trim() || undefined,
+            targetSection: p.targetSection?.trim() || undefined,
+            caption: p.caption?.trim() || undefined,
           })),
         }),
       });
@@ -238,6 +252,8 @@ export function ArticleEditor({
             extraPhotos: preparedAgg.extraPhotos.map((p) => ({
               dataUrl: p.dataUrl,
               description: p.description.trim() || undefined,
+              targetSection: p.targetSection?.trim() || undefined,
+              caption: p.caption?.trim() || undefined,
             })),
           }),
         });
@@ -293,13 +309,33 @@ export function ArticleEditor({
       });
       const data = await res.json();
       if (data.section) {
-        setArticle({
-          ...article,
-          sections: article.sections.map((s) =>
-            s.id === sectionId ? data.section : s,
-          ),
+        setArticle((prev) => {
+          const exists = prev.sections.some((s) => s.id === sectionId);
+          return {
+            ...prev,
+            sections: exists
+              ? prev.sections.map((s) => (s.id === sectionId ? data.section : s))
+              : [...prev.sections, data.section],
+          };
         });
       }
+    } finally {
+      setBusy(false);
+      setLoadingMessage("");
+    }
+  };
+
+  const placeMissingPhotos = async () => {
+    setBusy(true);
+    setLoadingMessage("Placing photos…");
+    try {
+      const next = ensureArticleImages(
+        article,
+        headshot || undefined,
+        supplementalFromUrls(),
+        intakeState.fullName || intakeState.articleTitle,
+      );
+      setArticle(next);
     } finally {
       setBusy(false);
       setLoadingMessage("");
@@ -424,12 +460,63 @@ export function ArticleEditor({
         </div>
       )}
 
+      {completenessWarnings.length > 0 && (
+        <div className="article-completeness no-print" role="status">
+          <p className="article-completeness-title">Some details may need attention</p>
+          <ul>
+            {completenessWarnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {editing && (
         <div
           className={`no-print max-w-2xl mx-auto p-4 text-sm ${busy ? "ui-busy" : ""}`}
         >
           <p className="font-medium mb-2">Regenerate section:</p>
           <div className="flex flex-wrap gap-2">
+            {intakeState.achievements.trim() && (
+              <button
+                type="button"
+                className="btn-secondary text-xs"
+                onClick={() => regenerateSection(hasSection("achievements") ? "achievements" : "career")}
+                disabled={busy}
+              >
+                Expand publications
+              </button>
+            )}
+            {intakeState.lifeEvents.trim() && !hasSection("personal-life", /personal|life/i) && (
+              <button
+                type="button"
+                className="btn-secondary text-xs"
+                onClick={() => regenerateSection("personal-life")}
+                disabled={busy}
+              >
+                Add personal life
+              </button>
+            )}
+            {intakeState.controversies.trim() && (
+              <button
+                type="button"
+                className="btn-secondary text-xs"
+                onClick={() => regenerateSection("controversies")}
+                disabled={busy}
+              >
+                Rewrite controversies
+              </button>
+            )}
+            {(extraPhotoUrls?.length ?? 0) > 0 && (
+              <button
+                type="button"
+                className="btn-secondary text-xs"
+                onClick={() => void placeMissingPhotos()}
+                disabled={busy}
+              >
+                Place photos
+              </button>
+            )}
             {article.sections.map((s) => (
               <button
                 key={s.id}
