@@ -18,7 +18,11 @@ export function WikiMeLogo({
 
   return (
     <Link href="/" className={`${base} ${className ?? ""}`.trim()}>
-      <WikiMeMark size={28} className={markClassName ?? "wikime-logo-mark"} glow />
+      <WikiMeMark
+        size={28}
+        className={markClassName ?? "wikime-logo-mark"}
+        priority={variant === "header"}
+      />
       <span className="wikime-logo-wordmark">
         Wiki<span className="wikime-logo-accent">Me</span>
       </span>

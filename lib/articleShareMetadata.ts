@@ -19,13 +19,24 @@ export function articleShareMetadata(
     `A Wikipedia-style article about ${title}, created with WikiMe.`;
 
   const ogImage = options?.ogImageUrl?.trim();
-  const images = ogImage
+  const articleImage = ogImage
     ? [{ url: ogImage, width: 440, height: 560, alt: `${title} — WikiMe` }]
     : undefined;
+  const fallbackSiteImage = {
+    url: "/og-image.png",
+    width: 512,
+    height: 512,
+    alt: "WikiMe",
+  };
+  const images = articleImage ?? [fallbackSiteImage];
 
   return {
     title: { absolute: title },
     description,
+    icons: {
+      icon: [{ url: "/icon.png", sizes: "32x32", type: "image/png" }],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    },
     openGraph: {
       title,
       description,
@@ -38,7 +49,7 @@ export function articleShareMetadata(
       card: ogImage ? "summary_large_image" : "summary",
       title,
       description,
-      images: ogImage ? [ogImage] : undefined,
+      images: ogImage ? [ogImage] : ["/og-image.png"],
     },
   };
 }

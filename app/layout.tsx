@@ -11,14 +11,41 @@ const geist = Geist({
   subsets: ["latin"],
 });
 
+const siteTitle = "WikiMe — Your Wikipedia-style biography";
+const siteDescription =
+  "Generate a realistic Wikipedia-style article about yourself from photos, screenshots, and a short questionnaire.";
+
 export const metadata: Metadata = {
   metadataBase: new URL(CANONICAL_APP_URL),
-  title: "WikiMe — Your Wikipedia-style biography",
-  description:
-    "Generate a realistic Wikipedia-style article about yourself from photos, screenshots, and a short questionnaire.",
+  title: siteTitle,
+  description: siteDescription,
   icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    apple: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    icon: [
+      { url: "/icon.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/wikime-mark.png", sizes: "1024x1024", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  openGraph: {
+    type: "website",
+    siteName: "WikiMe",
+    title: siteTitle,
+    description: siteDescription,
+    images: [
+      {
+        url: "/og-image.png",
+        width: 512,
+        height: 512,
+        alt: "WikiMe",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: siteTitle,
+    description: siteDescription,
+    images: ["/og-image.png"],
   },
 };
 
