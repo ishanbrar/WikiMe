@@ -172,6 +172,9 @@ function GenerateFlow() {
         value.controversies,
         value.extraNotes,
         value.pastedProfileText,
+        value.instagramUrl,
+        value.linkedinUrl,
+        value.xUrl,
       ].join("\n"),
     [],
   );

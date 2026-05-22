@@ -29,6 +29,9 @@ const intakeFields = {
   extraNotes: z.string(),
   pastedProfileText: z.string(),
   articleLength: z.enum(["short", "standard", "long"]),
+  instagramUrl: z.string(),
+  linkedinUrl: z.string(),
+  xUrl: z.string(),
 };
 
 const intakeDefaults = {
@@ -44,6 +47,9 @@ const intakeDefaults = {
   extraNotes: "",
   pastedProfileText: "",
   articleLength: "standard" as const,
+  instagramUrl: "",
+  linkedinUrl: "",
+  xUrl: "",
 };
 
 export const intakeSchema = z.preprocess((val) => {

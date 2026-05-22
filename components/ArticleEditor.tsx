@@ -21,6 +21,7 @@ import {
   applyHeadshotToArticle,
   updateArticleHeadshot,
 } from "@/lib/headshotForArticle";
+import { applyIntakeSocialToInfobox } from "@/lib/socialLinks";
 import { HeadshotUploader } from "@/components/HeadshotUploader";
 import {
   articleImageMetrics,
@@ -124,10 +125,22 @@ export function ArticleEditor({
     setArticle((prev) => updateArticleHeadshot(prev, dataUrl));
   };
 
+  useEffect(() => {
+    setArticle((prev) => ({
+      ...prev,
+      infobox: applyIntakeSocialToInfobox(prev.infobox, intakeState),
+    }));
+  }, [intakeState.instagramUrl, intakeState.linkedinUrl, intakeState.xUrl]);
+
+  const articleForSave = (): ArticleJson => ({
+    ...article,
+    infobox: applyIntakeSocialToInfobox(article.infobox, intakeState),
+  });
+
   const buildSavedSnapshot = (): SavedArticle => ({
     id: savedId ?? nanoid(),
     slug: slugForSave(),
-    articleJson: article,
+    articleJson: articleForSave(),
     mode: intakeState.mode,
     intake: intakeState,
     headshotDataUrl: headshot || undefined,
@@ -154,7 +167,7 @@ export function ArticleEditor({
     try {
       withHeadshot = await prepareArticleForDb({
         ...local,
-        articleJson: applyHeadshotToArticle(article, headshot),
+        articleJson: applyHeadshotToArticle(articleForSave(), headshot),
         headshotDataUrl: headshot || undefined,
         alternateSlug,
       });

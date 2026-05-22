@@ -2,7 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ExportControls } from "@/components/ExportControls";
-import { LoadingButton } from "@/components/LoadingButton";
+import { IconButton } from "@/components/IconButton";
+import {
+  EyeIcon,
+  MoreIcon,
+  PencilIcon,
+  SaveIcon,
+} from "@/components/icons/ArticleToolbarIcons";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import type { ArticleJson, IntakeData, SavedArticle } from "@/types/article";
 
 export function ArticleToolbar({
@@ -72,27 +79,25 @@ export function ArticleToolbar({
     <div
       className={`article-toolbar-bar no-print sticky top-0 z-50 bg-white/95 border-b border-slate-200 ${busy ? "opacity-60" : ""}`}
     >
-      <div className="article-toolbar-bar-inner px-4 py-2 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="btn-secondary text-sm"
+      <div className="article-toolbar-bar-inner">
+        <IconButton
+          label={editing ? "Preview article" : "Edit article"}
           onClick={onToggleEdit}
           disabled={busy}
         >
-          {editing ? "Preview" : "Edit"}
-        </button>
+          {editing ? <EyeIcon /> : <PencilIcon />}
+        </IconButton>
 
         <div className="article-toolbar-actions" ref={optionsRef}>
-          <button
-            type="button"
-            className="btn-secondary text-sm"
-            onClick={() => setOptionsOpen((v) => !v)}
-            disabled={busy}
+          <IconButton
+            label="More options"
             aria-expanded={optionsOpen}
             aria-haspopup="menu"
+            onClick={() => setOptionsOpen((v) => !v)}
+            disabled={busy}
           >
-            Options …
-          </button>
+            <MoreIcon />
+          </IconButton>
           {optionsOpen && (
             <div className="article-toolbar-menu" role="menu">
               <button
@@ -147,16 +152,17 @@ export function ArticleToolbar({
           )}
         </div>
 
-        <LoadingButton
-          className="btn-primary text-sm"
-          loading={busy}
-          loadingLabel="Saving…"
-          disabled={busy || !canSaveToServer}
-          onClick={() => void onSaveArticle()}
+        <button
+          type="button"
+          className="icon-btn icon-btn--primary"
+          aria-label={busy ? "Saving article" : "Save article"}
           title="Save article text, headshot, and links to your share link"
+          disabled={busy || !canSaveToServer}
+          aria-busy={busy}
+          onClick={() => void onSaveArticle()}
         >
-          Save
-        </LoadingButton>
+          {busy ? <LoadingSpinner /> : <SaveIcon />}
+        </button>
 
         <ExportControls
           article={article}
@@ -165,10 +171,11 @@ export function ArticleToolbar({
           onSave={onSaveToServer}
           disabled={busy}
           inline
+          iconOnly
         />
       </div>
       {saveMessage && (
-        <p className="article-toolbar-save-msg px-4 pb-2 text-xs text-slate-600" role="status">
+        <p className="article-toolbar-save-msg" role="status">
           {saveMessage}
         </p>
       )}

@@ -68,21 +68,37 @@ export function GenerationProgress({
   const showSlowHint = !failed && elapsed >= 90;
   const showPhotoTimeHint = hasUploads && !failed && elapsed < 90;
 
-  const activeStepDetail = steps?.find((s) => s.status === "active")?.detail?.trim();
+  const activeStep = steps?.find((s) => s.status === "active");
+  const activeStepDetail = activeStep?.detail?.trim();
   const showDetail =
     Boolean(detail?.trim()) &&
     detail!.trim() !== activeStepDetail;
 
   const primaryHint = hasUploads
-    ? "Articles with photos or screenshots can take up to 2 minutes. Please keep this tab open until your article appears."
-    : "This usually takes about 60 seconds. Please keep this tab open until generation finishes.";
+    ? "Photos can take up to 2 minutes. Keep this tab open."
+    : "Usually about 60 seconds. Keep this tab open.";
+
+  const statusLine =
+    activeStepDetail ||
+    detail?.trim() ||
+    (failed ? "Something went wrong" : "Working on your article…");
 
   return (
     <div className="loading-overlay" role="alert" aria-live="polite" aria-busy={!failed}>
       <div
         className={`loading-overlay-card generation-progress-card ${showAdminBadge ? "generation-progress-card--admin" : ""}`}
       >
-        <p className="generation-progress-title">Creating your article</p>
+        <div className="generation-progress-hero">
+          <div className="generation-loader" aria-hidden>
+            {!failed && <span className="generation-loader-ring" />}
+          </div>
+          <div className="generation-progress-hero-text">
+            <p className="generation-progress-title">Creating your article</p>
+            {!failed && (
+              <p className="generation-progress-status">{statusLine}</p>
+            )}
+          </div>
+        </div>
 
         {showAdminBadge && <p className="generation-admin-badge">Admin test mode</p>}
 
@@ -100,8 +116,24 @@ export function GenerationProgress({
                 className="generation-progress-bar-fill"
                 style={{ width: `${progressPct}%` }}
               />
+              {!failed && <span className="generation-progress-bar-shimmer" aria-hidden />}
             </div>
-            <p className="generation-progress-pct">{progressPct}% complete</p>
+            <p className="generation-progress-pct">{progressPct}%</p>
+
+            <ol className="generation-steps-compact" aria-label="Generation steps">
+              {steps.map((step) => (
+                <li
+                  key={step.id}
+                  className={`generation-step-pill generation-step-pill--${step.status}`}
+                  title={step.label}
+                >
+                  <span className="generation-step-pill-marker" aria-hidden>
+                    {stepMarker(step)}
+                  </span>
+                  <span className="generation-step-pill-label">{step.label}</span>
+                </li>
+              ))}
+            </ol>
 
             <ol className="generation-steps-admin">
               {steps.map((step) => (
@@ -134,21 +166,25 @@ export function GenerationProgress({
           </>
         )}
 
-        {showDetail && <p className="generation-progress-detail">{detail}</p>}
+        {showDetail && (
+          <p className="generation-progress-detail generation-progress-detail--extra">
+            {detail}
+          </p>
+        )}
 
-        <p className="generation-progress-hint">{primaryHint}</p>
+        {!failed && (
+          <p className="generation-progress-hint">{primaryHint}</p>
+        )}
 
         {showPhotoTimeHint && (
           <p className="generation-progress-hint generation-progress-hint--photo">
-            Uploads with pictures often need the full 2 minutes — we are still processing
-            your images and writing the article.
+            Still processing uploads and writing your article.
           </p>
         )}
 
         {showSlowHint && (
           <p className="generation-progress-hint generation-progress-hint--warn">
-            Still working — realism mode with lots of detail can take a few minutes. If
-            this exceeds 5 minutes, cancel and try a shorter article length.
+            Still working — try a shorter length if this exceeds 5 minutes.
           </p>
         )}
 
@@ -178,7 +214,7 @@ export function GenerationProgress({
           </div>
         )}
 
-        <p className="generation-progress-elapsed">{elapsed}s elapsed</p>
+        <p className="generation-progress-elapsed">{elapsed}s</p>
 
         {failed && onDismiss ? (
           <button type="button" className="btn-primary generation-dismiss" onClick={onDismiss}>

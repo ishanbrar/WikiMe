@@ -37,9 +37,6 @@ export function SiteFooter() {
                 <Link href="/signup">Sign up</Link>
               </li>
               <li>
-                <Link href="/login">Sign in</Link>
-              </li>
-              <li>
                 <Link href="/generate?mode=creative">Creative mode</Link>
               </li>
             </ul>

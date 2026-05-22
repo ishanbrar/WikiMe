@@ -25,6 +25,9 @@ const defaultIntake = (mode: ArticleMode = "realism"): IntakeData => ({
   extraNotes: "",
   pastedProfileText: "",
   articleLength: "standard",
+  instagramUrl: "",
+  linkedinUrl: "",
+  xUrl: "",
 });
 
 export function createDefaultIntake(mode?: ArticleMode) {
@@ -98,7 +101,21 @@ export function IntakeForm({
       ) : (
         <input
           className="form-input mt-1"
-          type="text"
+          type={
+            key === "instagramUrl" || key === "linkedinUrl" || key === "xUrl"
+              ? "url"
+              : "text"
+          }
+          inputMode={
+            key === "instagramUrl" || key === "linkedinUrl" || key === "xUrl"
+              ? "url"
+              : undefined
+          }
+          autoCapitalize={
+            key === "instagramUrl" || key === "linkedinUrl" || key === "xUrl"
+              ? "off"
+              : undefined
+          }
           name={opts?.name ?? String(key)}
           autoComplete={opts?.autocomplete ?? "on"}
           placeholder={opts?.placeholder ?? INTAKE_PLACEHOLDERS[key]}
@@ -160,6 +177,18 @@ export function IntakeForm({
           autocomplete: "off",
         })}
         {field("Important life events", "lifeEvents", { textarea: true, autocomplete: "off" })}
+
+        <div className="intake-social-block">
+          <h3 className="intake-social-heading">Social profiles (optional)</h3>
+          <p className="intake-social-sub">
+            Shown as icons at the bottom of your article infobox.
+          </p>
+          <div className="grid md:grid-cols-1 gap-4">
+            {field("Instagram", "instagramUrl", { autocomplete: "off" })}
+            {field("LinkedIn", "linkedinUrl", { autocomplete: "off" })}
+            {field("X (Twitter)", "xUrl", { autocomplete: "off" })}
+          </div>
+        </div>
 
         <label className="block">
           <span className="text-sm font-medium text-slate-700">

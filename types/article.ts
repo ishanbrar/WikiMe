@@ -32,6 +32,10 @@ export interface IntakeData {
   extraNotes: string;
   pastedProfileText: string;
   articleLength: ArticleLength;
+  /** Optional profile URLs — shown as icons in the infobox */
+  instagramUrl: string;
+  linkedinUrl: string;
+  xUrl: string;
 }
 
 export interface ExtractedProfileFacts {

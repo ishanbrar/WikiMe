@@ -2,6 +2,7 @@
 
 import type { ArticleInfobox, InfoboxAllegiance } from "@/types/article";
 import { WikiLinkedText } from "@/components/WikiLinkedText";
+import { InfoboxSocialLinks } from "@/components/InfoboxSocialLinks";
 import { extractPlaceFromBornLine, flagEmoji } from "@/lib/infoboxHelpers";
 import { expandLinkTermsForInfobox, stripWikiMarkers } from "@/lib/wikipediaLinks";
 import { useEffect, useMemo, useState } from "react";
@@ -257,24 +258,7 @@ export function WikiInfobox({
             </td>
           </tr>
         ) : null}
-        {infobox.socialLinks?.length ? (
-          <tr>
-            <th className="wiki-infobox-label">Website</th>
-            <td className="wiki-infobox-data">
-              {infobox.socialLinks.map((l, i) => (
-                <a
-                  key={i}
-                  href={l.url}
-                  className="wiki-link block"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {l.label}
-                </a>
-              ))}
-            </td>
-          </tr>
-        ) : null}
+        <InfoboxSocialLinks links={infobox.socialLinks ?? []} />
       </tbody>
     </table>
   );

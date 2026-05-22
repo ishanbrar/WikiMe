@@ -1,4 +1,5 @@
 import type { ArticleInfobox, InfoboxAllegiance, IntakeData } from "@/types/article";
+import { mergeSocialLinksForInfobox } from "@/lib/socialLinks";
 
 export const INFOBOX_RULES = `INFOBOX (Wikipedia biography style — like Akbar):
 - titles[]: honorifics/epithets shown under the name (e.g. "Padishah", "Ghazi", "Colonel") — omit if none apply.
@@ -181,15 +182,18 @@ export function normalizeInfobox(
     awards: strArr(inf.awards),
     allegiance: parseAllegianceList(inf.allegiance),
     branch: parseAllegianceList(inf.branch),
-    socialLinks: Array.isArray(inf.socialLinks)
-      ? (inf.socialLinks as unknown[])
-          .map((l) => {
-            const link = l as Record<string, unknown>;
-            const label = str(link.label);
-            const url = str(link.url);
-            return label && url ? { label, url } : null;
-          })
-          .filter((x): x is { label: string; url: string } => x !== null)
-      : [],
+    socialLinks: mergeSocialLinksForInfobox(
+      intake,
+      Array.isArray(inf.socialLinks)
+        ? (inf.socialLinks as unknown[])
+            .map((l) => {
+              const link = l as Record<string, unknown>;
+              const label = str(link.label);
+              const url = str(link.url);
+              return label && url ? { label, url } : null;
+            })
+            .filter((x): x is { label: string; url: string } => x !== null)
+        : [],
+    ),
   };
 }

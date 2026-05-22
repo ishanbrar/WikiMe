@@ -13,6 +13,7 @@ import { IntakeFieldsGrid } from "@/components/intake/IntakeFieldsGrid";
 import {
   BASICS_FIELDS,
   BIO_FIELDS,
+  SOCIAL_FIELDS,
   CREATE_FORM_SECTIONS,
   MORE_FIELDS,
   createSectionProgress,
@@ -23,6 +24,7 @@ import type { ExtraPhotoUpload } from "@/lib/extraPhotoUpload";
 import type { IntakeSmartParse } from "@/lib/smartParseIntake";
 import type { LinkExtractionStatus } from "@/lib/linkExtraction";
 import { SourcePreview } from "@/components/intake/SourcePreview";
+import { hapticGenerate } from "@/lib/haptics";
 
 function sectionDomId(id: CreateFormSectionId): string {
   return `create-section-${id}`;
@@ -192,6 +194,7 @@ export function CreateArticleForm({
           })}
         </nav>
       </header>
+      <div className="create-flow-header-spacer" aria-hidden />
 
       <div className="create-flow-scroll">
         <section
@@ -281,6 +284,19 @@ export function CreateArticleForm({
               value={intake}
               onChange={onIntakeChange}
             />
+            <div className="create-social-block">
+              <h3 className="create-social-heading">Social profiles</h3>
+              <p className="create-social-sub">
+                Optional — links appear at the bottom of your article infobox with
+                Instagram, LinkedIn, and X icons.
+              </p>
+              <IntakeFieldsGrid
+                fields={SOCIAL_FIELDS}
+                value={intake}
+                onChange={onIntakeChange}
+                columns={1}
+              />
+            </div>
           </fieldset>
         </section>
 
@@ -358,6 +374,18 @@ export function CreateArticleForm({
                   className="form-input mt-1 w-full"
                   name="tone"
                   value={intake.tone}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      (
+                        e.currentTarget
+                          .closest(".create-style-grid")
+                          ?.querySelector<HTMLSelectElement>(
+                            'select[name="article-length"]',
+                          ) ?? null
+                      )?.focus();
+                    }
+                  }}
                   onChange={(e) =>
                     onIntakeChange({
                       ...intake,
@@ -378,6 +406,16 @@ export function CreateArticleForm({
                   className="form-input mt-1 w-full"
                   name="article-length"
                   value={intake.articleLength}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      document
+                        .querySelector<HTMLButtonElement>(
+                          ".create-flow-generate-btn:not(:disabled)",
+                        )
+                        ?.focus();
+                    }
+                  }}
                   onChange={(e) =>
                     onIntakeChange({
                       ...intake,
@@ -440,6 +478,7 @@ export function CreateArticleForm({
             loading={busy}
             loadingLabel="Generating…"
             onClick={() => {
+              hapticGenerate();
               onClearGenerateError?.();
               onGenerate();
             }}

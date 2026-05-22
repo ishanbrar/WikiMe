@@ -22,6 +22,9 @@ const MAYA_INTAKE_BASE = {
   extraNotes: "",
   pastedProfileText: "",
   articleLength: "standard" as const,
+  instagramUrl: "",
+  linkedinUrl: "https://www.linkedin.com/in/maya-chen",
+  xUrl: "",
 };
 
 const MAYA_INFOBOX_BASE = {

@@ -37,6 +37,36 @@ export const BASICS_FIELDS: IntakeFieldDef[] = [
   },
 ];
 
+export const SOCIAL_FIELDS: IntakeFieldDef[] = [
+  {
+    key: "instagramUrl",
+    label: "Instagram",
+    placeholder: "instagram.com/yourname or @yourname",
+    optional: true,
+    inputMode: "url",
+    urlField: true,
+    autocomplete: "off",
+  },
+  {
+    key: "linkedinUrl",
+    label: "LinkedIn",
+    placeholder: "linkedin.com/in/yourname",
+    optional: true,
+    inputMode: "url",
+    urlField: true,
+    autocomplete: "off",
+  },
+  {
+    key: "xUrl",
+    label: "X (Twitter)",
+    placeholder: "x.com/yourname or @yourname",
+    optional: true,
+    inputMode: "url",
+    urlField: true,
+    autocomplete: "off",
+  },
+];
+
 export const BIO_FIELDS: IntakeFieldDef[] = [
   {
     key: "currentLocation",

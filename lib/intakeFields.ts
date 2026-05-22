@@ -44,6 +44,9 @@ export const INTAKE_PLACEHOLDERS: Record<IntakeFieldKey, string> = {
     "Paste your whole story here — LinkedIn, resume, family, jobs, awards, controversies. WikiMe sorts it into the article even if you skip the fields below…",
   pastedProfileText:
     "Or paste a profile here instead (optional if you used Additional info above)…",
+  instagramUrl: "instagram.com/yourname",
+  linkedinUrl: "linkedin.com/in/yourname",
+  xUrl: "x.com/yourname",
 };
 
 export interface IntakeFieldDef {
@@ -55,6 +58,8 @@ export interface IntakeFieldDef {
   optional?: boolean;
   autocomplete?: string;
   inputMode?: "text" | "search" | "url";
+  /** Use URL keyboard and validation-friendly input on create form */
+  urlField?: boolean;
   name?: string;
 }
 

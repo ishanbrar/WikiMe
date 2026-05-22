@@ -4,6 +4,10 @@ import type { IntakeData } from "@/types/article";
 import type { IntakeFieldDef } from "@/lib/intakeFields";
 import { INTAKE_PLACEHOLDERS } from "@/lib/intakeFields";
 import { applyFullNameChange } from "@/lib/intakeSync";
+import {
+  createFieldDomId,
+  focusNextCreateField,
+} from "@/lib/createFormFieldOrder";
 
 export function IntakeFieldsGrid({
   fields,
@@ -51,22 +55,34 @@ function IntakeFieldRow({
     onChange({ ...value, [field.key]: next } as IntakeData);
   };
 
+  const inputId = createFieldDomId(field.key);
+
+  const handleEnter = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+    if (field.textarea && e.shiftKey) return;
+    e.preventDefault();
+    focusNextCreateField(field.key);
+  };
+
   const common = {
-    id: `create-${field.key}`,
+    id: inputId,
     name: field.name ?? field.key,
     autoComplete: field.autocomplete ?? "on",
+    autoCapitalize: "words" as const,
+    enterKeyHint: field.textarea ? ("next" as const) : ("next" as const),
     placeholder: field.placeholder ?? INTAKE_PLACEHOLDERS[field.key],
     className: "form-input mt-1 w-full",
     value: val,
     onChange: (
       e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
     ) => setVal(e.target.value),
+    onKeyDown: handleEnter,
   };
 
   return (
     <label
       className={`block ${spanFull ? "sm:col-span-2" : ""}`}
-      htmlFor={common.id}
+      htmlFor={inputId}
     >
       <span className="text-sm font-medium text-slate-700">
         {field.label}
@@ -76,10 +92,23 @@ function IntakeFieldRow({
         ) : null}
       </span>
       {field.textarea ? (
-        <textarea {...common} rows={4} className="form-input mt-1 w-full min-h-[100px]" />
+        <textarea
+          {...common}
+          rows={4}
+          className="form-input mt-1 w-full min-h-[100px]"
+          enterKeyHint="next"
+        />
       ) : (
-        <input {...common} type="text" inputMode={field.inputMode ?? "text"} />
+        <input
+          {...common}
+          type={field.urlField ? "url" : "text"}
+          inputMode={field.inputMode ?? (field.urlField ? "url" : "text")}
+          autoCapitalize={field.urlField ? "off" : common.autoCapitalize}
+        />
       )}
+      {field.textarea ? (
+        <span className="intake-enter-hint">Press Enter for next field · Shift+Enter for new line</span>
+      ) : null}
     </label>
   );
 }
