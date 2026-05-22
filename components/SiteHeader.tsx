@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { AuthNav } from "@/components/AuthNav";
 import { SiteHeaderMenu } from "@/components/SiteHeaderMenu";
 import { WikiMeLogo } from "@/components/WikiMeLogo";
 
@@ -9,6 +11,12 @@ export function SiteHeader({ variant = "default" }: { variant?: "default" | "lan
       <div className="site-header-inner">
         <WikiMeLogo variant="header" />
         <nav className="site-header-nav" aria-label="Main">
+          <div className="site-header-links">
+            <Link href="/generate" className="site-header-link">
+              Create
+            </Link>
+            <AuthNav />
+          </div>
           <SiteHeaderMenu />
         </nav>
       </div>

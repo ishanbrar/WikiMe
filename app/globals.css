@@ -398,24 +398,65 @@ body:has(.landing) .site-footer-heading {
 }
 
 .article-toolbar-bar-inner {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 0.4rem;
   padding: 0.5rem 1rem;
-  max-width: 48rem;
+  max-width: 72rem;
   margin: 0 auto;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  overflow: visible;
 }
 
-.article-toolbar-bar-inner::-webkit-scrollbar {
-  display: none;
+.article-toolbar-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.article-toolbar-edit-btn,
+.article-toolbar-save-btn {
+  font-size: 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .article-toolbar-actions {
   position: relative;
+}
+
+.article-toolbar-actions--mobile {
+  display: flex;
+}
+
+.article-toolbar-desktop-options {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.article-toolbar-opt-btn {
+  font-size: 0.8125rem;
+  padding: 0.35rem 0.65rem !important;
+}
+
+.article-toolbar-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+}
+
+.article-toolbar-mode-label {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.article-toolbar-mode-select {
+  font-size: 0.8125rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  background: #fff;
 }
 
 .article-toolbar-save-msg {
@@ -490,6 +531,14 @@ body:has(.landing) .site-footer-heading {
   border-width: 2px;
 }
 
+.site-header-links {
+  display: none;
+  align-items: center;
+  gap: 0.25rem 1rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .site-header-menu {
   position: relative;
   margin-left: auto;
@@ -544,6 +593,50 @@ body:has(.landing) .site-footer-heading {
 .site-header-menu-item--cta:hover {
   background: #eff6ff;
   color: #1d4ed8;
+}
+
+@media (min-width: 768px) {
+  .site-header-links {
+    display: flex;
+  }
+
+  .site-header-menu {
+    display: none;
+  }
+
+  .article-toolbar-actions--mobile {
+    display: none;
+  }
+
+  .article-toolbar-desktop-options {
+    display: flex;
+  }
+}
+
+@media (max-width: 767px) {
+  .article-toolbar-main {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .article-toolbar-main::-webkit-scrollbar {
+    display: none;
+  }
+
+  .article-toolbar-edit-btn {
+    display: none;
+  }
+
+  .article-toolbar-edit-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+}
+
+.article-toolbar-edit-icon {
+  display: none;
 }
 
 .extra-photos-grid {
