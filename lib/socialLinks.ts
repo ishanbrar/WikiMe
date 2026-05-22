@@ -15,8 +15,11 @@ const PLATFORM_LABELS: Record<Exclude<SocialPlatform, "other">, string> = {
 };
 
 /** Normalize user paste (handles, bare domains, missing scheme). */
-export function normalizeSocialUrl(raw: string, platform?: SocialPlatform): string {
-  let t = raw.trim();
+export function normalizeSocialUrl(
+  raw: string | undefined | null,
+  platform?: SocialPlatform,
+): string {
+  let t = (typeof raw === "string" ? raw : "").trim();
   if (!t) return "";
 
   if (/^[@/]/.test(t)) t = t.replace(/^[@/]+/, "");
@@ -61,12 +64,20 @@ export function detectSocialPlatform(url: string, label?: string): SocialPlatfor
   return "other";
 }
 
+function intakeSocialUrl(
+  intake: IntakeData,
+  key: "instagramUrl" | "linkedinUrl" | "xUrl",
+): string {
+  const v = intake[key];
+  return typeof v === "string" ? v : "";
+}
+
 export function socialLinksFromIntake(intake: IntakeData): SocialLink[] {
   const entries: { platform: Exclude<SocialPlatform, "other">; value: string }[] =
     [
-      { platform: "instagram", value: intake.instagramUrl },
-      { platform: "linkedin", value: intake.linkedinUrl },
-      { platform: "x", value: intake.xUrl },
+      { platform: "instagram", value: intakeSocialUrl(intake, "instagramUrl") },
+      { platform: "linkedin", value: intakeSocialUrl(intake, "linkedinUrl") },
+      { platform: "x", value: intakeSocialUrl(intake, "xUrl") },
     ];
 
   const out: SocialLink[] = [];
@@ -87,12 +98,13 @@ export function enrichSocialLinks(
 ): SocialLink[] {
   return links
     .map((l) => {
-      const url = normalizeSocialUrl(l.url);
+      const url = normalizeSocialUrl(l?.url);
       if (!url) return null;
+      const label = typeof l?.label === "string" ? l.label.trim() : "";
       return {
-        label: l.label.trim() || "Website",
+        label: label || "Website",
         url,
-        platform: detectSocialPlatform(url, l.label),
+        platform: detectSocialPlatform(url, label),
       };
     })
     .filter((x): x is SocialLink => x !== null);

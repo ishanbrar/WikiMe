@@ -5,6 +5,7 @@ import { isVercelDeployment } from "@/lib/appUrl";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/admin";
 import { getExampleArticleBySlug } from "@/lib/exampleArticle";
 import { validateArticleSlug } from "@/lib/articleSlug";
+import { normalizeStoredIntake } from "@/lib/mergeLegacyIntake";
 import { withHeadshotOnSaved } from "@/lib/headshotForArticle";
 
 function requirePersistentStorage(): void {
@@ -41,7 +42,7 @@ function rowToSaved(row: ArticleRow): SavedArticle {
     slug: row.slug,
     articleJson: row.article_json,
     mode: row.mode,
-    intake: row.intake,
+    intake: normalizeStoredIntake(row.intake),
     headshotDataUrl: row.headshot_data_url ?? undefined,
     extractedFacts: row.extracted_facts ?? undefined,
     userId: row.user_id ?? undefined,
@@ -87,7 +88,11 @@ async function getArticleBySlugFile(slug: string): Promise<SavedArticle | null> 
   try {
     const file = path.join(DATA_DIR, `${slug}.json`);
     const raw = await fs.readFile(file, "utf-8");
-    return withHeadshotOnSaved(JSON.parse(raw) as SavedArticle);
+    const saved = JSON.parse(raw) as SavedArticle;
+    return withHeadshotOnSaved({
+      ...saved,
+      intake: normalizeStoredIntake(saved.intake),
+    });
   } catch {
     return null;
   }
@@ -182,7 +187,10 @@ export async function getArticleByIdServer(
       const raw = await fs.readFile(path.join(DATA_DIR, file), "utf-8");
       const saved = JSON.parse(raw) as SavedArticle;
       if (saved.id === id) {
-        return withHeadshotOnSaved(saved);
+        return withHeadshotOnSaved({
+          ...saved,
+          intake: normalizeStoredIntake(saved.intake),
+        });
       }
     }
   } catch {
