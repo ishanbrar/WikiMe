@@ -86,6 +86,27 @@ function GenerateFlow() {
   const [genRun, setGenRun] = useState<GenerationRunState | null>(null);
   const isAdmin = useIsAdmin();
   const abortRef = useRef<AbortController | null>(null);
+  const genRunRef = useRef<GenerationRunState | null>(null);
+
+  const setGenerationRun = useCallback(
+    (
+      value:
+        | GenerationRunState
+        | null
+        | ((prev: GenerationRunState | null) => GenerationRunState | null),
+    ) => {
+      setGenRun((prev) => {
+        const next = typeof value === "function" ? value(prev) : value;
+        genRunRef.current = next;
+        return next;
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    genRunRef.current = genRun;
+  }, [genRun]);
 
   useEffect(() => {
     const draft = loadDraft<{
@@ -116,7 +137,7 @@ function GenerateFlow() {
   }, [persistDraft]);
 
   const dismissGeneration = () => {
-    setGenRun(null);
+    setGenerationRun(null);
     setGenPhase(null);
     setGenDetail("");
     setBusy(false);
@@ -155,7 +176,7 @@ function GenerateFlow() {
           throw new Error(apiErrorMessage(data, res));
         }
         if (isAdmin && data.adminLog?.length) {
-          setGenRun((r) =>
+          setGenerationRun((r) =>
             r ? mergeServerAdminLog(r, data.adminLog, "extract") : r,
           );
         }
@@ -243,7 +264,9 @@ function GenerateFlow() {
     setBusy(true);
     setGenStartedAt(Date.now());
     setError("");
-    setGenRun(createGenerationRun(shotCount));
+    const initialRun = createGenerationRun(shotCount);
+    genRunRef.current = initialRun;
+    setGenerationRun(initialRun);
     setGenDetail(
       shotCount > 0
         ? "Starting — optimizing images and reading screenshots…"
@@ -259,7 +282,7 @@ function GenerateFlow() {
         fn: () => Promise<T>,
       ): Promise<T> => {
         setGenDetail(label);
-        return runGenerationStep(setGenRun, stepId, fn, label);
+        return runGenerationStep(setGenerationRun, stepId, fn, label);
       };
 
       let prepared = await runStep(
@@ -281,7 +304,7 @@ function GenerateFlow() {
         const hashes = await Promise.all(prepared.screenshots.map(hashDataUrl));
         const cached = getCachedExtractedFacts(hashes);
         if (cached) {
-          setGenRun((r) => {
+          setGenerationRun((r) => {
             if (!r) return r;
             let next = appendGenerationLog(r, "info", "Using cached screenshot extract");
             for (let i = 0; i < prepared.screenshots.length; i++) {
@@ -309,23 +332,55 @@ function GenerateFlow() {
         }
         if (signal.aborted) return;
       }
-      extracted = enrichFactsWithIntake(
-        normalizeExtractedFacts(extracted),
-        intakeFinal,
+
+      extracted = await runStep(
+        "prepare-facts",
+        "Preparing profile facts for the article…",
+        async () => {
+          const next = enrichFactsWithIntake(
+            normalizeExtractedFacts(extracted),
+            intakeFinal,
+          );
+          if (isAdmin) {
+            setGenerationRun((r) =>
+              r
+                ? appendGenerationLog(
+                    r,
+                    "info",
+                    `Facts for AI: education=${next.education.length}, work=${next.work.length}, raw=${next.rawUsefulText.length}`,
+                    "prepare-facts",
+                  )
+                : r,
+            );
+          }
+          return next;
+        },
       );
 
-      if (isAdmin) {
-        setGenRun((r) =>
+      if (signal.aborted) return;
+
+      const generateStepId = (mode: ArticleMode) =>
+        mode === "realism" ? "generate-realism" : "generate-creative";
+      const generateLabel = (mode: ArticleMode) =>
+        mode === "realism"
+          ? "Writing Realism article (AI)…"
+          : "Writing Creative article (AI)…";
+
+      const updateRunDetail = (stepId: string, detail: string) => {
+        setGenDetail(detail);
+        setGenerationRun((r) =>
           r
-            ? appendGenerationLog(
-                r,
-                "info",
-                `Facts for AI: education=${extracted.education.length}, work=${extracted.work.length}, raw=${extracted.rawUsefulText.length}`,
-                "generate",
-              )
+            ? {
+                ...r,
+                steps: r.steps.map((s) =>
+                  s.id === stepId && s.status === "active"
+                    ? { ...s, detail }
+                    : s,
+                ),
+              }
             : r,
         );
-      }
+      };
 
       const postGenerate = (images: typeof prepared, mode: ArticleMode) =>
         fetchWithTimeout(
@@ -347,7 +402,7 @@ function GenerateFlow() {
           GENERATE_FETCH_TIMEOUT_MS,
         );
 
-      const parseGenerateResponse = async (res: Response) => {
+      const parseGenerateResponse = async (res: Response, stepId: string) => {
         const data = await parseJsonResponse<
           ApiErrorBody & {
             article?: import("@/types/article").ArticleJson;
@@ -357,8 +412,8 @@ function GenerateFlow() {
         >(res);
         if (!res.ok) {
           if (isAdmin && data.adminLog?.length) {
-            setGenRun((r) =>
-              r ? mergeServerAdminLog(r, data.adminLog, "generate") : r,
+            setGenerationRun((r) =>
+              r ? mergeServerAdminLog(r, data.adminLog, stepId) : r,
             );
           }
           const detail = data.details?.fieldErrors
@@ -370,11 +425,11 @@ function GenerateFlow() {
           throw new Error(detail ? `${msg} — ${detail}` : msg);
         }
         if (isAdmin && data.adminLog?.length) {
-          setGenRun((r) => {
+          setGenerationRun((r) => {
             if (!r) return r;
             let next = r;
             for (const line of data.adminLog!) {
-              next = appendGenerationLog(next, "info", `[server] ${line}`, "generate");
+              next = appendGenerationLog(next, "info", `[server] ${line}`, stepId);
             }
             return next;
           });
@@ -399,16 +454,21 @@ function GenerateFlow() {
         images: typeof prepared,
         mode: ArticleMode,
       ): Promise<GenerateOutcome> => {
+        const stepId = generateStepId(mode);
+        const started = Date.now();
         return withTransientRetry(
           async () => {
             try {
+              updateRunDetail(stepId, `${generateLabel(mode)} Contacting AI…`);
               const res = await postGenerate(images, mode);
               if (res.status === 413) return { ok: false as const, res, mode };
               if (isTransientHttpStatus(res.status)) {
                 await res.text().catch(() => "");
                 throw new Error(`Article API returned HTTP ${res.status} (transient).`);
               }
-              const data = await parseGenerateResponse(res);
+              const seconds = Math.max(1, Math.round((Date.now() - started) / 1000));
+              updateRunDetail(stepId, `${generateLabel(mode)} Received draft after ${seconds}s; validating…`);
+              const data = await parseGenerateResponse(res, stepId);
               return { ok: true as const, data, res, mode };
             } catch (e) {
               const phase = mode === "realism" ? "Realism article" : "Creative article";
@@ -442,11 +502,19 @@ function GenerateFlow() {
 
       const generateBothModes = async (images: typeof prepared) => {
         setGenDetail("Writing Realism article (AI)…");
-        let realism = await callGenerateApi(images, "realism");
+        let realism = await runStep(
+          "generate-realism",
+          "Writing Realism article (AI)…",
+          () => callGenerateApi(images, "realism"),
+        );
         if (!realism.ok) {
           images = await compressFor413(images);
           setGenDetail("Retrying Realism article (AI)…");
-          realism = await callGenerateApi(images, "realism");
+          realism = await runStep(
+            "generate-realism",
+            "Retrying Realism article after image compression…",
+            () => callGenerateApi(images, "realism"),
+          );
           if (!realism.ok) {
             throw new Error(
               "Upload too large even after compression. Try fewer or smaller images.",
@@ -455,11 +523,19 @@ function GenerateFlow() {
         }
 
         setGenDetail("Writing Creative article (AI)…");
-        let creative = await callGenerateApi(images, "creative");
+        let creative = await runStep(
+          "generate-creative",
+          "Writing Creative article (AI)…",
+          () => callGenerateApi(images, "creative"),
+        );
         if (!creative.ok) {
           images = await compressFor413(images);
           setGenDetail("Retrying Creative article (AI)…");
-          creative = await callGenerateApi(images, "creative");
+          creative = await runStep(
+            "generate-creative",
+            "Retrying Creative article after image compression…",
+            () => callGenerateApi(images, "creative"),
+          );
           if (!creative.ok) {
             throw new Error(
               "Upload too large even after compression. Try fewer or smaller images.",
@@ -470,24 +546,8 @@ function GenerateFlow() {
         return { images, outcomes: [realism, creative] as GenerateOutcome[] };
       };
 
-      const { images: imagesFinal, outcomes } = await runStep(
-        "generate",
-        "Writing Realism article, then Creative (AI)…",
-        () => generateBothModes(prepared),
-      );
+      const { images: imagesFinal, outcomes } = await generateBothModes(prepared);
       prepared = imagesFinal;
-
-      const subjectLabel = intakeFinal.fullName || intakeFinal.articleTitle;
-      const finishArticle = (raw: ArticleJson, mode: ArticleMode) => {
-        const article = ensureArticleImages(
-          raw,
-          prepared.headshot,
-          prepared.extraPhotos,
-          subjectLabel,
-        );
-        const intakeForMode: IntakeData = { ...intakeFinal, mode };
-        return { article, intakeForMode };
-      };
 
       const realismOutcome = outcomes.find((o) => o.ok && o.mode === "realism");
       const creativeOutcome = outcomes.find((o) => o.ok && o.mode === "creative");
@@ -501,139 +561,163 @@ function GenerateFlow() {
         );
       }
 
-      const realismPack = finishArticle(realismOutcome.data.article!, "realism");
-      const creativePack = finishArticle(creativeOutcome.data.article!, "creative");
-
       const realismSlug = nanoid(10);
       const creativeSlug = nanoid(10);
       const realismId = nanoid();
       const creativeId = nanoid();
       const primaryMode = intakeFinal.mode;
-      const primarySlug =
-        primaryMode === "creative" ? creativeSlug : realismSlug;
-      const primaryPack =
-        primaryMode === "creative" ? creativePack : realismPack;
+      const {
+        realismSave,
+        creativeSave,
+        imageReport,
+      } = await runStep("post-process", "Assembling article pages and images…", async () => {
+        const subjectLabel = intakeFinal.fullName || intakeFinal.articleTitle;
+        const finishArticle = (raw: ArticleJson, mode: ArticleMode) => {
+          const article = ensureArticleImages(
+            raw,
+            prepared.headshot,
+            prepared.extraPhotos,
+            subjectLabel,
+          );
+          const intakeForMode: IntakeData = { ...intakeFinal, mode };
+          return { article, intakeForMode };
+        };
 
-      const imageReport = formatArticleImageMetrics(
-        articleImageMetrics(primaryPack.article, prepared.headshot),
-      );
-      if (isAdmin) {
-        setGenRun((r) =>
-          r
-            ? appendGenerationLog(
-                r,
-                "info",
-                `Post-process images: ${imageReport}; slugs=${realismSlug}, ${creativeSlug}`,
-                "generate",
-              )
-            : r,
+        const realismPack = finishArticle(realismOutcome.data.article!, "realism");
+        const creativePack = finishArticle(creativeOutcome.data.article!, "creative");
+        const primaryPack =
+          primaryMode === "creative" ? creativePack : realismPack;
+        const primarySlug =
+          primaryMode === "creative" ? creativeSlug : realismSlug;
+
+        const imageReportNext = formatArticleImageMetrics(
+          articleImageMetrics(primaryPack.article, prepared.headshot),
         );
-      }
+        if (isAdmin) {
+          setGenerationRun((r) =>
+            r
+              ? appendGenerationLog(
+                  r,
+                  "info",
+                  `Post-process images: ${imageReportNext}; slugs=${realismSlug}, ${creativeSlug}`,
+                  "post-process",
+                )
+              : r,
+          );
+        }
 
-      const sessionPayload = {
-        article: primaryPack.article,
-        intake: primaryPack.intakeForMode,
-        headshotDataUrl: prepared.headshot ?? "",
-        extraPhotoUrls: prepared.extraPhotos.map((p) => p.dataUrl),
-        facts: extracted,
-        mock: realismOutcome.data.mock,
-        savedId: primaryMode === "creative" ? creativeId : realismId,
-        slug: primarySlug,
-        alternateSlug: primaryMode === "creative" ? realismSlug : creativeSlug,
-        mode: primaryMode,
-      };
+        const sessionPayload = {
+          article: primaryPack.article,
+          intake: primaryPack.intakeForMode,
+          headshotDataUrl: prepared.headshot ?? "",
+          extraPhotoUrls: prepared.extraPhotos.map((p) => p.dataUrl),
+          facts: extracted,
+          mock: realismOutcome.data.mock,
+          savedId: primaryMode === "creative" ? creativeId : realismId,
+          slug: primarySlug,
+          alternateSlug: primaryMode === "creative" ? realismSlug : creativeSlug,
+          mode: primaryMode,
+        };
 
-      try {
-        sessionStorage.setItem("wikime_current", JSON.stringify(sessionPayload));
-      } catch {
-        sessionStorage.setItem(
-          "wikime_current",
-          JSON.stringify({
-            ...sessionPayload,
-            extraPhotoUrls: [],
+        try {
+          sessionStorage.setItem("wikime_current", JSON.stringify(sessionPayload));
+        } catch {
+          sessionStorage.setItem(
+            "wikime_current",
+            JSON.stringify({
+              ...sessionPayload,
+              extraPhotoUrls: [],
+            }),
+          );
+        }
+
+        const now = new Date().toISOString();
+        return {
+          imageReport: imageReportNext,
+          realismSave: await prepareArticleForDb({
+            id: realismId,
+            slug: realismSlug,
+            articleJson: realismPack.article,
+            mode: "realism",
+            intake: realismPack.intakeForMode,
+            headshotDataUrl: prepared.headshot,
+            extraPhotoUrls: prepared.extraPhotos.map((p) => p.dataUrl),
+            extractedFacts: extracted,
+            alternateSlug: creativeSlug,
+            createdAt: now,
+            updatedAt: now,
           }),
-        );
-      }
-
-      const now = new Date().toISOString();
-      const realismSave = await prepareArticleForDb({
-        id: realismId,
-        slug: realismSlug,
-        articleJson: realismPack.article,
-        mode: "realism",
-        intake: realismPack.intakeForMode,
-        headshotDataUrl: prepared.headshot,
-        extraPhotoUrls: prepared.extraPhotos.map((p) => p.dataUrl),
-        extractedFacts: extracted,
-        alternateSlug: creativeSlug,
-        createdAt: now,
-        updatedAt: now,
+          creativeSave: await prepareArticleForDb({
+            id: creativeId,
+            slug: creativeSlug,
+            articleJson: creativePack.article,
+            mode: "creative",
+            intake: creativePack.intakeForMode,
+            headshotDataUrl: prepared.headshot,
+            extraPhotoUrls: prepared.extraPhotos.map((p) => p.dataUrl),
+            extractedFacts: extracted,
+            alternateSlug: realismSlug,
+            createdAt: now,
+            updatedAt: now,
+          }),
+        };
       });
 
-      const creativeSave = await prepareArticleForDb({
-        id: creativeId,
-        slug: creativeSlug,
-        articleJson: creativePack.article,
-        mode: "creative",
-        intake: creativePack.intakeForMode,
-        headshotDataUrl: prepared.headshot,
-        extraPhotoUrls: prepared.extraPhotos.map((p) => p.dataUrl),
-        extractedFacts: extracted,
-        alternateSlug: realismSlug,
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      const saved = await runStep(
-        "save",
-        "Saving Realism and Creative articles…",
+      const realismResult = await runStep(
+        "save-realism",
+        "Saving Realism article…",
         async () => {
-          const realismResult = await saveArticleToServer(realismSave, {
-            isAdmin,
-          });
-          if (!realismResult.ok) throw new Error(realismResult.error);
-          const creativeResult = await saveArticleToServer(creativeSave, {
-            isAdmin,
-          });
-          if (!creativeResult.ok) throw new Error(creativeResult.error);
-          return primaryMode === "creative" ? creativeResult : realismResult;
+          const result = await saveArticleToServer(realismSave, { isAdmin });
+          if (!result.ok) throw new Error(result.error);
+          return result;
         },
       );
+      const creativeResult = await runStep(
+        "save-creative",
+        "Saving Creative article…",
+        async () => {
+          const result = await saveArticleToServer(creativeSave, { isAdmin });
+          if (!result.ok) throw new Error(result.error);
+          return result;
+        },
+      );
+      const saved = primaryMode === "creative" ? creativeResult : realismResult;
 
       if (signal.aborted) return;
 
-      setGenRun((r) => {
-        if (isAdmin && r) {
-          void fetch("/api/admin/generation-runs", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              mode: intakeFinal.mode,
-              success: true,
-              logs: r.logs,
-              steps: r.steps,
-              metrics: {
-                imageReport,
-                slug: saved.slug,
-              },
-            }),
-          });
-        }
-        return null;
-      });
+      const finalRun = genRunRef.current;
+      if (isAdmin && finalRun) {
+        void fetch("/api/admin/generation-runs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: intakeFinal.mode,
+            success: true,
+            logs: finalRun.logs,
+            steps: finalRun.steps,
+            metrics: {
+              imageReport,
+              slug: saved.slug,
+            },
+          }),
+        });
+      }
+      genRunRef.current = null;
+      setGenerationRun(null);
       router.push(`/article?slug=${saved.slug}`);
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
       adminFailed = true;
       const msg = formatGenerationError(e);
       setError(msg);
-      setGenRun((r) => {
-        if (!r) return r;
-        const active = r.steps.find((s) => s.status === "active");
+      const currentRun = genRunRef.current;
+      if (currentRun) {
+        const active = currentRun.steps.find((s) => s.status === "active");
         const failed = active
-          ? failGenerationStep(r, active.id, e)
-          : { ...r, failed: true, errorMessage: msg };
-        if (isAdmin && failed) {
+          ? failGenerationStep(currentRun, active.id, e)
+          : { ...currentRun, failed: true, errorMessage: msg };
+        genRunRef.current = failed;
+        if (isAdmin) {
           void fetch("/api/admin/generation-runs", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -646,15 +730,15 @@ function GenerateFlow() {
             }),
           });
         }
-        return failed;
-      });
+        setGenerationRun(failed);
+      }
     } finally {
       abortRef.current = null;
       setBusy(false);
       if (!adminFailed) {
         setGenPhase(null);
         setGenDetail("");
-        setGenRun(null);
+        setGenerationRun(null);
       }
     }
   };
@@ -669,14 +753,14 @@ function GenerateFlow() {
         <GenerationProgress
           detail={genDetail}
           startedAt={genStartedAt}
-          onCancel={genRun.failed || error ? undefined : cancelGeneration}
-          canCancel={busy && !genRun.failed && !error}
+          onCancel={genRun.failed ? undefined : cancelGeneration}
+          canCancel={busy && !genRun.failed}
           steps={genRun.steps}
           logs={isAdmin ? genRun.logs : undefined}
           showAdminBadge={isAdmin}
-          errorMessage={genRun.errorMessage ?? error ?? undefined}
+          errorMessage={genRun.failed ? genRun.errorMessage : undefined}
           hasUploads={hasUploads}
-          onDismiss={genRun.failed || (error && !busy) ? dismissGeneration : undefined}
+          onDismiss={genRun.failed ? dismissGeneration : undefined}
         />
       )}
 

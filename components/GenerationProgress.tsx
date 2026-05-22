@@ -54,7 +54,11 @@ export function GenerationProgress({
     return () => clearInterval(id);
   }, [startedAt]);
 
-  const errorText = errorMessage != null ? formatUnknownError(errorMessage) : "";
+  const hasErrorMessage =
+    typeof errorMessage === "string"
+      ? errorMessage.trim().length > 0
+      : errorMessage != null;
+  const errorText = hasErrorMessage ? formatUnknownError(errorMessage) : "";
   const stepFailed = steps?.some((s) => s.status === "error") ?? false;
   const failed = stepFailed || Boolean(errorText);
   const progressPct = useMemo(

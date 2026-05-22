@@ -13,6 +13,7 @@ import { articleWordCount } from "@/lib/normalizeArticle";
 import { adminJsonError, isAdminTestRequest } from "@/lib/adminApiDebug";
 import { formatUnknownError } from "@/lib/formatError";
 import { hasAiKey } from "@/lib/gemini";
+import { enrichFactsWithLinks } from "@/lib/linkExtraction";
 import { intakeSchema, factsInputSchema } from "@/lib/validation";
 import { emptyExtractedFacts } from "@/lib/extractProfileFacts";
 import { withTransientRetry } from "@/lib/transientRetry";
@@ -72,12 +73,17 @@ export async function POST(req: Request) {
     );
     log.push(`hasAiKey=${hasAiKey()}`);
 
-    const factsEnriched = enrichFactsWithIntake(
+    let factsEnriched = enrichFactsWithIntake(
       facts ?? emptyExtractedFacts(),
       intake,
     );
+    const linkT0 = Date.now();
+    const linked = await enrichFactsWithLinks(factsEnriched, intake);
+    factsEnriched = linked.facts;
+    log.push(...linked.logs);
+    log.push(`linkExtraction finished in ${Date.now() - linkT0}ms`);
     log.push(
-      `facts: education=${factsEnriched.education.length}, work=${factsEnriched.work.length}, rawText=${factsEnriched.rawUsefulText.length}`,
+      `facts: education=${factsEnriched.education.length}, work=${factsEnriched.work.length}, links=${factsEnriched.links.length}, rawText=${factsEnriched.rawUsefulText.length}`,
     );
 
     const t0 = Date.now();

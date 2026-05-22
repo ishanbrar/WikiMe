@@ -46,6 +46,37 @@ import {
 
 const REALISM_SECTIONS_REQUIRED_NOTE = `Your previous JSON was missing a valid "sections" array or section bodies were empty. Return complete JSON with sections: [{id, title, paragraphs: string[]}, ...] using ids early-life, education, career, personal-life as needed. Each section needs at least 2 original encyclopedic sentences — not templates.`;
 
+function realismStructuralIssue(
+  article: ArticleJson,
+  intake: IntakeData,
+  minWords: number,
+  supplementalPhotos: SupplementalPhoto[],
+): string | null {
+  const words = articleWordCount(article);
+  if (!article.sections.length) {
+    return `${REALISM_SECTIONS_REQUIRED_NOTE}\nPrior output had no usable body sections. Do not return lead-only JSON; include section paragraphs for every major fact cluster in the source.`;
+  }
+  if (words < minWords) {
+    return `${REALISM_SECTIONS_REQUIRED_NOTE}\nArticle is only ${words} words; target at least ${minWords} words of flowing prose across sections using the fact sheet.`;
+  }
+  if (
+    hasControversiesContent(intake) &&
+    !article.sections.some((s) => s.id === "controversies")
+  ) {
+    return `${REALISM_SECTIONS_REQUIRED_NOTE}\n${realismControversiesRule(intake)}`;
+  }
+  if (supplementalPhotos.length > 0) {
+    const figureCount = article.sections.reduce(
+      (sum, section) => sum + (section.figures?.length ?? 0),
+      0,
+    );
+    if (figureCount < supplementalPhotos.length) {
+      return `SUPPLEMENTAL PHOTOS WERE DROPPED. Return complete JSON with sections and place each of the ${supplementalPhotos.length} supplemental photo(s) exactly once via figures: [{imageIndex, caption}] on relevant sections.`;
+    }
+  }
+  return null;
+}
+
 function realismRewriteNote(fullName: string): string {
   return `${REALISM_REGURGITATION_RETRY_NOTE}
 Write as a Wikipedia biographer for ${fullName}: cohesive paragraphs with transitions ("After…", "During…", "Later…"), proper capitalization (Boston College, Hewlett Packard Enterprise, India), no semicolon-chained notes, no one-sentence-per-field staccato style, and do not start every sentence with their full name.`;
@@ -313,17 +344,13 @@ ${sourceFacts}`;
   const minWords = realismMinWordsForIntake(intake, facts);
 
   function needsRealismRetry(article: ArticleJson): string | null {
-    if (!article.sections.length) return REALISM_SECTIONS_REQUIRED_NOTE;
-    const words = articleWordCount(article);
-    if (words < minWords) {
-      return `${REALISM_SECTIONS_REQUIRED_NOTE}\nArticle is only ${words} words; target at least ${minWords} words of flowing prose across all sections using the fact sheet.`;
-    }
-    if (
-      hasControversiesContent(intake) &&
-      !article.sections.some((s) => s.id === "controversies")
-    ) {
-      return `${REALISM_SECTIONS_REQUIRED_NOTE}\n${realismControversiesRule(intake)}`;
-    }
+    const structural = realismStructuralIssue(
+      article,
+      intake,
+      minWords,
+      supplementalPhotos,
+    );
+    if (structural) return structural;
     const issue = realismQualityIssue(article, intake);
     if (!issue) return null;
     const detail = realismQualityIssueMessage(issue);
@@ -335,6 +362,30 @@ ${sourceFacts}`;
     const note = needsRealismRetry(article);
     if (!note) break;
     article = await runRealismPass(note);
+  }
+
+  const finalStructuralIssue = realismStructuralIssue(
+    article,
+    intake,
+    minWords,
+    supplementalPhotos,
+  );
+  if (finalStructuralIssue) {
+    article = await runRealismPass(
+      `FINAL REMEDIATION: Prior output was structurally incomplete. ${finalStructuralIssue}
+Return complete article JSON. The body must not be lead-only. Use sections for early life, education, career, projects or achievements, controversies if supplied, and personal life when facts support them.`,
+    );
+    const issueAfter = realismStructuralIssue(
+      article,
+      intake,
+      minWords,
+      supplementalPhotos,
+    );
+    if (issueAfter) {
+      throw new Error(
+        `AI returned an incomplete article after retries (${issueAfter.split("\n")[0]}). Please try again with a shorter Additional info paste or move key facts into the labeled fields.`,
+      );
+    }
   }
 
   const finalIssue = realismQualityIssue(article, intake);

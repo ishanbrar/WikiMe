@@ -49,8 +49,12 @@ export function buildGenerationPlan(screenshotCount: number): GenerationRunStep[
     });
   }
   steps.push(
-    { id: "generate", label: "Generate Wikipedia article (AI)", status: "pending" },
-    { id: "save", label: "Save article to server", status: "pending" },
+    { id: "prepare-facts", label: "Prepare profile facts", status: "pending" },
+    { id: "generate-realism", label: "Write Realism article", status: "pending" },
+    { id: "generate-creative", label: "Write Creative article", status: "pending" },
+    { id: "post-process", label: "Build article pages", status: "pending" },
+    { id: "save-realism", label: "Save Realism page", status: "pending" },
+    { id: "save-creative", label: "Save Creative page", status: "pending" },
   );
   return steps;
 }
@@ -90,7 +94,7 @@ export function startGenerationStep(
   stepId: string,
   detail?: string,
 ): GenerationRunState {
-  let r = appendGenerationLog(run, "info", detail ?? `Started: ${stepLabel(run, stepId)}`, stepId);
+  const r = appendGenerationLog(run, "info", detail ?? `Started: ${stepLabel(run, stepId)}`, stepId);
   return {
     ...r,
     steps: r.steps.map((s) =>
@@ -106,7 +110,7 @@ export function completeGenerationStep(
   stepId: string,
   detail?: string,
 ): GenerationRunState {
-  let r = appendGenerationLog(
+  const r = appendGenerationLog(
     run,
     "info",
     detail ?? `Completed: ${stepLabel(run, stepId)}`,
@@ -133,7 +137,7 @@ export function skipGenerationStep(
   stepId: string,
   reason?: string,
 ): GenerationRunState {
-  let r = appendGenerationLog(
+  const r = appendGenerationLog(
     run,
     "info",
     reason ?? `Skipped: ${stepLabel(run, stepId)}`,
@@ -153,7 +157,7 @@ export function failGenerationStep(
   err: unknown,
 ): GenerationRunState {
   const message = formatUnknownError(err);
-  let r = appendGenerationLog(run, "error", message, stepId);
+  const r = appendGenerationLog(run, "error", message, stepId);
   return {
     ...r,
     failed: true,
