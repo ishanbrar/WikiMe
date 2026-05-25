@@ -16,6 +16,7 @@ export function ExportControls({
   disabled = false,
   inline = false,
   iconOnly = false,
+  saveBeforeShare = true,
 }: {
   article: ArticleJson;
   saved: SavedArticle | null;
@@ -26,6 +27,8 @@ export function ExportControls({
   inline?: boolean;
   /** Icon-only share trigger (article toolbar) */
   iconOnly?: boolean;
+  /** Skip auto-save and reuse the current saved slug when editing is disabled. */
+  saveBeforeShare?: boolean;
 }) {
   const [status, setStatus] = useState("");
   const [shareUrl, setShareUrl] = useState("");
@@ -95,6 +98,16 @@ export function ExportControls({
   };
 
   const copyShare = async () => {
+    if (!saveBeforeShare && saved?.slug) {
+      const url = buildShareUrl(saved.slug, saved.shortLink ?? false);
+      setShareUrl(url);
+      await navigator.clipboard.writeText(url);
+      hapticSuccess();
+      setStatus("Share link copied.");
+      setOpen(false);
+      return;
+    }
+
     const slug = await onSave();
     if (slug) {
       const url = buildShareUrl(slug, saved?.shortLink ?? false);

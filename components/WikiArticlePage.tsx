@@ -230,9 +230,6 @@ export function WikiArticlePage({
             <section key={section.id} id={section.id} className="wiki-section">
               <h2 className={`wiki-section-title ${wikiTitleFont.className}`}>
                 <span className="mw-headline">{section.title}</span>
-                <span className="wiki-editsection" aria-hidden>
-                  [ edit ]
-                </span>
               </h2>
               {!section.paragraphs.length &&
                 section.quotes?.map((quote, qi) => (
@@ -312,9 +309,6 @@ export function WikiArticlePage({
                 <div key={`${section.id}-sub-${si}`} className="wiki-subsection">
                   <h3 className="wiki-subsection-title">
                     <span className="mw-headline">{sub.title}</span>
-                    <span className="wiki-editsection" aria-hidden>
-                      [ edit ]
-                    </span>
                   </h3>
                   {sub.paragraphs.map((para, pi) => (
                     <p key={pi} className="wiki-paragraph">

@@ -22,11 +22,13 @@ function ArticleView() {
     extraPhotoUrls?: string[];
     facts?: ExtractedProfileFacts;
     savedId?: string;
+    createdAt?: string;
     slug?: string;
     shortLink?: boolean;
     alternateSlug?: string;
     mode?: import("@/types/article").ArticleMode;
     linkStatuses?: LinkExtractionStatus[];
+    canEdit?: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -38,7 +40,10 @@ function ArticleView() {
         try {
           const res = await fetch(`/api/articles?slug=${encodeURIComponent(slug)}`);
           if (res.ok) {
-            const data = (await res.json()) as { article: SavedArticle };
+            const data = (await res.json()) as {
+              article: SavedArticle;
+              canEdit?: boolean;
+            };
             if (!cancelled) {
               setPayload({
                 article: applyHeadshotToArticle(
@@ -49,10 +54,12 @@ function ArticleView() {
                 headshotDataUrl: data.article.headshotDataUrl,
                 facts: data.article.extractedFacts ?? emptyExtractedFacts(),
                 savedId: data.article.id,
+                createdAt: data.article.createdAt,
                 slug: data.article.slug,
                 shortLink: data.article.shortLink ?? false,
                 alternateSlug: data.article.alternateSlug,
                 mode: data.article.mode,
+                canEdit: Boolean(data.canEdit),
               });
             }
             return;
@@ -73,7 +80,9 @@ function ArticleView() {
             headshotDataUrl: saved.headshotDataUrl,
             facts: saved.extractedFacts,
             savedId: saved.id,
+            createdAt: saved.createdAt,
             slug: saved.slug,
+            canEdit: true,
           });
           setLoading(false);
           return;
@@ -89,6 +98,7 @@ function ArticleView() {
             headshotDataUrl?: string;
             facts?: ExtractedProfileFacts;
             savedId?: string;
+            createdAt?: string;
             slug?: string;
             linkStatuses?: LinkExtractionStatus[];
           };
@@ -96,6 +106,7 @@ function ArticleView() {
             setPayload({
               ...data,
               facts: data.facts ?? emptyExtractedFacts(),
+              canEdit: true,
             });
           }
         }
@@ -134,11 +145,13 @@ function ArticleView() {
       extraPhotoUrls={payload.extraPhotoUrls}
       extractedFacts={payload.facts}
       savedId={payload.savedId}
+      createdAt={payload.createdAt}
       slug={payload.slug}
       shortLink={payload.shortLink}
       alternateSlug={payload.alternateSlug}
       articleMode={payload.mode}
       linkStatuses={payload.linkStatuses}
+      canEdit={payload.canEdit ?? true}
     />
   );
 }

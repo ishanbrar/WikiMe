@@ -112,5 +112,9 @@ export async function GET(req: Request) {
   if (!article) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  return NextResponse.json({ article });
+  const user = await getAuthUser();
+  return NextResponse.json({
+    article,
+    canEdit: canEditArticle(user, article),
+  });
 }

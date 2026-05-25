@@ -30,33 +30,41 @@ export function MobileArticleActionBar({
   onToggleEdit,
   onCopyLink,
   onShare,
+  showEditAction = true,
+  showCopyAction = true,
 }: {
   editing: boolean;
   busy: boolean;
   onToggleEdit: () => void;
   onCopyLink: () => void;
   onShare: () => void;
+  showEditAction?: boolean;
+  showCopyAction?: boolean;
 }) {
   return (
     <div className="mobile-article-action-bar no-print" aria-label="Article actions">
-      <button
-        type="button"
-        className="mobile-article-action"
-        onClick={onToggleEdit}
-        disabled={busy}
-      >
-        <PencilIcon />
-        <span>{editing ? "Preview" : "Edit"}</span>
-      </button>
-      <button
-        type="button"
-        className="mobile-article-action"
-        onClick={onCopyLink}
-        disabled={busy}
-      >
-        <CopyIcon />
-        <span>Copy</span>
-      </button>
+      {showEditAction && (
+        <button
+          type="button"
+          className="mobile-article-action"
+          onClick={onToggleEdit}
+          disabled={busy}
+        >
+          <PencilIcon />
+          <span>{editing ? "Preview" : "Edit"}</span>
+        </button>
+      )}
+      {showCopyAction && (
+        <button
+          type="button"
+          className="mobile-article-action"
+          onClick={onCopyLink}
+          disabled={busy}
+        >
+          <CopyIcon />
+          <span>Copy</span>
+        </button>
+      )}
       <button
         type="button"
         className="mobile-article-action mobile-article-action--primary"

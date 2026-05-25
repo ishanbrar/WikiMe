@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { getArticleBySlugServer } from "@/lib/articleStore";
 import { getExampleArticleBySlug } from "@/lib/exampleArticle";
-import { articleShareMetadata } from "@/lib/articleShareMetadata";
-import {
-  articleHasSharePreviewImage,
-  buildArticleOgImageUrl,
-  buildArticlePageUrl,
-  resolveArticleHeadshotUrl,
-} from "@/lib/headshotOgImage";
 import { getAppBaseUrl } from "@/lib/appUrl";
-import { SharedArticleView } from "@/components/SharedArticleView";
+import {
+  savedArticleJsonLd,
+  savedArticleMetadata,
+  serializeJsonLd,
+} from "@/lib/articleSeo";
+import { ArticleEditor } from "@/components/ArticleEditor";
+import { canEditArticle } from "@/lib/articleAccess";
+import { getAuthUser } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 
 export async function sharedArticleMetadata(
@@ -20,23 +20,14 @@ export async function sharedArticleMetadata(
     getExampleArticleBySlug(slug) ??
     null;
   if (!saved) {
-    return { title: "Article not found" };
+    return {
+      title: "Article not found",
+      robots: { index: false, follow: false },
+    };
   }
 
   const baseUrl = getAppBaseUrl();
-  const headshot = resolveArticleHeadshotUrl(saved);
-  const ogImageUrl = articleHasSharePreviewImage(headshot)
-    ? buildArticleOgImageUrl(slug, baseUrl)
-    : undefined;
-
-  return articleShareMetadata(
-    saved.articleJson.title || saved.intake.articleTitle,
-    saved.articleJson.subtitle,
-    {
-      ogImageUrl,
-      pageUrl: buildArticlePageUrl(slug, saved.shortLink ?? false, baseUrl),
-    },
-  );
+  return savedArticleMetadata(saved, slug, baseUrl);
 }
 
 export async function SharedArticlePageBody({
@@ -62,5 +53,30 @@ export async function SharedArticlePageBody({
     );
   }
 
-  return <SharedArticleView saved={saved} readOnly />;
+  const baseUrl = getAppBaseUrl();
+  const jsonLd = savedArticleJsonLd(saved, slug, baseUrl);
+  const user = await getAuthUser();
+  const editable = canEditArticle(user, saved);
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+      />
+      <ArticleEditor
+        initialArticle={saved.articleJson}
+        intake={saved.intake}
+        headshotDataUrl={saved.headshotDataUrl}
+        extractedFacts={saved.extractedFacts}
+        savedId={saved.id}
+        createdAt={saved.createdAt}
+        slug={saved.slug}
+        shortLink={saved.shortLink ?? false}
+        alternateSlug={saved.alternateSlug}
+        articleMode={saved.mode}
+        canEdit={editable}
+      />
+    </>
+  );
 }

@@ -8,6 +8,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import type { ArticleJson, IntakeData, SavedArticle } from "@/types/article";
 
 export function ArticleToolbar({
+  canEdit = true,
   editing,
   onToggleEdit,
   showHeadshot,
@@ -26,6 +27,7 @@ export function ArticleToolbar({
   canSaveToServer,
   saveMessage,
 }: {
+  canEdit?: boolean;
   editing: boolean;
   onToggleEdit: () => void;
   showHeadshot: boolean;
@@ -117,113 +119,121 @@ export function ArticleToolbar({
     >
       <div className="article-toolbar-bar-inner">
         <div className="article-toolbar-main">
-          <IconButton
-            className="article-toolbar-edit-icon"
-            label={editing ? "Preview article" : "Edit article"}
-            onClick={onToggleEdit}
-            disabled={busy}
-          >
-            <PencilIcon />
-          </IconButton>
-          <button
-            type="button"
-            className="btn-secondary article-toolbar-edit-btn"
-            onClick={onToggleEdit}
-            disabled={busy}
-          >
-            {editing ? "Preview" : "Edit"}
-          </button>
+          {canEdit && (
+            <>
+              <IconButton
+                className="article-toolbar-edit-icon"
+                label={editing ? "Preview article" : "Edit article"}
+                onClick={onToggleEdit}
+                disabled={busy}
+              >
+                <PencilIcon />
+              </IconButton>
+              <button
+                type="button"
+                className="btn-secondary article-toolbar-edit-btn"
+                onClick={onToggleEdit}
+                disabled={busy}
+              >
+                {editing ? "Preview" : "Edit"}
+              </button>
 
-          <div className="article-toolbar-actions article-toolbar-actions--mobile" ref={optionsRef}>
-            <IconButton
-              label="More options"
-              aria-expanded={optionsOpen}
-              aria-haspopup="menu"
-              onClick={() => setOptionsOpen((v) => !v)}
-              disabled={busy}
-            >
-              <MoreIcon />
-            </IconButton>
-            {optionsOpen && (
-              <div className="article-toolbar-menu" role="menu">
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    onToggleHeadshot();
-                    setOptionsOpen(false);
-                  }}
+              <div
+                className="article-toolbar-actions article-toolbar-actions--mobile"
+                ref={optionsRef}
+              >
+                <IconButton
+                  label="More options"
+                  aria-expanded={optionsOpen}
+                  aria-haspopup="menu"
+                  onClick={() => setOptionsOpen((v) => !v)}
                   disabled={busy}
                 >
-                  {showHeadshot ? "Hide headshot" : "Headshot"}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    onToggleIntake();
-                    setOptionsOpen(false);
-                  }}
-                  disabled={busy}
-                >
-                  {showIntake ? "Hide intake" : "Intake"}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    onRegenerateAll();
-                    setOptionsOpen(false);
-                  }}
-                  disabled={busy}
-                >
-                  Regenerate all
-                </button>
-                <div className="article-toolbar-menu-mode" role="none">
-                  <span className="text-xs text-slate-500">Mode</span>
-                  {modeSelect}
-                </div>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    onSaveLocal();
-                    setOptionsOpen(false);
-                  }}
-                  disabled={busy}
-                >
-                  Save locally
-                </button>
+                  <MoreIcon />
+                </IconButton>
+                {optionsOpen && (
+                  <div className="article-toolbar-menu" role="menu">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        onToggleHeadshot();
+                        setOptionsOpen(false);
+                      }}
+                      disabled={busy}
+                    >
+                      {showHeadshot ? "Hide headshot" : "Headshot"}
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        onToggleIntake();
+                        setOptionsOpen(false);
+                      }}
+                      disabled={busy}
+                    >
+                      {showIntake ? "Hide intake" : "Intake"}
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        onRegenerateAll();
+                        setOptionsOpen(false);
+                      }}
+                      disabled={busy}
+                    >
+                      Regenerate all
+                    </button>
+                    <div className="article-toolbar-menu-mode" role="none">
+                      <span className="text-xs text-slate-500">Mode</span>
+                      {modeSelect}
+                    </div>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        onSaveLocal();
+                        setOptionsOpen(false);
+                      }}
+                      disabled={busy}
+                    >
+                      Save locally
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          <div className="article-toolbar-desktop-options">{optionButtons}</div>
+              <div className="article-toolbar-desktop-options">{optionButtons}</div>
 
-          <button
-            type="button"
-            className="btn-primary article-toolbar-save-btn"
-            aria-label={busy ? "Saving article" : "Save article"}
-            title="Save article text, headshot, and links to your share link"
-            disabled={busy || !canSaveToServer}
-            aria-busy={busy}
-            onClick={() => void onSaveArticle()}
-          >
-            {busy ? (
-              <>
-                <LoadingSpinner />
-                <span>Saving…</span>
-              </>
-            ) : (
-              "Save"
-            )}
-          </button>
+              <button
+                type="button"
+                className="btn-primary article-toolbar-save-btn"
+                aria-label={busy ? "Saving article" : "Save article"}
+                title="Save article text, headshot, and links to your share link"
+                disabled={busy || !canSaveToServer}
+                aria-busy={busy}
+                onClick={() => void onSaveArticle()}
+              >
+                {busy ? (
+                  <>
+                    <LoadingSpinner />
+                    <span>Saving…</span>
+                  </>
+                ) : (
+                  "Save"
+                )}
+              </button>
+            </>
+          )}
 
           <ExportControls
             article={article}
             saved={saved}
             printTargetId="wiki-article-print"
             onSave={onSaveToServer}
+            saveBeforeShare={canEdit}
             disabled={busy}
             inline
             iconOnly

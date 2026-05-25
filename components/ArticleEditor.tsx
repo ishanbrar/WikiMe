@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import type {
   ArticleJson,
   AppearanceSettings,
@@ -49,11 +49,13 @@ export function ArticleEditor({
   extraPhotoUrls,
   extractedFacts,
   savedId,
+  createdAt,
   slug,
   shortLink: initialShortLink = false,
   alternateSlug,
   articleMode,
   linkStatuses = [],
+  canEdit = true,
 }: {
   initialArticle: ArticleJson;
   intake: IntakeData;
@@ -61,11 +63,13 @@ export function ArticleEditor({
   extraPhotoUrls?: string[];
   extractedFacts?: ExtractedProfileFacts;
   savedId?: string;
+  createdAt?: string;
   slug?: string;
   shortLink?: boolean;
   alternateSlug?: string;
   articleMode?: ArticleMode;
   linkStatuses?: LinkExtractionStatus[];
+  canEdit?: boolean;
 }) {
   const [article, setArticle] = useState(() =>
     applyHeadshotToArticle(initialArticle, headshotDataUrl),
@@ -85,27 +89,62 @@ export function ArticleEditor({
     color: "auto",
   });
   const isAdmin = useIsAdmin();
-  const stableSlugRef = useRef(slug?.trim() || "");
-  const [shareSlug, setShareSlug] = useState(slug ?? "");
+  const [stableSavedId] = useState(() => savedId ?? nanoid());
+  const [stableCreatedAt, setStableCreatedAt] = useState(
+    () => createdAt ?? new Date().toISOString(),
+  );
+  const [generatedSlug, setGeneratedSlug] = useState(() => slug?.trim() || "");
+  const [shareSlug, setShareSlug] = useState(() => slug?.trim() || "");
   const [shareShortLink, setShareShortLink] = useState(initialShortLink);
   const [shareUrl, setShareUrl] = useState(() =>
     slug ? buildShareUrl(slug, initialShortLink) : "",
   );
   const [saveMessage, setSaveMessage] = useState("");
 
-  useEffect(() => {
-    if (slug?.trim()) {
-      stableSlugRef.current = slug.trim();
-      setShareSlug((prev) => prev || slug);
-    }
-  }, [slug]);
-
   const slugForSave = () => {
-    const known = shareSlug.trim() || slug?.trim() || stableSlugRef.current;
+    const known = shareSlug.trim() || slug?.trim() || generatedSlug;
     if (known) return known;
     const created = nanoid(10);
-    stableSlugRef.current = created;
+    setGeneratedSlug(created);
     return created;
+  };
+
+  const buildSessionPayload = (saved: SavedArticle) => ({
+    article: saved.articleJson,
+    intake: saved.intake,
+    headshotDataUrl: saved.headshotDataUrl,
+    extraPhotoUrls,
+    facts: saved.extractedFacts,
+    savedId: saved.id,
+    createdAt: saved.createdAt,
+    slug: saved.slug,
+    shortLink: saved.shortLink,
+    alternateSlug: saved.alternateSlug,
+    mode: saved.mode,
+    linkStatuses,
+  });
+
+  const syncCurrentSession = (saved: SavedArticle) => {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem("wikime_current", JSON.stringify(buildSessionPayload(saved)));
+    } catch {
+      sessionStorage.setItem(
+        "wikime_current",
+        JSON.stringify({
+          ...buildSessionPayload(saved),
+          extraPhotoUrls: [],
+        }),
+      );
+    }
+  };
+
+  const syncArticleRoute = (nextSlug: string) => {
+    if (typeof window === "undefined" || window.location.pathname !== "/article") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("slug", nextSlug);
+    url.searchParams.delete("id");
+    window.history.replaceState(null, "", url.toString());
   };
 
   /** Save always available on the editor; first save assigns a stable slug if needed. */
@@ -127,39 +166,41 @@ export function ArticleEditor({
     setArticle((prev) => updateArticleHeadshot(prev, dataUrl));
   };
 
-  useEffect(() => {
-    setArticle((prev) => ({
-      ...prev,
-      infobox: applyIntakeSocialToInfobox(prev.infobox, intakeState),
-    }));
-  }, [intakeState.instagramUrl, intakeState.linkedinUrl, intakeState.xUrl]);
+  const articleWithSocialLinks = useMemo(
+    () => ({
+      ...article,
+      infobox: applyIntakeSocialToInfobox(article.infobox, intakeState),
+    }),
+    [article, intakeState],
+  );
 
-  const articleForSave = (): ArticleJson => ({
-    ...article,
-    infobox: applyIntakeSocialToInfobox(article.infobox, intakeState),
+  const articleForSave = (): ArticleJson => articleWithSocialLinks;
+
+  const buildSavedSnapshot = (
+    overrides: Partial<SavedArticle> = {},
+  ): SavedArticle => ({
+    id: stableSavedId,
+    slug: overrides.slug ?? slugForSave(),
+    articleJson: overrides.articleJson ?? articleForSave(),
+    mode: overrides.mode ?? intakeState.mode,
+    intake: overrides.intake ?? intakeState,
+    headshotDataUrl: overrides.headshotDataUrl ?? (headshot || undefined),
+    extraPhotoUrls: overrides.extraPhotoUrls ?? extraPhotoUrls,
+    extractedFacts: overrides.extractedFacts ?? extractedFacts,
+    shortLink: overrides.shortLink ?? shareShortLink,
+    alternateSlug: overrides.alternateSlug ?? alternateSlug,
+    userId: overrides.userId,
+    creatorEmail: overrides.creatorEmail,
+    isPublic: overrides.isPublic,
+    createdAt: overrides.createdAt ?? stableCreatedAt,
+    updatedAt: overrides.updatedAt ?? new Date().toISOString(),
   });
 
-  const buildSavedSnapshot = (): SavedArticle => ({
-    id: savedId ?? nanoid(),
-    slug: slugForSave(),
-    articleJson: articleForSave(),
-    mode: intakeState.mode,
-    intake: intakeState,
-    headshotDataUrl: headshot || undefined,
-    extractedFacts,
-    shortLink: shareShortLink,
-    alternateSlug,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
-
-  const persistLocal = () => {
-    const s = {
-      ...buildSavedSnapshot(),
-      updatedAt: new Date().toISOString(),
-    };
-    saveArticleLocal(s);
-    return s;
+  const persistLocal = (overrides: Partial<SavedArticle> = {}) => {
+    const saved = buildSavedSnapshot(overrides);
+    saveArticleLocal(saved);
+    syncCurrentSession(saved);
+    return saved;
   };
 
   const saveToServer = async (): Promise<string | null> => {
@@ -184,6 +225,13 @@ export function ArticleEditor({
       setShareSlug(result.slug);
       setShareShortLink(result.shortLink);
       setShareUrl(result.url);
+      const persisted = persistLocal({
+        slug: result.slug,
+        shortLink: result.shortLink,
+        createdAt: local.createdAt,
+      });
+      setStableCreatedAt(persisted.createdAt);
+      syncArticleRoute(result.slug);
       setSaveMessage("Saved to your share link.");
       hapticSuccess();
       return result.slug;
@@ -196,6 +244,7 @@ export function ArticleEditor({
   };
 
   const saveHeadshot = async () => {
+    if (!canEdit) return;
     if (!canSaveToServer) {
       setSaveMessage("Use Share → Copy share link once to create a saved article first.");
       return;
@@ -211,6 +260,7 @@ export function ArticleEditor({
   };
 
   const saveArticle = async () => {
+    if (!canEdit) return;
     setBusy(true);
     setLoadingMessage("Saving article…");
     try {
@@ -360,6 +410,39 @@ export function ArticleEditor({
   };
 
   const displayMode = articleMode ?? intakeState.mode;
+  const editingEnabled = canEdit && editing;
+  const showHeadshotPanel = canEdit && (showHeadshot || editing);
+  const showIntakePanel = canEdit && showIntake;
+  const toolbarSaved = useMemo<SavedArticle>(
+    () => ({
+      id: stableSavedId,
+      slug: shareSlug.trim() || slug?.trim() || generatedSlug,
+      articleJson: articleWithSocialLinks,
+      mode: intakeState.mode,
+      intake: intakeState,
+      headshotDataUrl: headshot || undefined,
+      extraPhotoUrls,
+      extractedFacts,
+      shortLink: shareShortLink,
+      alternateSlug,
+      createdAt: stableCreatedAt,
+      updatedAt: new Date().toISOString(),
+    }),
+    [
+      alternateSlug,
+      articleWithSocialLinks,
+      extraPhotoUrls,
+      extractedFacts,
+      generatedSlug,
+      headshot,
+      intakeState,
+      shareShortLink,
+      shareSlug,
+      slug,
+      stableCreatedAt,
+      stableSavedId,
+    ],
+  );
 
   const resolveShareUrl = async (): Promise<string | null> => {
     if (shareUrl) return shareUrl;
@@ -421,8 +504,9 @@ export function ArticleEditor({
       )}
 
       <ArticleToolbar
-        editing={editing}
-        onToggleEdit={() => setEditing(!editing)}
+        canEdit={canEdit}
+        editing={editingEnabled}
+        onToggleEdit={() => canEdit && setEditing(!editing)}
         showHeadshot={showHeadshot}
         onToggleHeadshot={() => setShowHeadshot(!showHeadshot)}
         showIntake={showIntake}
@@ -432,15 +516,15 @@ export function ArticleEditor({
         intakeMode={intakeState.mode}
         onModeChange={(mode) => setIntakeState({ ...intakeState, mode })}
         onSaveLocal={persistLocal}
-        article={article}
-        saved={buildSavedSnapshot()}
+        article={articleWithSocialLinks}
+        saved={toolbarSaved}
         onSaveToServer={saveToServer}
         onSaveArticle={saveArticle}
         canSaveToServer={canSaveToServer}
         saveMessage={saveMessage}
       />
 
-      {(showHeadshot || editing) && (
+      {showHeadshotPanel && (
         <div
           className={`no-print max-w-2xl mx-auto p-6 bg-slate-50 border-b ${busy ? "ui-busy" : ""}`}
         >
@@ -470,7 +554,7 @@ export function ArticleEditor({
         </div>
       )}
 
-      {editing && (
+      {editingEnabled && (
         <div
           className={`no-print max-w-3xl mx-auto p-6 bg-white border-b ${busy ? "ui-busy" : ""}`}
         >
@@ -491,7 +575,7 @@ export function ArticleEditor({
         </p>
       )}
 
-      {showIntake && (
+      {showIntakePanel && (
         <div
           className={`max-w-2xl mx-auto p-6 bg-slate-50 border-b no-print ${busy ? "ui-busy" : ""}`}
         >
@@ -519,7 +603,7 @@ export function ArticleEditor({
         </div>
       )}
 
-      {completenessWarnings.length > 0 && (
+      {canEdit && completenessWarnings.length > 0 && (
         <div className="article-completeness no-print" role="status">
           <p className="article-completeness-title">Some details may need attention</p>
           <ul>
@@ -530,7 +614,7 @@ export function ArticleEditor({
         </div>
       )}
 
-      {editing && (
+      {editingEnabled && (
         <div
           className={`no-print max-w-2xl mx-auto p-4 text-sm ${busy ? "ui-busy" : ""}`}
         >
@@ -593,10 +677,10 @@ export function ArticleEditor({
 
       <div className={busy ? "ui-busy" : ""}>
         <WikiArticlePage
-          article={article}
+          article={articleWithSocialLinks}
           subjectName={intakeState.fullName}
           intake={intakeState}
-          editable={editing && !busy}
+          editable={editingEnabled && !busy}
           onArticleChange={setArticle}
           appearance={appearance}
           onAppearanceChange={setAppearance}
@@ -604,14 +688,17 @@ export function ArticleEditor({
       </div>
 
       <MobileArticleActionBar
-        editing={editing}
+        editing={editingEnabled}
         busy={busy}
         onToggleEdit={() => {
+          if (!canEdit) return;
           hapticTap();
           setEditing(!editing);
         }}
         onCopyLink={() => void copyShareLink()}
         onShare={() => void shareArticle()}
+        showEditAction={canEdit}
+        showCopyAction={canEdit}
       />
     </div>
   );

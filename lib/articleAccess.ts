@@ -5,11 +5,15 @@ import type { SavedArticle } from "@/types/article";
 /** Owner or WikiMe admin may update a saved article. */
 export function canEditArticle(
   user: User | null | undefined,
-  article: Pick<SavedArticle, "userId"> | null | undefined,
+  article: Pick<SavedArticle, "userId" | "creatorEmail"> | null | undefined,
 ): boolean {
-  if (!article) return true;
-  if (!article.userId) return true;
   if (!user) return false;
-  if (user.id === article.userId) return true;
-  return isAdminUser(user);
+  if (isAdminUser(user)) return true;
+  if (!article) return false;
+  if (article.userId && user.id === article.userId) return true;
+  return Boolean(
+    user.email &&
+      article.creatorEmail &&
+      user.email.toLowerCase() === article.creatorEmail.toLowerCase(),
+  );
 }
