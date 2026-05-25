@@ -263,6 +263,13 @@ ${INFOBOX_RULES}
 
 ${WIKI_SECTION_STRUCTURE_RULES}`;
 
+const REALISM_REPAIR_SCHEMA = `Return ONLY valid JSON with keys:
+title, subtitle, summaryLead (string[]),
+infobox {name, caption, titles[], born, hometown, currentLocation, education, occupation, knownFor[], socialLinks[{label,url}]},
+sections[{id,title,paragraphs[],figures?:[{imageIndex,caption}]}],
+references[{label,title,url,type}], externalLinks[{label,url}], properNouns[].
+Use section ids early-life, education, career, achievements or projects, personal-life, controversies only when supported.`;
+
 const SPARSE_INPUT_RULE = `SPARSE BIOGRAPHY INPUT: The user only provided a name plus very little text. Produce a complete article anyway.
 - REALISM: Use cautious encyclopedic language for unknowns ("little has been published about…", "according to the user's note…"). Do not invent employers, schools, awards, or family. Keep sections shorter but still structured.
 - CREATIVE: Invent lore that clearly branches from the few given facts; do not contradict them. Prefer compact scenes over encyclopedic sprawl.`;
@@ -418,6 +425,7 @@ ${sourceFacts}`;
     supplementalPhotos,
     allowMockSectionFallback: false,
   };
+  const minWords = realismMinWordsForIntake(intake, facts);
 
   async function runRealismPass(extraUserNote = ""): Promise<ArticleJson> {
     const user = extraUserNote ? `${userBase}\n\n${extraUserNote}` : userBase;
@@ -442,7 +450,80 @@ ${sourceFacts}`;
     return normalizeArticleJson(parsed, intake, headshotUrl, normalizeOpts);
   }
 
-  const minWords = realismMinWordsForIntake(intake, facts);
+  async function runRealismRepairPass(reason: string): Promise<ArticleJson> {
+    const repairSystem = `You repair failed Wikipedia biography JSON. ${realismRules()} ${controversyRule} ${PROMPT_SUPPLEMENTAL_PHOTOS_RULE(promptSupplementalPhotos)}
+
+Focus only on producing valid article body sections from the facts. Do not output an explanation. Do not return lead-only JSON.
+
+${REALISM_REPAIR_SCHEMA}`;
+
+    const repairUser = `The prior full-article generation failed because: ${reason.split("\n")[0]}
+
+Generate a complete REALISM MODE biography for ${intake.fullName}. tone=${intake.tone}. Target at least ${minWords} words total.
+
+Required body:
+- summaryLead: 2 neutral sentences.
+- sections: at least 4 non-empty sections when facts support them.
+- each section must have 2-4 paragraphs, each paragraph 2-4 sentences.
+- if supplemental photos exist, place each one exactly once using figures with imageIndex.
+- preserve concrete employers, schools, locations, certifications, roles, and dates from the fact sheet.
+- rewrite into flowing encyclopedic prose; do not paste bullets.
+
+FACT SHEET:
+${factSheet}
+
+RAW SOURCE DATA:
+${sourceFacts}`;
+
+    const raw = await generateText(repairSystem, repairUser, {
+      model: TEXT_MODEL_REALISM,
+      temperature: 0.38,
+      maxTokens: Math.min(maxTokens, 7600),
+      requestTimeoutMs: sparse ? 150_000 : 120_000,
+    });
+
+    let parsed: unknown;
+    try {
+      parsed = parseJsonFromModel<unknown>(raw);
+    } catch {
+      const retryRaw = await generateText(repairSystem, repairUser, {
+        model: TEXT_MODEL_REALISM,
+        temperature: 0.32,
+        maxTokens: Math.min(maxTokens + 600, 8192),
+        requestTimeoutMs: sparse ? 150_000 : 120_000,
+      });
+      parsed = parseJsonFromModel<unknown>(retryRaw);
+    }
+
+    return normalizeArticleJson(parsed, intake, headshotUrl, normalizeOpts);
+  }
+
+  async function repairIfUseful(
+    current: ArticleJson,
+    reason: string,
+  ): Promise<ArticleJson> {
+    const repaired = await runRealismRepairPass(reason);
+    const repairedIssue = realismStructuralIssue(
+      repaired,
+      intake,
+      minWords,
+      supplementalPhotos,
+    );
+    if (!repairedIssue) return repaired;
+
+    const repairedWords = articleWordCount(repaired);
+    if (repaired.sections.length >= 3 && repairedWords >= 220) {
+      console.warn(
+        "[WikiMe] Accepting repaired realism article with residual structural issue:",
+        repairedIssue.split("\n")[0],
+        "words=",
+        repairedWords,
+      );
+      return repaired;
+    }
+
+    return current;
+  }
 
   function needsRealismRetry(article: ArticleJson): string | null {
     const structural = realismStructuralIssue(
@@ -483,9 +564,18 @@ Return complete article JSON. The body must not be lead-only. Use sections for e
       supplementalPhotos,
     );
     if (issueAfter) {
-      throw new Error(
-        `AI returned an incomplete article after retries (${issueAfter.split("\n")[0]}). Please try again with a shorter Additional info paste or move key facts into the labeled fields.`,
+      article = await repairIfUseful(article, issueAfter);
+      const repairedIssue = realismStructuralIssue(
+        article,
+        intake,
+        minWords,
+        supplementalPhotos,
       );
+      if (repairedIssue) {
+        throw new Error(
+          `AI returned an incomplete article after retries (${repairedIssue.split("\n")[0]}). Please try again with a shorter Additional info paste or move key facts into the labeled fields.`,
+        );
+      }
     }
   }
 
@@ -509,9 +599,22 @@ Return complete article JSON. The body must not be lead-only. Use sections for e
         !article.sections.length ||
         wcAfter < 200;
       if (stillHard) {
-        throw new Error(
-          `AI returned templated or copied text instead of an original article (${realismQualityIssueMessage(issueAfter ?? finalIssue)}). Please try generating again.`,
+        article = await repairIfUseful(
+          article,
+          `Quality issue after remediation: ${realismQualityIssueMessage(issueAfter ?? finalIssue)}`,
         );
+        const repairedQuality = realismQualityIssue(article, intake);
+        const repairedWords = articleWordCount(article);
+        const stillInvalid =
+          repairedQuality === "mock_template" ||
+          repairedQuality === "forbidden_phrase" ||
+          !article.sections.length ||
+          repairedWords < 200;
+        if (stillInvalid) {
+          throw new Error(
+            `AI returned templated or copied text instead of an original article (${realismQualityIssueMessage(repairedQuality ?? issueAfter ?? finalIssue)}). Please try generating again.`,
+          );
+        }
       }
     } else {
       console.warn(
