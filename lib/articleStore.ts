@@ -137,7 +137,7 @@ export async function listArticlesByUserServer(
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("articles")
-    .select("id, slug, article_json, mode, headshot_data_url, created_at, updated_at")
+    .select("id, slug, article_json, mode, headshot_data_url, short_link, created_at, updated_at")
     .eq("user_id", userId)
     .order("updated_at", { ascending: false });
   if (error) throw new Error(error.message);
@@ -159,10 +159,53 @@ export async function listArticlesByUserServer(
       title: json.title,
       mode: row.mode as SavedArticle["mode"],
       imageUrl,
+      shortLink: Boolean(row.short_link),
       createdAt: row.created_at as string,
       updatedAt: row.updated_at as string,
     };
   });
+}
+
+export async function deleteArticleByIdServer(id: string): Promise<void> {
+  requirePersistentStorage();
+
+  if (isSupabaseConfigured()) {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("articles")
+      .delete()
+      .eq("id", id)
+      .select("id")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error("Article not found");
+    return;
+  }
+
+  if (isVercelDeployment()) {
+    throw new Error("Article not found");
+  }
+
+  try {
+    const files = await fs.readdir(DATA_DIR);
+    for (const file of files) {
+      if (!file.endsWith(".json")) continue;
+      const filePath = path.join(DATA_DIR, file);
+      const raw = await fs.readFile(filePath, "utf-8");
+      const saved = JSON.parse(raw) as SavedArticle;
+      if (saved.id === id) {
+        await fs.unlink(filePath);
+        return;
+      }
+    }
+  } catch (e) {
+    if (e instanceof Error && "code" in e && e.code === "ENOENT") {
+      throw new Error("Article not found");
+    }
+    throw e;
+  }
+
+  throw new Error("Article not found");
 }
 
 export async function getArticleByIdServer(

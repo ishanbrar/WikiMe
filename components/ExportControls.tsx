@@ -5,6 +5,7 @@ import type { ArticleJson } from "@/types/article";
 import { IconButton } from "@/components/IconButton";
 import { ShareIcon } from "@/components/icons/ArticleToolbarIcons";
 import { buildShareUrl, encodeArticleForUrl, buildEncodedShareUrl } from "@/lib/share";
+import { hapticError, hapticSuccess } from "@/lib/haptics";
 import type { SavedArticle } from "@/types/article";
 
 export function ExportControls({
@@ -63,6 +64,7 @@ export function ExportControls({
 
   const copyText = async () => {
     await navigator.clipboard.writeText(plainText);
+    hapticSuccess();
     setStatus("Article text copied.");
     setOpen(false);
   };
@@ -83,8 +85,10 @@ export function ExportControls({
       a.href = dataUrl;
       a.download = `${article.title.replace(/\s+/g, "_")}.png`;
       a.click();
+      hapticSuccess();
       setStatus("PNG downloaded.");
     } catch {
+      hapticError();
       setStatus("PNG export failed for this article size.");
     }
     setOpen(false);
@@ -96,6 +100,7 @@ export function ExportControls({
       const url = buildShareUrl(slug, saved?.shortLink ?? false);
       setShareUrl(url);
       await navigator.clipboard.writeText(url);
+      hapticSuccess();
       setStatus("Share link copied.");
       setOpen(false);
       return;
@@ -106,8 +111,10 @@ export function ExportControls({
         const url = buildEncodedShareUrl(encoded);
         setShareUrl(url);
         await navigator.clipboard.writeText(url);
+        hapticSuccess();
         setStatus("Encoded share link copied (no server save).");
       } else {
+        hapticError();
         setStatus("Article too large for URL sharing. Save locally instead.");
       }
     }

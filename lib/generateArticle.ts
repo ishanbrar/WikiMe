@@ -6,6 +6,7 @@ import type {
 } from "@/types/article";
 import {
   generateText,
+  generateVision,
   hasAiKey,
   parseJsonFromModel,
   TEXT_MODEL_CREATIVE,
@@ -26,7 +27,6 @@ import {
   formatCreativeBrief,
 } from "@/lib/creativeNarrative";
 import type { SupplementalPhoto } from "@/lib/articleFigures";
-import { formatSupplementalPhotosForPrompt } from "@/lib/extraPhotoUpload";
 import { ensureArticleImages } from "@/lib/articleImages";
 import { INFOBOX_RULES } from "@/lib/infoboxHelpers";
 import { WIKI_SECTION_STRUCTURE_RULES } from "@/lib/wikiSections";
@@ -45,6 +45,13 @@ import {
 } from "@/lib/structuredIntakeForPrompt";
 
 const REALISM_SECTIONS_REQUIRED_NOTE = `Your previous JSON was missing a valid "sections" array or section bodies were empty. Return complete JSON with sections: [{id, title, paragraphs: string[]}, ...] using ids early-life, education, career, personal-life as needed. Each section needs at least 2 original encyclopedic sentences — not templates.`;
+const PROMPT_HEADSHOT_SENTINEL = "[infobox headshot provided separately]";
+
+type PromptSupplementalPhoto = SupplementalPhoto & {
+  visualDescription?: string;
+  suggestedCaption?: string;
+  suggestedSection?: string;
+};
 
 function realismStructuralIssue(
   article: ArticleJson,
@@ -99,7 +106,11 @@ function buildPrompt(
   facts: ExtractedProfileFacts,
   headshotUrl: string,
 ): string {
-  return buildCompactGenerationPayload(intake, facts, headshotUrl);
+  return buildCompactGenerationPayload(
+    intake,
+    facts,
+    headshotUrl ? PROMPT_HEADSHOT_SENTINEL : "",
+  );
 }
 
 const NO_QUESTIONS_RULE = `PROSE STYLE (required): Write declarative encyclopedic sentences only. Never use rhetorical questions, direct questions to the reader, or sentences ending with "?". Do not write "The question is…", "It remains unclear whether…", or "Is X or Y?" lists. State facts and attributed debates in statements (e.g. "Commentators disagree on whether…" not "Did he…?"). Subsection titles must not contain "?".`;
@@ -132,13 +143,94 @@ FORBIDDEN PHRASES: Never use: ${brief.avoidGenericPhrases.map((p) => `"${p}"`).j
 ${NO_QUESTIONS_RULE}`;
 }
 
-const SUPPLEMENTAL_PHOTOS_RULE = (photos: SupplementalPhoto[]) =>
-  photos.length > 0
-    ? `SUPPLEMENTAL PHOTOS: User provided ${photos.length} extra photo(s). Place each exactly once via figures: [{imageIndex: 0..${photos.length - 1}, caption}] on the best section (career, personal-life, etc.). Captions: neutral Wikipedia style, third person, 8–20 words — rewrite the user's photo notes into proper captions; do not paste notes verbatim. imageIndex is NOT the infobox headshot.
+function formatPromptSupplementalPhotosForPrompt(
+  photos: PromptSupplementalPhoto[],
+): string {
+  if (!photos.length) return "";
+  return photos
+    .map((p, i) => {
+      const details = [
+        p.description?.trim() ? `user note: ${p.description.trim()}` : "",
+        p.visualDescription?.trim()
+          ? `visual summary: ${p.visualDescription.trim()}`
+          : "",
+        p.targetSection?.trim()
+          ? `preferred section: ${p.targetSection.trim()}`
+          : "",
+        p.suggestedSection?.trim()
+          ? `suggested section: ${p.suggestedSection.trim()}`
+          : "",
+        p.caption?.trim() ? `preferred caption: ${p.caption.trim()}` : "",
+        p.suggestedCaption?.trim()
+          ? `caption idea: ${p.suggestedCaption.trim()}`
+          : "",
+      ].filter(Boolean);
+      return `imageIndex ${i}: ${details.join("; ") || "no image note available; place where article context best fits"}.`;
+    })
+    .join("\n");
+}
 
-USER PHOTO NOTES (by imageIndex):
-${formatSupplementalPhotosForPrompt(photos)}`
+const PROMPT_SUPPLEMENTAL_PHOTOS_RULE = (photos: PromptSupplementalPhoto[]) =>
+  photos.length > 0
+    ? `SUPPLEMENTAL PHOTOS: User provided ${photos.length} extra photo(s). Place each exactly once via figures: [{imageIndex: 0..${photos.length - 1}, caption}] on the best section (career, personal-life, etc.). Captions: neutral Wikipedia style, third person, 8–20 words — rewrite the user's photo notes and visual summaries into proper captions; do not paste notes verbatim. imageIndex is NOT the infobox headshot.
+
+PHOTO CONTEXT (by imageIndex; raw image data is attached after writing, not in this prompt):
+${formatPromptSupplementalPhotosForPrompt(photos)}`
     : "";
+
+function stringFromUnknown(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+async function describeSupplementalPhoto(
+  photo: SupplementalPhoto,
+  index: number,
+  intake: IntakeData,
+): Promise<PromptSupplementalPhoto> {
+  const fallback: PromptSupplementalPhoto = { ...photo };
+  if (!photo.dataUrl.startsWith("data:image/")) return fallback;
+
+  const subject = intake.fullName || intake.articleTitle || "the article subject";
+  const prompt = `Analyze this supplemental image for a Wikipedia-style biography about ${subject}. Return ONLY JSON with:
+{
+  "visualDescription": "one concise neutral sentence about what is visibly shown, no identity guesses unless provided by context",
+  "suggestedSection": "one of early-life, education, career, personal-life, public-image, achievements, projects",
+  "suggestedCaption": "8-20 word neutral caption"
+}
+User note: ${photo.description?.trim() || "none"}
+Preferred section: ${photo.targetSection?.trim() || "none"}
+Preferred caption: ${photo.caption?.trim() || "none"}`;
+
+  try {
+    const raw = await generateVision(prompt, [photo.dataUrl], {
+      maxTokens: 500,
+      requestTimeoutMs: 25_000,
+    });
+    const parsed = parseJsonFromModel<Record<string, unknown>>(raw);
+    return {
+      ...photo,
+      visualDescription: stringFromUnknown(parsed.visualDescription).slice(0, 280),
+      suggestedSection: stringFromUnknown(parsed.suggestedSection).slice(0, 48),
+      suggestedCaption: stringFromUnknown(parsed.suggestedCaption).slice(0, 160),
+    };
+  } catch (error) {
+    console.warn(
+      `[WikiMe] Supplemental photo ${index} description failed; using provided notes only`,
+      error instanceof Error ? error.message : String(error),
+    );
+    return fallback;
+  }
+}
+
+async function describeSupplementalPhotosForPrompt(
+  photos: SupplementalPhoto[],
+  intake: IntakeData,
+): Promise<PromptSupplementalPhoto[]> {
+  if (!photos.length) return [];
+  return Promise.all(
+    photos.map((photo, index) => describeSupplementalPhoto(photo, index, intake)),
+  );
+}
 
 const CREATIVE_CONTROVERSIES_RULE = `CONTROVERSIES (creative mode): When the narrative includes disputes, backlash, scandals, or polarizing episodes, add a "controversies" section (id controversies, title "Controversies") with 2–4 paragraphs. Omit entirely if nothing controversial fits.`;
 
@@ -182,12 +274,13 @@ async function callCreativeGenerator(
   brief: ReturnType<typeof buildCreativeBrief>,
   attempt: number,
   supplementalPhotos: SupplementalPhoto[],
+  promptSupplementalPhotos: PromptSupplementalPhoto[],
 ): Promise<ArticleJson> {
   const sparse = isSparseGenerationInput(intake, facts);
   const lengthHint = creativeLengthHint(intake.articleLength, { sparse });
   const controversyRule = realismControversiesRule(intake);
   const sparseRule = sparse ? `${SPARSE_INPUT_RULE} ` : "";
-  const system = `You are a virtuoso biographer writing Wikipedia-shaped JSON. ${creativeRules(brief)} ${CREATIVE_CONTROVERSIES_RULE} ${controversyRule} ${CREATIVE_QUOTES_RULE} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos)} ${sparseRule}${lengthHint} ${ARTICLE_SCHEMA}`;
+  const system = `You are a virtuoso biographer writing Wikipedia-shaped JSON. ${creativeRules(brief)} ${CREATIVE_CONTROVERSIES_RULE} ${controversyRule} ${CREATIVE_QUOTES_RULE} ${PROMPT_SUPPLEMENTAL_PHOTOS_RULE(promptSupplementalPhotos)} ${sparseRule}${lengthHint} ${ARTICLE_SCHEMA}`;
   const user = `Generate a CREATIVE MODE article (attempt ${attempt}).
 tone=${intake.tone}
 supplementalPhotoCount=${supplementalPhotos.length}
@@ -250,6 +343,11 @@ export async function generateArticle(
     return finalize(mock);
   }
 
+  const promptSupplementalPhotos = await describeSupplementalPhotosForPrompt(
+    supplementalPhotos,
+    intake,
+  );
+
   if (intake.mode === "creative") {
     const brief = buildCreativeBrief(intake);
     let article = await callCreativeGenerator(
@@ -259,6 +357,7 @@ export async function generateArticle(
       brief,
       1,
       supplementalPhotos,
+      promptSupplementalPhotos,
     );
     const minWords = creativeMinWordsForIntake(intake, facts);
     if (articleWordCount(article) < minWords) {
@@ -270,6 +369,7 @@ export async function generateArticle(
         retryBrief,
         2,
         supplementalPhotos,
+        promptSupplementalPhotos,
       );
     }
     if (articleWordCount(article) < minWords) {
@@ -281,6 +381,7 @@ export async function generateArticle(
         retryBrief,
         3,
         supplementalPhotos,
+        promptSupplementalPhotos,
       );
     }
     return finalize(article);
@@ -292,7 +393,7 @@ export async function generateArticle(
   const controversyRule = realismControversiesRule(intake);
 
   const sparseRule = sparse ? `${SPARSE_INPUT_RULE}\n\n` : "";
-  const system = `You are an experienced Wikipedia biographer. Output biography JSON only. ${realismRules()} ${controversyRule} ${SUPPLEMENTAL_PHOTOS_RULE(supplementalPhotos)} ${sparseRule}${realismLengthHint(intake, facts)} ${ARTICLE_SCHEMA}
+  const system = `You are an experienced Wikipedia biographer. Output biography JSON only. ${realismRules()} ${controversyRule} ${PROMPT_SUPPLEMENTAL_PHOTOS_RULE(promptSupplementalPhotos)} ${sparseRule}${realismLengthHint(intake, facts)} ${ARTICLE_SCHEMA}
 
 CRITICAL OUTPUT RULES:
 - The JSON MUST include a non-empty "sections" array with at least early-life, education, career, and personal-life when facts support them (plus controversies if user supplied any).
@@ -301,7 +402,7 @@ CRITICAL OUTPUT RULES:
 - Body prose must be rewritten from facts — infobox fields are summaries only.
 - Paragraphs must read like Wikipedia: objective, connected, and chronological where possible — not a series of standalone sentences for each questionnaire field.`;
 
-  const userBase = `Generate a REALISM MODE article for ${intake.fullName}. tone=${intake.tone}. supplementalPhotoCount=${supplementalPhotos.length}. headshotUrl=${headshotUrl || "none"}.
+  const userBase = `Generate a REALISM MODE article for ${intake.fullName}. tone=${intake.tone}. supplementalPhotoCount=${supplementalPhotos.length}. headshot=${headshotUrl ? "provided for infobox after writing" : "none"}.
 
 Write as if drafting a real Wikipedia biography: neutral, factual, and readable — weave the fact sheet into flowing paragraphs with transitions, not one sentence per bullet.
 
@@ -453,7 +554,7 @@ export async function regenerateSection(
       ? `${modeRules} ${CREATIVE_QUOTES_RULE} Seed: ${brief!.seed}.`
       : modeRules
   } ${WIKI_SECTION_STRUCTURE_RULES}`;
-  const user = `Section id: ${sectionId}. Keep the generic Wikipedia section title for this id (do not use a narrative title). Existing: ${existing?.title ?? sectionId}. Subject: ${intake.fullName}. Payload: ${buildCompactGenerationPayload(intake, facts, headshotUrl)}${brief ? `. Brief seed: ${brief.seed}` : ""}`;
+  const user = `Section id: ${sectionId}. Keep the generic Wikipedia section title for this id (do not use a narrative title). Existing: ${existing?.title ?? sectionId}. Subject: ${intake.fullName}. Payload: ${buildCompactGenerationPayload(intake, facts, headshotUrl ? PROMPT_HEADSHOT_SENTINEL : "")}${brief ? `. Brief seed: ${brief.seed}` : ""}`;
 
   const maxTokens = isCreative ? 2800 : 1800;
   const raw = await generateText(system, user, {

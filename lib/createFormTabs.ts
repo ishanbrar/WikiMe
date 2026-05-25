@@ -87,17 +87,19 @@ export const BIO_FIELDS: IntakeFieldDef[] = [
   {
     key: "birthday",
     label: "Birthday",
-    placeholder: INTAKE_PLACEHOLDERS.birthday,
+    placeholder: "MM/DD/YYYY or 12 August 1990",
     optional: true,
     autocomplete: "bday",
+    inputMode: "numeric",
     name: "bday",
   },
   {
     key: "deathDate",
     label: "Death date (if applicable)",
-    placeholder: INTAKE_PLACEHOLDERS.deathDate,
+    placeholder: "MM/DD/YYYY",
     optional: true,
     autocomplete: "off",
+    inputMode: "numeric",
   },
   {
     key: "education",

@@ -4,20 +4,9 @@ import { isAdminUser } from "@/lib/admin";
 import { listAdminArticleLog } from "@/lib/adminArticles";
 import { getAuthUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/admin";
-import { AdminSlugEditor } from "@/components/AdminSlugEditor";
+import { AdminArticleTable } from "@/components/AdminArticleTable";
 import { AdminGenerationRuns } from "@/components/AdminGenerationRuns";
 import { listAdminGenerationRuns } from "@/lib/adminGenerationRuns";
-
-function formatWhen(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat("en-US", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
-}
 
 export default async function AdminPage() {
   const user = await getAuthUser();
@@ -102,60 +91,7 @@ export default async function AdminPage() {
       )}
 
       {articles.length > 0 && (
-        <div className="admin-table-wrap">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th scope="col">Article title</th>
-                <th scope="col">Actions</th>
-                <th scope="col">Share link</th>
-                <th scope="col">Account</th>
-                <th scope="col">Mode</th>
-                <th scope="col">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {articles.map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    <Link
-                      href={row.articleUrl}
-                      className="admin-table-title"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {row.title}
-                    </Link>
-                  </td>
-                  <td className="admin-actions-cell">
-                    <Link href={`/article?slug=${encodeURIComponent(row.slug)}`}>
-                      Edit
-                    </Link>
-                  </td>
-                  <td className="admin-slug-cell">
-                    <AdminSlugEditor
-                      articleId={row.id}
-                      slug={row.slug}
-                      articleUrl={row.articleUrl}
-                      shortLink={row.shortLink}
-                    />
-                  </td>
-                  <td>
-                    {row.creatorEmail ? (
-                      row.creatorEmail
-                    ) : (
-                      <span className="admin-guest">Guest (not signed in)</span>
-                    )}
-                  </td>
-                  <td className="admin-mode">
-                    {row.mode === "creative" ? "Creative" : "Realism"}
-                  </td>
-                  <td className="admin-when">{formatWhen(row.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <AdminArticleTable articles={articles} />
       )}
     </main>
   );

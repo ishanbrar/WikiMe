@@ -200,9 +200,15 @@ export async function generateText(
 export async function generateVision(
   prompt: string,
   imageDataUrls: string[],
+  options?: {
+    maxTokens?: number;
+    requestTimeoutMs?: number;
+  },
 ): Promise<string> {
   const key = getApiKey();
   if (!key) throw new Error("No AI API key configured");
+  const maxTokens = options?.maxTokens ?? 2048;
+  const requestTimeoutMs = options?.requestTimeoutMs ?? AI_REQUEST_TIMEOUT_MS;
 
   try {
     if (useOpenRouter()) {
@@ -220,12 +226,12 @@ export async function generateVision(
             {
               messages: [{ role: "user", content }],
               temperature: 0.2,
-              max_tokens: 2048,
+              max_tokens: maxTokens,
               response_format: { type: "json_object" },
             },
             {
               models: visionModelFallbackChain(VISION_MODEL),
-              signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
+              signal: AbortSignal.timeout(requestTimeoutMs),
               label: "generateVision",
             },
           );

@@ -157,6 +157,7 @@ export interface ArticleListItem {
   title: string;
   mode: ArticleMode;
   imageUrl?: string;
+  shortLink: boolean;
   createdAt: string;
   updatedAt: string;
 }

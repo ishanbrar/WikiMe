@@ -88,6 +88,27 @@ export function SiteHeaderMenu() {
 
   return (
     <div className="site-header-menu" ref={menuRef}>
+      <div className="site-header-mobile-links" aria-label="Quick links">
+        <Link href="/generate" className="site-header-mobile-link">
+          Create
+        </Link>
+        {user ? (
+          <>
+            <Link href="/account" className="site-header-mobile-link">
+              My articles
+            </Link>
+            {isAdmin && (
+              <Link href="/admin" className="site-header-mobile-link">
+                Admin
+              </Link>
+            )}
+          </>
+        ) : (
+          <Link href="/signup" className="site-header-mobile-link">
+            Sign up
+          </Link>
+        )}
+      </div>
       <IconButton
         label="Site menu"
         aria-expanded={open}

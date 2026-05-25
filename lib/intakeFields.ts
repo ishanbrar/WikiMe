@@ -57,7 +57,7 @@ export interface IntakeFieldDef {
   required?: boolean;
   optional?: boolean;
   autocomplete?: string;
-  inputMode?: "text" | "search" | "url";
+  inputMode?: "text" | "search" | "url" | "numeric";
   /** Use URL keyboard and validation-friendly input on create form */
   urlField?: boolean;
   name?: string;

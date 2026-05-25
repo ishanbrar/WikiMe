@@ -44,6 +44,7 @@ export function IntakeFieldControl({
     ) => setVal(e.target.value),
     autoFocus,
   };
+  const dateLike = field.key === "birthday" || field.key === "deathDate";
 
   if (field.textarea) {
     return (
@@ -59,8 +60,11 @@ export function IntakeFieldControl({
       <span className="sr-only">{field.label}</span>
       <input
         {...common}
-        type="text"
-        inputMode={field.inputMode ?? "text"}
+        type={field.urlField ? "url" : "text"}
+        inputMode={field.inputMode ?? (field.urlField ? "url" : "text")}
+        autoCapitalize={field.urlField ? "off" : common.autoCapitalize}
+        autoCorrect={field.urlField || dateLike ? "off" : common.autoCorrect}
+        pattern={dateLike ? "[0-9 ./-]*" : undefined}
       />
     </label>
   );

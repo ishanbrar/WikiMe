@@ -46,6 +46,7 @@ function IntakeFieldRow({
 }) {
   const val = String(value[field.key] ?? "");
   const spanFull = field.textarea;
+  const dateLike = field.key === "birthday" || field.key === "deathDate";
 
   const setVal = (next: string) => {
     if (field.key === "fullName") {
@@ -104,6 +105,8 @@ function IntakeFieldRow({
           type={field.urlField ? "url" : "text"}
           inputMode={field.inputMode ?? (field.urlField ? "url" : "text")}
           autoCapitalize={field.urlField ? "off" : common.autoCapitalize}
+          autoCorrect={field.urlField || dateLike ? "off" : undefined}
+          pattern={dateLike ? "[0-9 ./-]*" : undefined}
         />
       )}
       {field.textarea ? (

@@ -13,6 +13,7 @@ import { ArticleToolbar } from "@/components/ArticleToolbar";
 import { IntakeForm } from "@/components/IntakeForm";
 import { LoadingButton } from "@/components/LoadingButton";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { MobileArticleActionBar } from "@/components/MobileArticleActionBar";
 import { saveArticleLocal } from "@/lib/storage";
 import { saveArticleToServer } from "@/lib/saveArticleClient";
 import { buildShareUrl } from "@/lib/share";
@@ -39,6 +40,7 @@ import type { ArticleMode } from "@/types/article";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { articleCompletenessWarnings } from "@/lib/articleCompleteness";
 import type { LinkExtractionStatus } from "@/lib/linkExtraction";
+import { hapticError, hapticSuccess, hapticTap } from "@/lib/haptics";
 
 export function ArticleEditor({
   initialArticle,
@@ -183,10 +185,12 @@ export function ArticleEditor({
       setShareShortLink(result.shortLink);
       setShareUrl(result.url);
       setSaveMessage("Saved to your share link.");
+      hapticSuccess();
       return result.slug;
     }
     const msg = result.error || "Save failed";
     setSaveMessage(msg);
+    hapticError();
     console.error(msg);
     return null;
   };
@@ -357,12 +361,54 @@ export function ArticleEditor({
 
   const displayMode = articleMode ?? intakeState.mode;
 
+  const resolveShareUrl = async (): Promise<string | null> => {
+    if (shareUrl) return shareUrl;
+    const slugResult = await saveToServer();
+    if (!slugResult) return null;
+    return buildShareUrl(slugResult, shareShortLink);
+  };
+
+  const copyShareLink = async () => {
+    const url = await resolveShareUrl();
+    if (!url) {
+      hapticError();
+      return;
+    }
+    await navigator.clipboard.writeText(url);
+    hapticSuccess();
+    setSaveMessage("Share link copied.");
+  };
+
+  const shareArticle = async () => {
+    const url = await resolveShareUrl();
+    if (!url) {
+      hapticError();
+      return;
+    }
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: article.title,
+          text: `Read ${article.title} on WikiMe.`,
+          url,
+        });
+        hapticSuccess();
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      hapticSuccess();
+      setSaveMessage("Share link copied.");
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      hapticError();
+    }
+  };
+
   return (
     <div className="relative">
       {alternateSlug && (
         <ArticleModeSwitchBanner
           currentMode={displayMode}
-          alternateSlug={alternateSlug}
           subjectName={intakeState.fullName || intakeState.articleTitle}
         />
       )}
@@ -556,6 +602,17 @@ export function ArticleEditor({
           onAppearanceChange={setAppearance}
         />
       </div>
+
+      <MobileArticleActionBar
+        editing={editing}
+        busy={busy}
+        onToggleEdit={() => {
+          hapticTap();
+          setEditing(!editing);
+        }}
+        onCopyLink={() => void copyShareLink()}
+        onShare={() => void shareArticle()}
+      />
     </div>
   );
 }
