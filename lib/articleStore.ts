@@ -7,6 +7,7 @@ import { getExampleArticleBySlug } from "@/lib/exampleArticle";
 import { validateArticleSlug } from "@/lib/articleSlug";
 import { normalizeStoredIntake } from "@/lib/mergeLegacyIntake";
 import { withHeadshotOnSaved } from "@/lib/headshotForArticle";
+import { buildArticlePageUrl } from "@/lib/headshotOgImage";
 
 function requirePersistentStorage(): void {
   if (isSupabaseConfigured()) return;
@@ -164,6 +165,85 @@ export async function listArticlesByUserServer(
       updatedAt: row.updated_at as string,
     };
   });
+}
+
+export type PublicArticleSitemapEntry = {
+  slug: string;
+  title: string;
+  shortLink: boolean;
+  updatedAt: string;
+  url: string;
+  hasImage: boolean;
+};
+
+function publicSitemapEntryFromSaved(article: SavedArticle): PublicArticleSitemapEntry {
+  const image =
+    article.headshotDataUrl?.trim() || article.articleJson.infobox?.imageUrl?.trim() || "";
+  return {
+    slug: article.slug,
+    title: article.articleJson.title || article.intake.articleTitle || article.slug,
+    shortLink: article.shortLink ?? false,
+    updatedAt: article.updatedAt,
+    url: buildArticlePageUrl(article.slug, article.shortLink ?? false),
+    hasImage: Boolean(image),
+  };
+}
+
+export async function listPublicArticleSitemapEntriesServer(): Promise<
+  PublicArticleSitemapEntry[]
+> {
+  if (isSupabaseConfigured()) {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("articles")
+      .select("slug, article_json, intake, headshot_data_url, short_link, updated_at")
+      .eq("is_public", true)
+      .order("updated_at", { ascending: false })
+      .range(0, 49999);
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((row) =>
+      publicSitemapEntryFromSaved(
+        rowToSaved({
+          id: "",
+          slug: row.slug as string,
+          article_json: row.article_json as SavedArticle["articleJson"],
+          mode: "realism",
+          intake: normalizeStoredIntake(row.intake as SavedArticle["intake"]),
+          headshot_data_url: (row.headshot_data_url as string | null) ?? null,
+          extracted_facts: null,
+          user_id: null,
+          creator_email: null,
+          is_public: true,
+          short_link: Boolean(row.short_link),
+          alternate_slug: null,
+          created_at: row.updated_at as string,
+          updated_at: row.updated_at as string,
+        }),
+      ),
+    );
+  }
+
+  if (isVercelDeployment()) return [];
+
+  try {
+    const files = await fs.readdir(DATA_DIR);
+    const entries: PublicArticleSitemapEntry[] = [];
+    for (const file of files) {
+      if (!file.endsWith(".json")) continue;
+      const raw = await fs.readFile(path.join(DATA_DIR, file), "utf-8");
+      const saved = JSON.parse(raw) as SavedArticle;
+      if (saved.isPublic === false) continue;
+      entries.push(
+        publicSitemapEntryFromSaved({
+          ...saved,
+          intake: normalizeStoredIntake(saved.intake),
+        }),
+      );
+    }
+    return entries.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  } catch {
+    return [];
+  }
 }
 
 export async function deleteArticleByIdServer(id: string): Promise<void> {
