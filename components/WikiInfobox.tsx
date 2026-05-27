@@ -81,7 +81,7 @@ export function WikiInfobox({
   const subject = subjectName || infobox.name;
 
   useEffect(() => {
-    setImgFailed(false);
+    queueMicrotask(() => setImgFailed(false));
   }, [rawImg]);
   const linkTerms = useMemo(
     () => expandLinkTermsForInfobox(properNouns, infobox, subject),

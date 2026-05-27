@@ -9,13 +9,13 @@ import { isSupabaseBrowserConfigured } from "@/lib/supabase/client";
 
 export function AuthNav() {
   const router = useRouter();
+  const supabaseEnabled = isSupabaseBrowserConfigured();
   const [user, setUser] = useState<User | null>(null);
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(!supabaseEnabled);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    if (!isSupabaseBrowserConfigured()) {
-      setReady(true);
+    if (!supabaseEnabled) {
       return;
     }
 
@@ -48,7 +48,7 @@ export function AuthNav() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [supabaseEnabled]);
 
   const signOut = async () => {
     if (!isSupabaseBrowserConfigured()) return;
@@ -63,7 +63,7 @@ export function AuthNav() {
     return <span className="site-header-auth-placeholder" aria-hidden />;
   }
 
-  if (!isSupabaseBrowserConfigured()) {
+  if (!supabaseEnabled) {
     return (
       <Link href="/signup" className="site-header-cta">
         Sign up

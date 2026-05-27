@@ -132,15 +132,17 @@ function GenerateFlow() {
       facts: ExtractedProfileFacts;
     }>();
     if (draft?.intake) {
-      setIntake({
-        ...createDefaultIntake(initialMode),
-        ...enrichIntakeControversies(
-          mergeLegacyIntakeFields(
-            draft.intake as unknown as Record<string, unknown>,
+      queueMicrotask(() => {
+        setIntake({
+          ...createDefaultIntake(initialMode),
+          ...enrichIntakeControversies(
+            mergeLegacyIntakeFields(
+              draft.intake as unknown as Record<string, unknown>,
+            ),
           ),
-        ),
-      } as IntakeData);
-      setFacts(normalizeExtractedFacts(draft.facts ?? emptyExtractedFacts()));
+        } as IntakeData);
+        setFacts(normalizeExtractedFacts(draft.facts ?? emptyExtractedFacts()));
+      });
     }
   }, []);
 

@@ -1168,6 +1168,7 @@ body:has(.landing) .site-footer-heading {
 }
 
 .wiki-editsection {
+  display: none !important;
   flex-shrink: 0;
   font-family: var(--wiki-font-sans);
   font-size: 0.75em;

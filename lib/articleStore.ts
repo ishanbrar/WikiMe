@@ -385,13 +385,13 @@ export async function renameArticleSlugByIdServer(
 export async function getArticleBySlugServer(
   slug: string,
 ): Promise<SavedArticle | null> {
-  const example = getExampleArticleBySlug(slug);
-  if (example) return example;
   if (isSupabaseConfigured()) {
-    return getArticleBySlugSupabase(slug);
+    const saved = await getArticleBySlugSupabase(slug);
+    if (saved) return saved;
+  } else if (!isVercelDeployment()) {
+    const saved = await getArticleBySlugFile(slug);
+    if (saved) return saved;
   }
-  if (isVercelDeployment()) {
-    return null;
-  }
-  return getArticleBySlugFile(slug);
+
+  return getExampleArticleBySlug(slug);
 }

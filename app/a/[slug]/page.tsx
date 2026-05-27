@@ -3,6 +3,8 @@ import { getArticleBySlugServer } from "@/lib/articleStore";
 import { articlePath } from "@/lib/articlePaths";
 import { sharedArticleMetadata, SharedArticlePageBody } from "@/lib/sharedArticlePage";
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({
   params,
 }: {

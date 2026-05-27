@@ -151,7 +151,7 @@ function ArticleView() {
       alternateSlug={payload.alternateSlug}
       articleMode={payload.mode}
       linkStatuses={payload.linkStatuses}
-      canEdit={payload.canEdit ?? true}
+      canEdit={payload.canEdit ?? false}
     />
   );
 }

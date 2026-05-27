@@ -11,15 +11,15 @@ import { isSupabaseBrowserConfigured } from "@/lib/supabase/client";
 
 export function SiteHeaderMenu() {
   const router = useRouter();
+  const supabaseEnabled = isSupabaseBrowserConfigured();
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(!supabaseEnabled);
   const [isAdmin, setIsAdmin] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isSupabaseBrowserConfigured()) {
-      setReady(true);
+    if (!supabaseEnabled) {
       return;
     }
 
@@ -52,7 +52,7 @@ export function SiteHeaderMenu() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [supabaseEnabled]);
 
   useEffect(() => {
     if (!open) return;
@@ -73,7 +73,7 @@ export function SiteHeaderMenu() {
   }, [open]);
 
   const signOut = async () => {
-    if (!isSupabaseBrowserConfigured()) return;
+    if (!supabaseEnabled) return;
     const supabase = createClient();
     await supabase.auth.signOut();
     setUser(null);

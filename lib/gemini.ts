@@ -40,7 +40,7 @@ function getApiKey(): string | null {
   return getOpenRouterKey() ?? getDirectGeminiKey() ?? process.env.OPENAI_API_KEY ?? null;
 }
 
-function useOpenRouter(): boolean {
+function shouldUseOpenRouter(): boolean {
   return Boolean(getOpenRouterKey());
 }
 
@@ -139,7 +139,7 @@ export async function generateText(
   const requestTimeoutMs = options?.requestTimeoutMs ?? AI_REQUEST_TIMEOUT_MS;
 
   try {
-    if (useOpenRouter()) {
+    if (shouldUseOpenRouter()) {
       try {
         for (let pass = 0; pass < 3; pass++) {
           const out = await openRouterChatCompletion(
@@ -211,7 +211,7 @@ export async function generateVision(
   const requestTimeoutMs = options?.requestTimeoutMs ?? AI_REQUEST_TIMEOUT_MS;
 
   try {
-    if (useOpenRouter()) {
+    if (shouldUseOpenRouter()) {
       const content: VisionPart[] = [
         { type: "text", text: prompt },
         ...imageDataUrls.map((url) => ({

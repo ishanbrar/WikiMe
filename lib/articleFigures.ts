@@ -64,7 +64,7 @@ export function applySupplementalPhotos(
   const pending = photos.filter((p) => p.dataUrl && !used.has(p.dataUrl));
   if (!pending.length) return article;
 
-  let sections = [...article.sections];
+  const sections = [...article.sections];
   let photoIndex = 0;
 
   const tryPlace = (sectionIndex: number, photo: SupplementalPhoto, index: number) => {

@@ -34,7 +34,6 @@ import { prepareArticleForDb } from "@/lib/prepareArticleForDb";
 import { prepareUploadImages } from "@/lib/prepareUploadImages";
 import type { ExtraPhotoUpload } from "@/lib/extraPhotoUpload";
 import { emptyExtractedFacts } from "@/lib/extractProfileFacts";
-import { ArticleModeSwitchBanner } from "@/components/ExampleModeSwitchBanner";
 import { ArticleWikiLinksEditor } from "@/components/ArticleWikiLinksEditor";
 import type { ArticleMode } from "@/types/article";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -55,7 +54,7 @@ export function ArticleEditor({
   alternateSlug,
   articleMode,
   linkStatuses = [],
-  canEdit = true,
+  canEdit = false,
 }: {
   initialArticle: ArticleJson;
   intake: IntakeData;
@@ -409,7 +408,6 @@ export function ArticleEditor({
     }
   };
 
-  const displayMode = articleMode ?? intakeState.mode;
   const editingEnabled = canEdit && editing;
   const showHeadshotPanel = canEdit && (showHeadshot || editing);
   const showIntakePanel = canEdit && showIntake;
@@ -489,13 +487,6 @@ export function ArticleEditor({
 
   return (
     <div className="relative">
-      {alternateSlug && (
-        <ArticleModeSwitchBanner
-          currentMode={displayMode}
-          subjectName={intakeState.fullName || intakeState.articleTitle}
-        />
-      )}
-
       {busy && (
         <LoadingOverlay
           message={loadingMessage}
@@ -698,7 +689,7 @@ export function ArticleEditor({
         onCopyLink={() => void copyShareLink()}
         onShare={() => void shareArticle()}
         showEditAction={canEdit}
-        showCopyAction={canEdit}
+        showCopyAction={false}
       />
     </div>
   );

@@ -23,7 +23,7 @@ export function peelControversiesBlock(text: string): {
     const match = raw.match(marker);
     if (!match || match.index === undefined) continue;
     const start = match.index + match[0].length;
-    let rest = raw.slice(start).trim();
+    const rest = raw.slice(start).trim();
     const nextSection = rest.search(
       /\n\s*(?:[A-Z][A-Z\s]{2,}\s*SECTION\s*:|##\s+[A-Z])/,
     );
